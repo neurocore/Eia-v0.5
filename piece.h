@@ -10,13 +10,27 @@ enum Color     : int { Black, White, Color_N };
 enum Piece     : u8  { BP, WP, BN, WN, BB, WB, BR, WR, BQ, WQ, BK, WK, Piece_N, NOP };
 enum PieceType : u8  { Pawn, Knight, Bishop, Rook, Queen, King, PieceType_N };
 
-inline constexpr Color opp(Color c) { return static_cast<Color>(!c); }
+INLINE Color opp(Color c) { return static_cast<Color>(!c); }
 
-inline constexpr char to_char(Color c) { return "bw"[c]; }
-inline constexpr char to_char(Piece p) { return "pPnNbBrRqQkK.."[p]; }
-inline constexpr char to_char(PieceType p) { return "pnbrqk."[p]; }
+INLINE char to_char(Color c) { return "bw"[c]; }
+INLINE char to_char(Piece p) { return "pPnNbBrRqQkK.."[p]; }
+INLINE char to_char(PieceType p) { return "pnbrqk."[p]; }
 
-inline constexpr Piece to_piece(PieceType pt, Color c) { return static_cast<Piece>(2 * pt + c); }
+INLINE Piece to_piece(PieceType pt, Color c) { return static_cast<Piece>(2 * pt + c); }
+INLINE Color color(Piece p)  { return static_cast<Color>(p & 1); }
+INLINE Piece opp(Piece p)    { return static_cast<Piece>(p ^ 1); }
+INLINE PieceType pt(Piece p) { return static_cast<PieceType>(p >> 1); }
+INLINE Piece of(Piece p, Color c) { return static_cast<Piece>(p ^ (+c)); }
+
+INLINE Piece operator + (Piece p, int val) { return static_cast<Piece>(+p + val); }
+INLINE Piece operator - (Piece p, int val) { return static_cast<Piece>(+p - val); }
+INLINE Piece operator ^ (Piece p, int val) { return static_cast<Piece>(+p ^ val); }
+
+INLINE bool is_pawn(Piece p) { return p < BN; }
+INLINE bool is_king(Piece p) { return p == BK || p == WK; }
+
+template<PieceType pt>
+INLINE bool is(Piece p) { return (p >> 1) == pt; }
 
 extern const std::array<SQ_BB, Piece_N> att;
 extern const std::array<SQ_Val, SQ_N> dir;

@@ -29,12 +29,13 @@ const u64 Rank8 = 0xff00000000000000ull;
 
 const u64 Debruijn = 0x03f79d71b4cb0a89ull;
 
-inline u64 lsb(u64 bb) { return bb & (Empty - bb); }
-inline u64 rlsb(u64 bb) { return bb & (bb - Bit); }
+INLINE u64 bit(SQ sq) { return Bit << static_cast<u8>(sq); }
+INLINE u64 lsb(u64 bb) { return bb & (Empty - bb); }
+INLINE u64 rlsb(u64 bb) { return bb & (bb - Bit); }
 
-inline bool only_one(u64 bb) { return bb && !rlsb(bb); }
+INLINE bool only_one(u64 bb) { return bb && !rlsb(bb); }
 
-inline u64 msb(u64 bb)
+INLINE u64 msb(u64 bb)
 {
   unsigned n = 0;
 
@@ -69,7 +70,7 @@ const int btscn[64] =
 const u64 file_bb[] = { FileA, FileB, FileC, FileD, FileE, FileF, FileG, FileH };
 const u64 rank_bb[] = { Rank1, Rank2, Rank3, Rank4, Rank5, Rank6, Rank7, Rank8 };
 
-inline int popcnt(u64 bb)
+INLINE int popcnt(u64 bb)
 {
   int a =  bb >> 48;
   int b = (bb >> 32) & 0xFFFF;
@@ -78,7 +79,7 @@ inline int popcnt(u64 bb)
   return lut[a] + lut[b] + lut[c] + lut[d];
 }
 
-inline SQ bitscan(u64 bb)
+INLINE SQ bitscan(u64 bb)
 {
   return static_cast<SQ>(btscn[(lsb(bb) * Debruijn) >> 58]);
 }
@@ -87,15 +88,15 @@ struct BitBoard { u64 val; }; // adapter
 std::ostream & operator << (std::ostream & os, const BitBoard & bb);
 extern void print64(u64 bb);
 
-inline u64 shift_u(u64 bb) { return bb << 8; }
-inline u64 shift_d(u64 bb) { return bb >> 8; }
-inline u64 shift_l(u64 bb) { return (bb & ~FileA) >> 1; }
-inline u64 shift_r(u64 bb) { return (bb & ~FileH) << 1; }
+INLINE u64 shift_u(u64 bb) { return bb << 8; }
+INLINE u64 shift_d(u64 bb) { return bb >> 8; }
+INLINE u64 shift_l(u64 bb) { return (bb & ~FileA) >> 1; }
+INLINE u64 shift_r(u64 bb) { return (bb & ~FileH) << 1; }
 
-inline u64 shift_ul(u64 bb) { return (bb & ~FileA) << 7; }
-inline u64 shift_ur(u64 bb) { return (bb & ~FileH) << 9; }
-inline u64 shift_dl(u64 bb) { return (bb & ~FileA) >> 9; }
-inline u64 shift_dr(u64 bb) { return (bb & ~FileH) >> 7; }
+INLINE u64 shift_ul(u64 bb) { return (bb & ~FileA) << 7; }
+INLINE u64 shift_ur(u64 bb) { return (bb & ~FileH) << 9; }
+INLINE u64 shift_dl(u64 bb) { return (bb & ~FileA) >> 9; }
+INLINE u64 shift_dr(u64 bb) { return (bb & ~FileH) >> 7; }
 
 enum class Dir {U, D, L, R, UL, UR, DL, DR};
 extern u64 shift(u64 bb, Dir dir);

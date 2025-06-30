@@ -1,5 +1,7 @@
 #pragma once
 
+#define INLINE inline constexpr
+
 using i8 = char;
 using i16 = short;
 using i32 = int;

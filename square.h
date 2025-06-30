@@ -16,25 +16,25 @@ enum SQ : u8
   A8, B8, C8, D8, E8, F8, G8, H8, SQ_N
 };
 
-inline constexpr int rank(SQ x) { return x >> 3; }
-inline constexpr int file(SQ x) { return x & 7; }
+INLINE int rank(SQ x) { return x >> 3; }
+INLINE int file(SQ x) { return x & 7; }
 
-inline constexpr SQ to_sq(int f, int r)
+INLINE SQ to_sq(int f, int r)
 {
   return static_cast<SQ>((r << 3) + f);
 }
 
-inline constexpr SQ to_sq(std::string s)
+INLINE SQ to_sq(std::string s)
 {
   return s.length() > 1 ? to_sq(s[0] - 'a', s[1] - '1') : SQ_N;
 }
 
-inline constexpr SQ opp(SQ sq)
+INLINE SQ opp(SQ sq)
 {
   return to_sq(file(sq), 7 - rank(sq));
 }
 
-inline constexpr std::string toString(SQ sq)
+INLINE std::string to_string(SQ sq)
 {
   char fileChar = 'a' + file(sq);
   char rankChar = '1' + rank(sq);
@@ -48,12 +48,12 @@ inline std::ostream & operator << (std::ostream & os, const SQ & sq)
   return os;
 }
 
-inline constexpr SQ operator + (SQ a, SQ b) { return static_cast<SQ>(a + b); }
-inline constexpr SQ operator - (SQ a, SQ b) { return static_cast<SQ>(a - b); }
-inline constexpr SQ & operator ++(SQ & a) { a = static_cast<SQ>(a + 1); return a; }
-inline constexpr SQ & operator --(SQ & a) { a = static_cast<SQ>(a - 1); return a; }
+INLINE SQ operator + (SQ a, SQ b) { return static_cast<SQ>(a + b); }
+INLINE SQ operator - (SQ a, SQ b) { return static_cast<SQ>(a - b); }
+INLINE SQ & operator ++(SQ & a) { a = static_cast<SQ>(a + 1); return a; }
+INLINE SQ & operator --(SQ & a) { a = static_cast<SQ>(a - 1); return a; }
 
-inline constexpr int k_dist(SQ a, SQ b) // Chebyshev or king distance
+INLINE int k_dist(SQ a, SQ b) // Chebyshev or king distance
 {
   return std::max(abs(rank(a) - rank(b)), abs(file(a) - file(b)));
 }

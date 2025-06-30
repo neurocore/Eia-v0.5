@@ -1,6 +1,7 @@
 #include <iostream>
 #include "bitboard.h"
 #include "piece.h"
+#include "moves.h"
 
 using namespace std;
 
