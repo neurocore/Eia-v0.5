@@ -1,3 +1,4 @@
+#include <cassert>
 #include "bitboard.h"
 
 using namespace std;
@@ -25,7 +26,7 @@ void print64(u64 bb)
   cout << BitBoard{bb} << endl;
 }
 
-u64 shift(u64 bb, Dir dir)
+constexpr u64 shift(u64 bb, Dir dir)
 {
   switch (dir)
   {
@@ -37,6 +38,7 @@ u64 shift(u64 bb, Dir dir)
     case Dir::UR : return shift_ur(bb);
     case Dir::DL : return shift_dl(bb);
     case Dir::DR : return shift_dr(bb);
-    default      : return bb;
+    default      : assert(0);
   }
+  return bb;
 }

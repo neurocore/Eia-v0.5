@@ -50,8 +50,8 @@ inline std::ostream & operator << (std::ostream & os, const SQ & sq)
 
 INLINE SQ operator + (SQ a, SQ b) { return static_cast<SQ>(a + b); }
 INLINE SQ operator - (SQ a, SQ b) { return static_cast<SQ>(a - b); }
-INLINE SQ & operator ++(SQ & a) { a = static_cast<SQ>(a + 1); return a; }
-INLINE SQ & operator --(SQ & a) { a = static_cast<SQ>(a - 1); return a; }
+INLINE SQ & operator ++ (SQ & a) { a = static_cast<SQ>(a + 1); return a; }
+INLINE SQ & operator -- (SQ & a) { a = static_cast<SQ>(a - 1); return a; }
 
 INLINE int k_dist(SQ a, SQ b) // Chebyshev or king distance
 {

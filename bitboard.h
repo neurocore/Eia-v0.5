@@ -29,7 +29,7 @@ const u64 Rank8 = 0xff00000000000000ull;
 
 const u64 Debruijn = 0x03f79d71b4cb0a89ull;
 
-INLINE u64 bit(SQ sq) { return Bit << static_cast<u8>(sq); }
+INLINE u64 bit(SQ sq) { return Bit << static_cast<int>(sq); }
 INLINE u64 lsb(u64 bb) { return bb & (Empty - bb); }
 INLINE u64 rlsb(u64 bb) { return bb & (bb - Bit); }
 
@@ -72,10 +72,10 @@ const u64 rank_bb[] = { Rank1, Rank2, Rank3, Rank4, Rank5, Rank6, Rank7, Rank8 }
 
 INLINE int popcnt(u64 bb)
 {
-  int a =  bb >> 48;
-  int b = (bb >> 32) & 0xFFFF;
-  int c = (bb >> 16) & 0xFFFF;
-  int d =  bb        & 0xFFFF;
+  const int a =  bb >> 48;
+  const int b = (bb >> 32) & 0xFFFF;
+  const int c = (bb >> 16) & 0xFFFF;
+  const int d =  bb        & 0xFFFF;
   return lut[a] + lut[b] + lut[c] + lut[d];
 }
 
@@ -99,4 +99,4 @@ INLINE u64 shift_dl(u64 bb) { return (bb & ~FileA) >> 9; }
 INLINE u64 shift_dr(u64 bb) { return (bb & ~FileH) >> 7; }
 
 enum class Dir {U, D, L, R, UL, UR, DL, DR};
-extern u64 shift(u64 bb, Dir dir);
+extern constexpr u64 shift(u64 bb, Dir dir);
