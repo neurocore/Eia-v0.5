@@ -1,0 +1,74 @@
+#pragma once
+#include <cassert>
+#include "moves.h"
+                     //   32     16     16
+using MoveVal = i64; // value | 0000 | move
+
+INLINE int value(MoveVal mv) { return mv >> 32; } // compiler be smart
+INLINE Move move(MoveVal mv) { return static_cast<Move>(mv & 0xFFFF); }
+
+// only queen in QS; remove bishop in PVS
+enum class PromMode { QS, PVS, ALL };
+
+enum class Step
+{
+  Hash,
+  GenCaps, WinCaps, EqCaps,
+  GenKillers, Killers,
+  GenQuiets, Quiets, BadCaps,
+  Done
+};
+
+// to hold and pick moves
+class MoveList
+{
+  MoveVal moves[256];
+  MoveVal * first, * last, * curr;
+
+public:
+  MoveList()   { clear(); }
+  void clear() { first = last = curr = &moves[0]; }
+
+  bool   empty() const { return last == first; }
+  size_t count() const { return last -  first; }
+  //void   pop_front()   { remove_curr(); }
+  Move   front()       { return move(*first); }
+
+  //void remove_curr()   { remove(curr); }
+  void reveal_pocket() { first = &moves[0]; }
+
+  Move get_best(i64 lower_bound = I64_MIN);
+  void remove_move(Move move);
+
+  void add(Move move)
+  {
+    assert(count() < 256);
+    *(last++) = move;
+  }
+
+  void add_move(SQ from, SQ to, MT mt = MT::Quiet)
+  {
+    add(to_move(from, to, mt));
+  }
+
+  template<PromMode M, bool capture = false>
+  void add_prom(SQ from, SQ to, PromMode mode = PromMode::ALL)
+  {
+    add(to_move(from, to, capture ? QCapProm : QProm));
+
+    if constexpr (M != PromMode::QS)
+    {
+      add(to_move(from, to, capture ? RCapProm : RProm));
+      add(to_move(from, to, capture ? NCapProm : NProm));
+    }
+
+    if constexpr (M == PromMode::ALL)
+    {
+      add(to_move(from, to, capture ? BCapProm : BProm));
+    }
+  }
+
+private:
+  void remove(MoveVal * ptr) { *ptr = *(--last); }
+};
+
