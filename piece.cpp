@@ -47,7 +47,7 @@ constexpr SQ_BB init_piece(Piece piece, Rays rays, bool slider = false)
   return result;
 }
 
-const std::array<SQ_BB, Piece_N> att = []
+const std::array<SQ_BB, Piece_N> atts = []
 {
   std::array<SQ_BB, Piece_N> result{};
 

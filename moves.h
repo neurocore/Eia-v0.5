@@ -38,9 +38,9 @@ enum Move : u16 { None = to_move(A1, A1), Null = to_move(B1, B1) };
 
 INLINE bool is_empty(Move move) { return move == None || move == Null; }
 
-INLINE SQ from(Move move) { return static_cast<SQ>(move & 63); } 
-INLINE SQ to(Move move) { return static_cast<SQ>((move >> 6) & 63); } 
-INLINE MT mt(Move move) { return static_cast<MT>(move >> 12); }
+INLINE SQ get_from(Move move) { return static_cast<SQ>(move & 63); } 
+INLINE SQ get_to(Move move) { return static_cast<SQ>((move >> 6) & 63); } 
+INLINE MT get_mt(Move move) { return static_cast<MT>(move >> 12); }
 
 INLINE bool is_cap(MT mt) { return !!(mt & Cap); }
 INLINE bool is_prom(MT mt) { return !!(mt & NProm); }
@@ -54,18 +54,18 @@ INLINE bool is_cap(Move move) { return !!(move & (Cap << 12)); }
 INLINE bool is_prom(Move move) { return !!(move & (NProm << 12)); }
 INLINE bool is_attack(Move move) { return !!(move & (NCapProm << 12)); }
 
-INLINE bool is_ep(Move move)     { return is_ep(mt(move)); }
-INLINE bool is_pawn2(Move move)  { return is_pawn2(mt(move)); }
-INLINE bool is_castle(Move move) { return is_castle(mt(move)); }
+INLINE bool is_ep(Move move)     { return is_ep(get_mt(move)); }
+INLINE bool is_pawn2(Move move)  { return is_pawn2(get_mt(move)); }
+INLINE bool is_castle(Move move) { return is_castle(get_mt(move)); }
 
 INLINE PieceType promoted(MT mt) { return static_cast<PieceType>(1 + (mt & 3)); }
-INLINE PieceType promoted(Move move) { return promoted(mt(move)); }
+INLINE PieceType promoted(Move move) { return promoted(get_mt(move)); }
 INLINE Piece promoted(MT mt, Color col) { return to_piece(promoted(mt), col); }
-INLINE Piece promoted(Move move, Color col) { return promoted(mt(move), col); }
+INLINE Piece promoted(Move move, Color col) { return promoted(get_mt(move), col); }
 
 inline std::ostream & operator << (std::ostream & os, Move move)
 {
-  os << to_string(from(move)) << to_string(to(move));
+  os << to_string(get_from(move)) << to_string(get_to(move));
   if (is_prom(move)) os << to_char(promoted(move));
   return os;
 }

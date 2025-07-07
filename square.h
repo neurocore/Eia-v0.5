@@ -48,8 +48,11 @@ inline std::ostream & operator << (std::ostream & os, const SQ & sq)
   return os;
 }
 
-INLINE SQ operator + (SQ a, SQ b) { return static_cast<SQ>(a + b); }
-INLINE SQ operator - (SQ a, SQ b) { return static_cast<SQ>(a - b); }
+INLINE SQ middle(SQ a, SQ b) { return static_cast<SQ>((a + b) / 2); }
+
+INLINE SQ operator + (SQ a, int i) { return static_cast<SQ>(+a + i); }
+INLINE SQ operator - (SQ a, int i) { return static_cast<SQ>(+a - i); }
+
 INLINE SQ & operator ++ (SQ & a) { a = static_cast<SQ>(a + 1); return a; }
 INLINE SQ & operator -- (SQ & a) { a = static_cast<SQ>(a - 1); return a; }
 

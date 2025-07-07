@@ -10,15 +10,6 @@ INLINE Move move(MoveVal mv) { return static_cast<Move>(mv & 0xFFFF); }
 // only queen in QS; remove bishop in PVS
 enum class PromMode { QS, PVS, ALL };
 
-enum class Step
-{
-  Hash,
-  GenCaps, WinCaps, EqCaps,
-  GenKillers, Killers,
-  GenQuiets, Quiets, BadCaps,
-  Done
-};
-
 // to hold and pick moves
 class MoveList
 {

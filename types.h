@@ -19,4 +19,3 @@ using MB = u32; // megabytes
 
 const int I32_MIN = std::numeric_limits<int>::min();
 const i64 I64_MIN = std::numeric_limits<i64>::min();
-const int Question = (-1) >> 13; // must be -1 (sar)

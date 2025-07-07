@@ -3,6 +3,7 @@
 #include "magics.h"
 #include "piece.h"
 #include "moves.h"
+#include "board.h"
 
 using namespace std;
 
