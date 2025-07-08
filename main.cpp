@@ -6,23 +6,10 @@
 #include "board.h"
 
 using namespace std;
+using namespace eia;
 
 int main()
 {
-  /*for (int i = 0; i < 8; i++)
-  {
-    cout << BitBoard{ file_bb[i] } << endl;
-    cout << bitscan(file_bb[i]) << endl;
-  }
-
-  cout << "here" << endl;
-
-  SQ sq = D4;
-  cout << sq << endl;
-  cout << BitBoard{ att[WP][sq] } << endl;
-  cout << BitBoard{ att_span[White][sq] } << endl;
-  cout << BitBoard{ adj_files[sq] } << endl;*/
-
   for (SQ sq = A1; sq < SQ_N; ++sq)
   {
     if (sq != bitscan(Bit << sq))
@@ -35,6 +22,15 @@ int main()
   cout << BitBoard{ r_att(Empty, E4) } << endl;
   cout << BitBoard{ b_att(Empty, E4) } << endl;
   cout << BitBoard{ q_att(Empty, E4) } << endl;
+
+  MoveList ml;
+  Board B;
+  B.set();
+
+  B.generate_attacks<White>(ml);
+  B.generate_quiets<White>(ml);
+
+  cout << ml.count() << endl;
 
   return 0;
 }

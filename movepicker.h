@@ -2,6 +2,8 @@
 #include "board.h"
 #include "movelist.h"
 
+namespace eia {
+
 enum class Stage
 {
   Hash,
@@ -25,3 +27,4 @@ class MovePicker
   }
 };
 
+}

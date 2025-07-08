@@ -2,6 +2,8 @@
 #include <array>
 #include "bitboard.h"
 
+namespace eia {
+
 struct Magic
 {
   const u64 * ptr;
@@ -285,4 +287,6 @@ INLINE u64 b_att(u64 occ, SQ sq)
 INLINE u64 q_att(u64 occ, SQ sq)
 {
   return r_att(occ, sq) | b_att(occ, sq);
+}
+
 }

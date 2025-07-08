@@ -3,6 +3,8 @@
 
 using namespace std;
 
+namespace eia {
+
 ostream & operator << (ostream & os, const BitBoard & bb)
 {
   for (int y = 7; y >= 0; --y)
@@ -41,4 +43,6 @@ constexpr u64 shift(u64 bb, Dir dir)
     default      : assert(0);
   }
   return bb;
+}
+
 }

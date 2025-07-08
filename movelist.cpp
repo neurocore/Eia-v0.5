@@ -1,5 +1,7 @@
 #include "movelist.h"
 
+namespace eia {
+
 Move MoveList::get_best(i64 lower_bound)
 {
   curr = first;
@@ -26,4 +28,4 @@ void MoveList::remove_move(Move move)
   }
 }
 
-
+}

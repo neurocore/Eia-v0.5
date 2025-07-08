@@ -2,6 +2,8 @@
 #include <limits>
 #include <cstdalign>
 
+namespace eia {
+
 #define INLINE inline constexpr
 #define ALIGN64 alignas(64)
 
@@ -19,3 +21,5 @@ using MB = u32; // megabytes
 
 const int I32_MIN = std::numeric_limits<int>::min();
 const i64 I64_MIN = std::numeric_limits<i64>::min();
+
+}

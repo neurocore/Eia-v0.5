@@ -5,6 +5,8 @@
 #include "piece.h"
 #include "utils.h"
 
+namespace eia {
+
 enum MT : u16 // Move type
 {
   Quiet,     // PC12 (Promotion, Capture, Flag_1, Flag_2)
@@ -113,6 +115,38 @@ INLINE Castling & operator ^= (Castling & a, Castling b)
   return a;
 }
 
+const std::array<Castling, 64> uncastle = []
+{
+  std::array<Castling, 64> result;
+  for (SQ sq = A1; sq < SQ_N; ++sq)
+    result[sq] = Castling::ALL;
+
+  result[A1] ^= Castling::WQ;
+  result[E1] ^= Castling::WQ | Castling::WK;
+  result[H1] ^= Castling::WK;
+  result[A8] ^= Castling::BQ;
+  result[E8] ^= Castling::BQ | Castling::BK;
+  result[H8] ^= Castling::BK;
+
+  return result;
+}();
+
+INLINE Castling operator - (Castling a, SQ sq)
+{
+  return a & uncastle[sq];
+}
+
+INLINE Castling operator -= (Castling & a, SQ sq)
+{
+  a = a & uncastle[sq];
+  return a;
+}
+
+INLINE bool operator ! (Castling a)
+{
+  return !static_cast<u8>(a);
+}
+
 template<Castling C>
 INLINE bool has(Castling castling)
 {
@@ -133,7 +167,7 @@ INLINE Castling to_castling(const char c)
 INLINE MT parse_promotee(const char c)
 {
   size_t i = index_of("nbrq", c);
-  return static_cast<MT>( i < 0 ? 0 : (MT::NProm + i) );
+  return static_cast<MT>( i < 0 ? 0 : (NProm + i) );
 }
 
 INLINE std::string to_string(Castling castling, std::string fill = "")
@@ -146,18 +180,4 @@ INLINE std::string to_string(Castling castling, std::string fill = "")
   return str;
 }
 
-const std::array<Castling, 64> uncastle = []
-{
-  std::array<Castling, 64> result;
-  for (SQ sq = A1; sq < SQ_N; ++sq)
-    result[sq] = Castling::ALL;
-
-  result[A1] ^= Castling::WQ;
-  result[E1] ^= Castling::WQ | Castling::WK;
-  result[H1] ^= Castling::WK;
-  result[A8] ^= Castling::BQ;
-  result[E8] ^= Castling::BQ | Castling::BK;
-  result[H8] ^= Castling::BK;
-
-  return result;
-}();
+}

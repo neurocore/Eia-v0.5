@@ -1,6 +1,8 @@
 #pragma once
 #include <cassert>
 #include "moves.h"
+
+namespace eia {
                      //   32     16     16
 using MoveVal = i64; // value | 0000 | move
 
@@ -42,20 +44,29 @@ public:
     add(to_move(from, to, mt));
   }
 
-  template<PromMode M, bool capture = false>
-  void add_prom(SQ from, SQ to, PromMode mode = PromMode::ALL)
+  template<bool QS>
+  void add_prom(SQ from, SQ to)
   {
-    add(to_move(from, to, capture ? QCapProm : QProm));
+    add(to_move(from, to, QProm));
 
-    if constexpr (M != PromMode::QS)
+    if constexpr (!QS)
     {
-      add(to_move(from, to, capture ? RCapProm : RProm));
-      add(to_move(from, to, capture ? NCapProm : NProm));
+      add(to_move(from, to, RProm));
+      add(to_move(from, to, NProm));
+      add(to_move(from, to, BProm));
     }
+  }
 
-    if constexpr (M == PromMode::ALL)
+  template<bool QS>
+  void add_capprom(SQ from, SQ to)
+  {
+    add(to_move(from, to, QCapProm));
+
+    if constexpr (!QS)
     {
-      add(to_move(from, to, capture ? BCapProm : BProm));
+      add(to_move(from, to, RCapProm));
+      add(to_move(from, to, NCapProm));
+      add(to_move(from, to, BCapProm));
     }
   }
 
@@ -63,3 +74,4 @@ private:
   void remove(MoveVal * ptr) { *ptr = *(--last); }
 };
 
+}

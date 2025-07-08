@@ -2,6 +2,10 @@
 #include <cassert>
 #include "consts.h"
 #include "movelist.h"
+#include "tables.h"
+#include "magics.h"
+
+namespace eia {
 
 struct Key
 {
@@ -29,17 +33,13 @@ struct Undo
   Move curr, best;
 };
 
-struct BoardInner
+struct Board
 {
   Color color;
   u64 piece[Piece_N];
   u64 occ[Color_N];
   Piece square[SQ_N];
   State state;
-};
-
-class Board : private BoardInner
-{
   Key threefold[3000];
 
 public:
@@ -65,105 +65,51 @@ public:
   INLINE int fifty() const { return state.fifty; }
   INLINE State get_state() const { return state; }
 
-  bool is_attacked(SQ king, u64 o, int opp = 0) const;
+  bool set(std::string fen = Pos::Init);
+  std::string to_fen();
+
+  template<PieceType PT>
+  INLINE u64 attack(SQ sq) const
+  {
+         if constexpr (PT == Bishop) return b_att(occupied(), sq);
+    else if constexpr (PT == Rook)   return r_att(occupied(), sq);
+    else if constexpr (PT == Queen)  return q_att(occupied(), sq);
+
+    return atts[to_piece(PT, Black)][sq];
+  }
+
+  /*INLINE u64 attack(Piece p, SQ sq) const
+  {
+    switch (p)
+    {
+      case BB: case WB: return attack<Bishop>(sq);
+      case BR: case WR: return attack<Rook>(sq);
+      case BQ: case WQ: return attack<Queen>(sq);
+      default: return atts[p][sq];
+    }
+  }*/
+
+  bool is_attacked(SQ sq, u64 o, int opp = 0) const;
   u64  get_attacks(u64 o, SQ sq) const;
   bool in_check(int opp = 0) const;
+  bool castling_attacked(SQ from, SQ to) const;
 
-  template<bool full = true>
-  void place(SQ sq, Piece p)
-  {
-    piece[p]    ^= bit(sq);
-    occ[col(p)] ^= bit(sq);
-    square[sq]   = p;
-
-    if constexpr (full)
-    {
-      // state.pst += E->pst[p][sq];
-      // state.mkey += matkey[p];
-
-      // state.bhash ^= hash_key[p][sq]; // TODO
-    }
-  }
-
-  template<bool full = true>
-  void remove(SQ sq)
-  {
-    Piece p = square[sq];
-    assert(p < Piece_N);
-
-    piece[p]    ^= bit(sq);
-    occ[col(p)] ^= bit(sq);
-    square[sq]   = NOP;
-
-    if constexpr (full)
-    {
-      // state.pst -= E->pst[p][sq];
-      // state.mkey -= matkey[p];
-
-      // state.bhash ^= hash_key[p][sq]; // TODO
-    }
-  }
-
-  bool set(std::string fen = Pos::Init)
-  {
-    SQ sq = A8; // TODO
-
-    //string[] parts = fen.split(' ');
-    //if (parts.length < 4) return error("less than 4 parts");
-
-    //clear();
-
-    //foreach (char ch; parts[0]) // parsing main part
-    //{
-    //  if (isDigit(ch)) sq += ch - '0';
-    //  else
-    //  {
-    //    Piece p = ch.to_piece();
-    //    if (p == Piece.NOP) continue;
-
-    //    place(sq, p);
-    //    sq++;
-    //  }
-
-    //  if (!(sq & 7)) // row wrap
-    //  {
-    //    sq -= 16;
-    //    if (sq < 0) break;
-    //  }
-    //}
-
-    //foreach (ch; parts[1]) // parsing color
-    //  color = ch.to_color();
-
-    //state.castling = Castling.init;
-    //foreach (ch; parts[2]) // parsing castling
-    //{
-    //  state.castling |= ch.to_castling();
-    //}
-
-    //state.ep = parts[3].to_sq; // en passant
-
-    //string fifty = parts.length > 4 ? parts[4] : "";
-    //state.fifty = fifty.safe_to!u8; // fifty move counter
-
-    //// full move counter - no need
-
-    //state.bhash ^= hash_wtm[color];
-    //threefold ~= Key(state.hash, true);
-
-    return true;
-  }
-
-  std::string to_fen()
-  {
-    std::string fen; // TODO
-    return fen;
-  }
+  template<bool full = true> void place(SQ sq, Piece p);
+  template<bool full = true> void remove(SQ sq);
 
   bool make(Move move, Undo *& undo);
   void unmake(Move move, Undo *& undo);
 
+  template<Color COL>
+  void generate_quiets(MoveList & ml);
+
+  template<Color COL, bool QS = false>
+  void generate_attacks(MoveList & ml);
+
 private:
+  template<Color COL, bool ATT, PieceType PT>
+  INLINE void gen(MoveList & ml);
+
   INLINE u64 pawns()    const { return piece[BP] | piece[WP]; }
   INLINE u64 knights()  const { return piece[BN] | piece[WN]; }
   INLINE u64 bishops()  const { return piece[BB] | piece[WB]; }
@@ -179,4 +125,239 @@ private:
 };
 
 
+template<bool full>
+void Board::place(SQ sq, Piece p)
+{
+  piece[p]    ^= bit(sq);
+  occ[col(p)] ^= bit(sq);
+  square[sq]   = p;
 
+  if constexpr (full)
+  {
+    // state.pst += E->pst[p][sq];
+    // state.mkey += matkey[p];
+
+    // state.bhash ^= hash_key[p][sq]; // TODO
+  }
+}
+
+template<bool full>
+void Board::remove(SQ sq)
+{
+  Piece p = square[sq];
+  assert(p < Piece_N);
+
+  piece[p]    ^= bit(sq);
+  occ[col(p)] ^= bit(sq);
+  square[sq]   = NOP;
+
+  if constexpr (full)
+  {
+    // state.pst -= E->pst[p][sq];
+    // state.mkey -= matkey[p];
+
+    // state.bhash ^= hash_key[p][sq]; // TODO
+  }
+}
+
+
+template<Color COL, bool ATT, PieceType PT>
+INLINE void Board::gen(MoveList & ml)
+{
+  const Piece p = to_piece(PT, COL);
+  const u64 mask = ATT ? occ[~COL] : ~occupied();
+  const MT type = ATT ? Cap : Quiet;
+
+  for (u64 bb = piece[p]; bb; bb = rlsb(bb))
+  {
+    const SQ s = bitscan(bb);
+    for (u64 att = attack<PT>(s) & mask; att; att = rlsb(att))
+    {
+      ml.add_move(s, bitscan(att), type);
+    }
+  }
+}
+
+template<Color COL>
+void Board::generate_quiets(MoveList & ml)
+{
+  const u64 o = occ[0] | occ[1];
+
+  gen<COL, false, Knight>(ml);
+  gen<COL, false, Bishop>(ml);
+  gen<COL, false, Rook>(ml);
+  gen<COL, false, Queen>(ml);
+  gen<COL, false, King>(ml);
+
+  // Castlings
+  if constexpr (COL)
+  {
+    if (!!(state.castling & Castling::WK) && !(o & Span_WK))
+    {
+      if (!castling_attacked(E1, G1)) ml.add_move(E1, G1, KCastle);
+    }
+
+    if (!!(state.castling & Castling::WQ) && !(o & Span_WQ))
+    {
+      if (!castling_attacked(E1, C1)) ml.add_move(E1, C1, QCastle);
+    }
+  }
+  else
+  {
+    if (!!(state.castling & Castling::BK) && !(o & Span_BK))
+    {
+      if (!castling_attacked(E8, G8)) ml.add_move(E8, G8, KCastle);
+    }
+
+    if (!!(state.castling & Castling::BQ) && !(o & Span_BQ))
+    {
+      if (!castling_attacked(E8, C8)) ml.add_move(E8, C8, QCastle);
+    }
+  }
+
+  u64 pawns = piece[to_piece(Pawn, COL)];
+
+  if constexpr (COL)
+  {
+    // Forward push
+    for (u64 bb = pawns & shift_d(~o) & ~Rank7; bb; bb = rlsb(bb))
+    {
+      SQ s = bitscan(bb);
+      ml.add_move(s, s + 8);
+    }
+
+    // Double move
+    for (u64 bb = pawns & (~o >> 8) & (~o >> 16) & Rank2; bb; bb = rlsb(bb))
+    {
+      SQ s = bitscan(bb);
+      ml.add_move(s, s + 16, Pawn2);
+    }
+  }
+  else
+  {
+    // Forward push
+    for (u64 bb = pawns & shift_u(~o) & ~Rank2; bb; bb = rlsb(bb))
+    {
+      SQ s = bitscan(bb);
+      ml.add_move(s, s - 8);
+    }
+
+    // Double move
+    for (u64 bb = pawns & (~o << 8) & (~o << 16) & Rank7; bb; bb = rlsb(bb))
+    {
+      SQ s = bitscan(bb);
+      ml.add_move(s, s - 16, Pawn2);
+    }
+  }
+}
+
+template<Color COL, bool QS>
+void Board::generate_attacks(MoveList & ml)
+{
+  const u64 me = occ[color];
+  const u64 opp = occ[~color];
+  const u64 o = me | opp;
+
+  gen<COL, true, Knight>(ml);
+  gen<COL, true, Bishop>(ml);
+  gen<COL, true, Rook>(ml);
+  gen<COL, true, Queen>(ml);
+  gen<COL, true, King>(ml);
+
+  Piece p = to_piece(Pawn, color);
+
+  if constexpr (COL)
+  {
+    // Promotion
+    for (u64 bb = piece[p] & shift_d(~o) & Rank7; bb; bb = rlsb(bb))
+    {
+      SQ s = bitscan(bb);
+      ml.add_prom<QS>(s, s + 8);
+    }
+
+    // Promotion with capture
+    for (u64 bb = piece[p] & shift_dl(opp) & Rank7; bb; bb = rlsb(bb))
+    {
+      SQ s = bitscan(bb);
+      ml.add_capprom<QS>(s, s + 9);
+    }
+
+    // Promotion with capture
+    for (u64 bb = piece[p] & shift_dr(opp) & Rank7; bb; bb = rlsb(bb))
+    {
+      SQ s = bitscan(bb);
+      ml.add_capprom<QS>(s, s + 7);
+    }
+
+    // Right pawn capture
+    for (u64 bb = piece[p] & shift_dl(opp) & ~Rank7; bb; bb = rlsb(bb))
+    {
+      SQ s = bitscan(bb);
+      ml.add_move(s, s + 9, Cap);
+    }
+
+    // Left pawn capture
+    for (u64 bb = piece[p] & shift_dr(opp) & ~Rank7; bb; bb = rlsb(bb))
+    {
+      SQ s = bitscan(bb);
+      ml.add_move(s, s + 7, Cap);
+    }
+
+    if (state.ep) // En passant
+    {
+      const Piece p = to_piece(Pawn, ~color);
+      for (u64 bb = piece[p] & atts[p][state.ep]; bb; bb = rlsb(bb))
+      {
+        ml.add_move(bitscan(bb), state.ep, Ep);
+      }
+    }
+  }
+  else
+  {
+    // Promotion
+    for (u64 bb = piece[p] & shift_u(~o) & Rank2; bb; bb = rlsb(bb))
+    {
+      SQ s = bitscan(bb);
+      ml.add_prom<QS>(s, s - 8);
+    }
+
+    // Promotion with capture
+    for (u64 bb = piece[p] & shift_ur(opp) & Rank2; bb; bb = rlsb(bb))
+    {
+      SQ s = bitscan(bb);
+      ml.add_capprom<QS>(s, s - 9);
+    }
+
+    // Promotion with capture
+    for (u64 bb = piece[p] & shift_ul(opp) & Rank2; bb; bb = rlsb(bb))
+    {
+      SQ s = bitscan(bb);
+      ml.add_capprom<QS>(s, s - 7);
+    }
+
+    // Right pawn capture
+    for (u64 bb = piece[p] & shift_ur(opp) & ~Rank2; bb; bb = rlsb(bb))
+    {
+      SQ s = bitscan(bb);
+      ml.add_move(s, s - 9, Cap);
+    }
+
+    // Left pawn capture
+    for (u64 bb = piece[p] & shift_ul(opp) & ~Rank2; bb; bb = rlsb(bb))
+    {
+      SQ s = bitscan(bb);
+      ml.add_move(s, s - 7, Cap);
+    }
+
+    if (state.ep) // En passant
+    {
+      const Piece p = to_piece(Pawn, ~color);
+      for (u64 bb = piece[p] & atts[p][state.ep]; bb; bb = rlsb(bb))
+      {
+        ml.add_move(bitscan(bb), state.ep, Ep);
+      }
+    }
+  }
+}
+
+}

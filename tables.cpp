@@ -1,5 +1,8 @@
-#include "piece.h"
+#include <vector>
+#include "tables.h"
 #include "utils.h"
+
+namespace eia {
 
 using Ray = std::pair<int, int>;
 using Rays = std::vector<Ray>;
@@ -74,10 +77,10 @@ constexpr int on_line(SQ i, SQ j)
   int dx = file(j) - file(i);
   int dy = rank(j) - rank(i);
 
-  return !dx || !dy       // orthogonal or
-    || abs(dx) == abs(dy)  // diagonal then
-    ? sgn(dx) + 8 * sgn(dy) // return shift
-    : 0;
+  return !dx || !dy          // orthogonal or
+      || abs(dx) == abs(dy)   // diagonal then
+       ? sgn(dx) + 8 * sgn(dy) // return shift
+       : 0;
 }
 
 const std::array<SQ_Val, SQ_N> dir = []
@@ -155,3 +158,5 @@ const SQ_BB adj_files = []
   }
   return result;
 }();
+
+}

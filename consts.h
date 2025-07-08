@@ -1,6 +1,8 @@
 #pragma once
 #include <string>
 
+namespace eia {
+
 const std::string Name = "Eia";
 const std::string Vers = "0.5";
 const std::string Auth = "Nick Kurgin";
@@ -107,3 +109,5 @@ namespace Tune
                         + "XrayMul:12 "
                         + "Tempo:15 ";
 };
+
+}

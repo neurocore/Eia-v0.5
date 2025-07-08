@@ -3,6 +3,8 @@
 #include <iostream>
 #include "square.h"
 
+namespace eia {
+
 const u64 Empty = 0x0000000000000000ull;
 const u64 Full  = 0xFFFFFFFFFFFFFFFFull;
 const u64 Bit   = 0x0000000000000001ull;
@@ -100,3 +102,5 @@ INLINE u64 shift_dr(u64 bb) { return (bb & ~FileH) >> 7; }
 
 enum class Dir {U, D, L, R, UL, UR, DL, DR};
 extern constexpr u64 shift(u64 bb, Dir dir);
+
+}

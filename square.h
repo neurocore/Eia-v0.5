@@ -4,6 +4,8 @@
 #include <algorithm>
 #include "types.h"
 
+namespace eia {
+
 enum SQ : u8
 {
   A1, B1, C1, D1, E1, F1, G1, H1,
@@ -53,6 +55,9 @@ INLINE SQ middle(SQ a, SQ b) { return static_cast<SQ>((a + b) / 2); }
 INLINE SQ operator + (SQ a, int i) { return static_cast<SQ>(+a + i); }
 INLINE SQ operator - (SQ a, int i) { return static_cast<SQ>(+a - i); }
 
+INLINE SQ & operator += (SQ & a, int i) { a = a + i; return a; }
+INLINE SQ & operator -= (SQ & a, int i) { a = a - i; return a; }
+
 INLINE SQ & operator ++ (SQ & a) { a = static_cast<SQ>(a + 1); return a; }
 INLINE SQ & operator -- (SQ & a) { a = static_cast<SQ>(a - 1); return a; }
 
@@ -61,3 +66,4 @@ INLINE int k_dist(SQ a, SQ b) // Chebyshev or king distance
   return std::max(abs(rank(a) - rank(b)), abs(file(a) - file(b)));
 }
 
+}

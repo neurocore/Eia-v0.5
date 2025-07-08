@@ -1,7 +1,11 @@
 #include <utility>
 #include "board.h"
+#include "tables.h"
 #include "magics.h"
-#include "piece.h"
+
+using namespace std;
+
+namespace eia {
 
 void Board::clear()
 {
@@ -10,7 +14,7 @@ void Board::clear()
 
   color = White;
   occ[0] = occ[1] = Empty;
-  state = State{SQ_N, NOP, Castling::ALL, 0, Empty, Empty, Empty};
+  state = State{A1, NOP, Castling::ALL, 0, Empty, Empty, Empty};
   //threefold.clear();
 }
 
@@ -29,19 +33,76 @@ bool Board::is_draw() const
   return false; // TODO
 }
 
-bool Board::is_attacked(SQ king, u64 o, int opp) const
+bool Board::set(string fen)
+{
+  SQ sq = A8;
+  clear();
+
+  string fen_board = cut(fen); // parsing main part
+  for (char ch : fen_board)
+  {
+    if (isdigit(ch)) sq += ch - '0';
+    else
+    {
+      Piece p = to_piece(ch);
+      if (p == NOP) continue;
+
+      place(sq, p);
+      ++sq;
+    }
+
+    if (!(sq & 7)) // row wrap
+    {
+      sq -= 16;
+      if (sq < 0) break;
+    }
+  }
+
+  string fen_color = cut(fen); // parsing color
+  for (char ch : fen_color)
+    color = to_color(ch);
+
+  string fen_castling = cut(fen); // parsing castling
+  state.castling = Castling::NO;
+  for (char ch : fen_castling)
+  {
+    state.castling |= to_castling(ch);
+  }
+
+  string fen_ep = cut(fen); // parsing en passant
+  state.ep = to_sq(fen_ep);
+  state.ep = state.ep == SQ_N ? A1 : state.ep;
+
+  string fen_fifty = cut(fen); // fifty move counter
+  state.fifty = parse_int(fen_fifty);
+
+  // full move counter - no need
+
+  //state.bhash ^= hash_wtm[color];
+  //threefold ~= Key(state.hash, true);
+
+  return true;
+}
+
+std::string Board::to_fen()
+{
+  std::string fen; // TODO
+  return fen;
+}
+
+bool Board::is_attacked(SQ sq, u64 o, int opp) const
 {
   const Color c = color ^ opp;
 
-  if (atts[BN ^ c][king] & piece[WN ^ c]) return true; // Knights
-  if (atts[BP ^ c][king] & piece[WP ^ c]) return true; // Pawns
-  if (atts[BK ^ c][king] & piece[WK ^ c]) return true; // King
+  if (atts[BN ^ c][sq] & piece[WN ^ c]) return true; // Knights
+  if (atts[BP ^ c][sq] & piece[WP ^ c]) return true; // Pawns
+  if (atts[BK ^ c][sq] & piece[WK ^ c]) return true; // King
 
   const u64 bq = piece[WB ^ c] | piece[WQ ^ c]; // Diagonal
   const u64 rq = piece[WR ^ c] | piece[WQ ^ c]; // Orthogonal
 
-  if (b_att(o, king) & bq) return true;
-  if (r_att(o, king) & rq) return true;
+  if (b_att(o, sq) & bq) return true;
+  if (r_att(o, sq) & rq) return true;
 
   return false;
 }
@@ -63,6 +124,16 @@ bool Board::in_check(int opp) const
   const Piece p = to_piece(King, color ^ opp);
   const SQ king = bitscan(piece[p]);
   return is_attacked(king, occupied(), opp);
+}
+
+bool Board::castling_attacked(SQ from, SQ to) const
+{
+  const u64 o = occupied();
+  const SQ mid = middle(from, to);
+
+  return is_attacked(from, o, 1)
+      || is_attacked(mid, o, 1)
+      || is_attacked(to, o, 1);
 }
 
 bool Board::make(Move move, Undo *& undo)
@@ -272,7 +343,7 @@ void Board::unmake(Move move, Undo *& undo)
   state = (--undo)->state;
 }
 
-
+}
 
 
 

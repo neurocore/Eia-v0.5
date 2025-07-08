@@ -1,10 +1,8 @@
 #pragma once
-#include <array>
-#include <vector>
 #include "bitboard.h"
+#include "utils.h"
 
-using SQ_BB = std::array<u64, SQ_N>;
-using SQ_Val = std::array<int, SQ_N>;
+namespace eia {
 
 enum Color     : int { Black, White, Color_N };
 enum Piece     : u8  { BP, WP, BN, WN, BB, WB, BR, WR, BQ, WQ, BK, WK, Piece_N, NOP };
@@ -16,6 +14,20 @@ INLINE Color operator ^ (Color c, int i) { return static_cast<Color>(+c ^ i); }
 INLINE char to_char(Color c) { return "bw"[c]; }
 INLINE char to_char(Piece p) { return "pPnNbBrRqQkK.."[p]; }
 INLINE char to_char(PieceType p) { return "pnbrqk."[p]; }
+
+INLINE Color to_color(const char c)
+{
+  size_t i = index_of("bw", c);
+  if (i < 0) i = Color_N;
+  return static_cast<Color>(i);
+}
+
+INLINE Piece to_piece(const char c)
+{
+  auto i = index_of("pPnNbBrRqQkK.", c);
+  if (i < 0) return NOP;
+  return static_cast<Piece>(i);
+}
 
 INLINE Piece to_piece(PieceType pt, Color c) { return static_cast<Piece>(2 * pt + c); }
 INLINE Color col(Piece p)    { return static_cast<Color>(p & 1); }
@@ -35,10 +47,4 @@ INLINE bool is_king(Piece p) { return p == BK || p == WK; }
 template<PieceType pt>
 INLINE bool is(Piece p) { return (p >> 1) == pt; }
 
-extern const std::array<SQ_BB, Piece_N> atts;
-extern const std::array<SQ_Val, SQ_N> dir;
-extern const std::array<SQ_BB, SQ_N> between;
-extern const std::array<SQ_BB, Color_N> front_one;
-extern const std::array<SQ_BB, Color_N> front;
-extern const std::array<SQ_BB, Color_N> att_span;
-extern const SQ_BB adj_files;
+}
