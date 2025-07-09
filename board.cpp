@@ -2,6 +2,8 @@
 #include "board.h"
 #include "tables.h"
 #include "magics.h"
+#include "timer.h"
+#include "search.h"
 
 using namespace std;
 
@@ -14,7 +16,6 @@ void Board::clear()
 
   color = White;
   occ[0] = occ[1] = Empty;
-  state = State{A1, NOP, Castling::ALL, 0, Empty, Empty, Empty};
   //threefold.clear();
 }
 
@@ -25,7 +26,7 @@ int Board::phase() const
             - Phase::Rook  * popcnt(rooks())
             - Phase::Light * popcnt(lights());
 
-  return std::max(phase, 0);
+  return max(phase, 0);
 }
 
 bool Board::is_draw() const
@@ -71,7 +72,6 @@ bool Board::set(string fen)
 
   string fen_ep = cut(fen); // parsing en passant
   state.ep = to_sq(fen_ep);
-  state.ep = state.ep == SQ_N ? A1 : state.ep;
 
   string fen_fifty = cut(fen); // fifty move counter
   state.fifty = parse_int(fen_fifty);
@@ -88,6 +88,31 @@ std::string Board::to_fen()
 {
   std::string fen; // TODO
   return fen;
+}
+
+void Board::print() const
+{
+  for (int y = 7; y >= 0; y--)
+  {
+    cout << ' ' << (y + 1) << " | ";
+
+    for (int x = 0; x < 8; x++)
+    {
+      SQ sq = to_sq(x, y);
+      Piece p = square[sq];
+      
+      cout << to_char(p) << ' ';
+    }
+    cout << "\n";
+  }
+  cout << "   +----------------   ";
+  cout << (color ? "<W>" : "<B>") << "\n";
+  cout << "     a b c d e f g h   \n\n";
+}
+
+void Board::print(Move move) const
+{
+  cout << move; // TODO: make prettifier
 }
 
 bool Board::is_attacked(SQ sq, u64 o, int opp) const
@@ -272,7 +297,7 @@ void Board::unmake(Move move, Undo *& undo)
   const SQ from = get_from(move);
   const SQ to   = get_to(move);
   const MT mt   = get_mt(move);
-  const Piece p = square[from];
+  const Piece p = square[to];
 
   //assert(threefold.length > 0);
   //threefold.popBack();

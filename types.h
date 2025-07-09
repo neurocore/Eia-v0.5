@@ -18,6 +18,7 @@ using u32 = unsigned int;
 using u64 = unsigned long long;
 
 using MB = u32; // megabytes
+using MS = u64; // milliseconds
 
 const int I32_MIN = std::numeric_limits<int>::min();
 const i64 I64_MIN = std::numeric_limits<i64>::min();

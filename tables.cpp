@@ -83,9 +83,9 @@ constexpr int on_line(SQ i, SQ j)
        : 0;
 }
 
-const std::array<SQ_Val, SQ_N> dir = []
+const std::array<SQ_Val, SQ_N + 1> dir = []
 {
-  std::array<SQ_Val, SQ_N> result{};
+  std::array<SQ_Val, SQ_N + 1> result{};
   for (SQ i = A1; i < SQ_N; ++i)
   {
     for (SQ j = A1; j < SQ_N; ++j)
@@ -97,9 +97,9 @@ const std::array<SQ_Val, SQ_N> dir = []
   return result;
 }();
 
-const std::array<SQ_BB, SQ_N> between = []
+const std::array<SQ_BB, SQ_N + 1> between = []
 {
-  std::array<SQ_BB, SQ_N> result{};
+  std::array<SQ_BB, SQ_N + 1> result{};
   for (SQ i = A1; i < SQ_N; ++i)
   {
     for (SQ j = A1; j < SQ_N; ++j)

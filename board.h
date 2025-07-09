@@ -15,14 +15,14 @@ struct Key
 
 struct State
 {
-  SQ ep;
-  Piece cap;
-  Castling castling;
-  int fifty;
-  u64 bhash;
+  SQ ep = SQ_N;
+  Piece cap = NOP;
+  Castling castling = Castling::NO;
+  int fifty = 0;
+  u64 bhash = Empty;
 
-  u64 king_atts;
-  u64 threats;
+  u64 king_atts = Empty;
+  u64 threats = Empty;
 };
 
 struct Undo
@@ -39,6 +39,7 @@ struct Board
   u64 piece[Piece_N];
   u64 occ[Color_N];
   Piece square[SQ_N];
+
   State state;
   Key threefold[3000];
 
@@ -60,6 +61,7 @@ public:
     return !has_pieces(~col) && !!piece[WP ^ col];
   }
 
+
   INLINE Piece operator [] (const SQ sq) const { return square[sq]; }
   INLINE Color to_move() const { return color; }
   INLINE int fifty() const { return state.fifty; }
@@ -68,15 +70,11 @@ public:
   bool set(std::string fen = Pos::Init);
   std::string to_fen();
 
-  template<PieceType PT>
-  INLINE u64 attack(SQ sq) const
-  {
-         if constexpr (PT == Bishop) return b_att(occupied(), sq);
-    else if constexpr (PT == Rook)   return r_att(occupied(), sq);
-    else if constexpr (PT == Queen)  return q_att(occupied(), sq);
+  void print() const;
+  void print(Move move) const;
 
-    return atts[to_piece(PT, Black)][sq];
-  }
+  template<PieceType PT>
+  INLINE u64 attack(SQ sq) const;
 
   /*INLINE u64 attack(Piece p, SQ sq) const
   {
@@ -124,6 +122,16 @@ private:
   INLINE u64 occupied() const { return occ[0] | occ[1]; }
 };
 
+
+template<PieceType PT>
+INLINE u64 Board::attack(SQ sq) const
+{
+        if constexpr (PT == Bishop) return b_att(occupied(), sq);
+  else if constexpr (PT == Rook)   return r_att(occupied(), sq);
+  else if constexpr (PT == Queen)  return q_att(occupied(), sq);
+
+  return atts[to_piece(PT, Black)][sq];
+}
 
 template<bool full>
 void Board::place(SQ sq, Piece p)

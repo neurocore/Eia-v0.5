@@ -12,6 +12,7 @@ INLINE Move move(MoveVal mv) { return static_cast<Move>(mv & 0xFFFF); }
 // only queen in QS; remove bishop in PVS
 enum class PromMode { QS, PVS, ALL };
 
+// TODO: make cyclic?
 // to hold and pick moves
 class MoveList
 {
@@ -25,7 +26,10 @@ public:
   bool   empty() const { return last == first; }
   size_t count() const { return last -  first; }
   //void   pop_front()   { remove_curr(); }
-  Move   front()       { return move(*first); }
+  //Move   front()       { return move(*first); }
+
+  Move   get_next()    { return move(*(curr++)); }
+  bool   is_empty()    { return curr >= last; }
 
   //void remove_curr()   { remove(curr); }
   void reveal_pocket() { first = &moves[0]; }
@@ -71,6 +75,7 @@ public:
   }
 
 private:
+  // TODO: rid of mixing
   void remove(MoveVal * ptr) { *ptr = *(--last); }
 };
 

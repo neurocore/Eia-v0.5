@@ -1,4 +1,6 @@
 #pragma once
+#include <windows.h>
+#include <conio.h>
 #include <string_view>
 #include <string>
 #include <charconv>
@@ -31,6 +33,21 @@ inline int parse_int(const std::string_view str)
   int result = 0;
   std::from_chars(str.data(), str.data() + str.size(), result);
   return result;
+}
+
+inline bool input_available()
+{
+  DWORD mode;
+  static HANDLE hInput = GetStdHandle(STD_INPUT_HANDLE);
+  static BOOL console = GetConsoleMode(hInput, &mode);
+
+  if (!console)
+  {
+    DWORD totalBytesAvail;
+    if (!PeekNamedPipe(hInput, 0, 0, 0, &totalBytesAvail, 0)) return true;
+    return totalBytesAvail;
+  }
+  else return _kbhit();
 }
 
 }
