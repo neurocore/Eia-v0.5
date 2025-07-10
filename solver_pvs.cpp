@@ -1,29 +1,34 @@
 #include <iostream>
-#include "search.h"
+#include "solver_pvs.h"
 
 using namespace std;
 
 namespace eia {
 
-Search::Search(Engine * engine)
+SolverPVS::SolverPVS(Engine * engine) : Solver(engine)
 {
   B = new Board;
   undo = &undos[0];
 
-  B->set(/*Pos::Kiwi*/); // TODO: move to engine
+  B->set(Pos::Init); // TODO: move to engine
 }
 
-Search::~Search()
+SolverPVS::~SolverPVS()
 {
   delete B;
 }
 
-Move Search::get_move(MS time)
+void SolverPVS::set(const Board & board)
+{
+  *B = board;
+}
+
+Move SolverPVS::get_move(MS time)
 {
   return Move();
 }
 
-u64 Search::perft(int depth)
+u64 SolverPVS::perft(int depth)
 {
   u64 count = 0ull;
 
@@ -33,16 +38,7 @@ u64 Search::perft(int depth)
   timer.start();
 
   MoveList ml;
-  if (B->color)
-  {
-    B->generate_attacks<White>(ml);
-    B->generate_quiets<White>(ml);
-  }
-  else
-  {
-    B->generate_attacks<Black>(ml);
-    B->generate_quiets<Black>(ml);
-  }
+  B->generate_all(ml);
 
   while (!ml.is_empty())
   {
@@ -71,21 +67,12 @@ u64 Search::perft(int depth)
   return count;
 }
 
-u64 Search::perft_inner(int depth)
+u64 SolverPVS::perft_inner(int depth)
 {
   if (depth <= 0) return 1;
 
   MoveList ml;
-  if (B->color)
-  {
-    B->generate_attacks<White>(ml);
-    B->generate_quiets<White>(ml);
-  }
-  else
-  {
-    B->generate_attacks<Black>(ml);
-    B->generate_quiets<Black>(ml);
-  }
+  B->generate_all(ml);
 
   u64 count = 0ull;
   while (!ml.is_empty())
@@ -101,25 +88,25 @@ u64 Search::perft_inner(int depth)
   return count;
 }
 
-void Search::shift_killers()
+void SolverPVS::shift_killers()
 {
 }
 
-bool Search::time_lack() const
+bool SolverPVS::time_lack() const
 {
   return false;
 }
 
-void Search::check_input() const
+void SolverPVS::check_input() const
 {
 }
 
-int Search::pvs(int alpha, int beta, int depth)
+int SolverPVS::pvs(int alpha, int beta, int depth)
 {
   return 0;
 }
 
-int Search::qs(int alpha, int beta)
+int SolverPVS::qs(int alpha, int beta)
 {
   return 0;
 }

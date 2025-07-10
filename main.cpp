@@ -4,15 +4,16 @@
 #include "piece.h"
 #include "moves.h"
 #include "board.h"
-#include "search.h"
+#include "engine.h"
+#include "solver_pvs.h"
 
 using namespace std;
 using namespace eia;
 
 int main()
 {
-  Search S(new Engine);
-  S.perft(6);
+  Engine * E = new Engine;
+  E->start();
 
   return 0;
 }

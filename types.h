@@ -4,6 +4,7 @@
 
 namespace eia {
 
+#define NOMINMAX
 #define INLINE inline constexpr
 #define ALIGN64 alignas(64)
 
@@ -20,7 +21,7 @@ using u64 = unsigned long long;
 using MB = u32; // megabytes
 using MS = u64; // milliseconds
 
-const int I32_MIN = std::numeric_limits<int>::min();
-const i64 I64_MIN = std::numeric_limits<i64>::min();
+template<typename T>
+using limits = std::numeric_limits<T>;
 
 }

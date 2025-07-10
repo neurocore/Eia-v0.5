@@ -20,21 +20,20 @@ class MoveList
   MoveVal * first, * last, * curr;
 
 public:
-  MoveList()   { clear(); }
-  void clear() { first = last = curr = &moves[0]; }
+  MoveList()    { clear(); }
+  void clear()  { first = last = curr = &moves[0]; }
+  void rewind() { curr = &moves[0]; }
 
   bool   empty() const { return last == first; }
   size_t count() const { return last -  first; }
-  //void   pop_front()   { remove_curr(); }
-  //Move   front()       { return move(*first); }
 
   Move   get_next()    { return move(*(curr++)); }
   bool   is_empty()    { return curr >= last; }
 
-  //void remove_curr()   { remove(curr); }
+  void remove_curr()   { remove(curr); }
   void reveal_pocket() { first = &moves[0]; }
 
-  Move get_best(i64 lower_bound = I64_MIN);
+  Move get_best(i64 lower_bound = limits<i64>::min());
   void remove_move(Move move);
 
   void add(Move move)

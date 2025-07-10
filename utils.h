@@ -20,11 +20,12 @@ INLINE ptrdiff_t index_of(std::string_view str, char ch)
   return it != str.end() ? it - str.begin() : -1;
 }
 
-INLINE std::string cut(std::string & str, char delim = ' ')
+INLINE std::string cut(std::string & str, std::string delim = " ")
 {
   auto pos = str.find(delim);
   std::string part = str.substr(0, pos);
-  str = str.substr(pos + 1, str.length());
+  str = pos == std::string::npos ? std::string()
+      : str.substr(pos + delim.length(), str.length());
   return part;
 }
 

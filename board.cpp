@@ -9,6 +9,17 @@ using namespace std;
 
 namespace eia {
 
+Board::Board(const Board & board)
+{
+  for (Piece p = BP; p < Piece_N; ++p) piece[p] = board.piece[p];
+  for (SQ sq = A1; sq < SQ_N; ++sq) square[sq] = board.square[sq];
+
+  occ[0] = board.occ[0];
+  occ[1] = board.occ[1];
+  color  = board.color;
+  state  = board.state;
+}
+
 void Board::clear()
 {
   for (Piece p = BP; p < Piece_N; ++p) piece[p] = Empty;
@@ -19,7 +30,7 @@ void Board::clear()
   //threefold.clear();
 }
 
-int Board::phase() const
+INLINE int Board::phase() const
 {
   int phase = Phase::Total
             - Phase::Queen * popcnt(queens())
@@ -29,7 +40,7 @@ int Board::phase() const
   return max(phase, 0);
 }
 
-bool Board::is_draw() const
+INLINE bool Board::is_draw() const
 {
   return false; // TODO
 }
@@ -115,7 +126,7 @@ void Board::print(Move move) const
   cout << move; // TODO: make prettifier
 }
 
-bool Board::is_attacked(SQ sq, u64 o, int opp) const
+INLINE bool Board::is_attacked(SQ sq, u64 o, int opp) const
 {
   const Color c = color ^ opp;
 
@@ -132,7 +143,7 @@ bool Board::is_attacked(SQ sq, u64 o, int opp) const
   return false;
 }
 
-u64 Board::get_attacks(u64 o, SQ sq) const
+INLINE u64 Board::get_attacks(u64 o, SQ sq) const
 {
   u64 att = Empty;
   att |= b_att(o, sq) & diags();
@@ -144,14 +155,14 @@ u64 Board::get_attacks(u64 o, SQ sq) const
   return att;
 }
 
-bool Board::in_check(int opp) const
+INLINE bool Board::in_check(int opp) const
 {
   const Piece p = to_piece(King, color ^ opp);
   const SQ king = bitscan(piece[p]);
   return is_attacked(king, occupied(), opp);
 }
 
-bool Board::castling_attacked(SQ from, SQ to) const
+INLINE bool Board::castling_attacked(SQ from, SQ to) const
 {
   const u64 o = occupied();
   const SQ mid = middle(from, to);
@@ -159,6 +170,43 @@ bool Board::castling_attacked(SQ from, SQ to) const
   return is_attacked(from, o, 1)
       || is_attacked(mid, o, 1)
       || is_attacked(to, o, 1);
+}
+
+INLINE void Board::generate_all(MoveList & ml) const
+{
+  if (color)
+  {
+    generate_attacks<White>(ml);
+    generate_quiets<White>(ml);
+  }
+  else
+  {
+    generate_attacks<Black>(ml);
+    generate_quiets<Black>(ml);
+  }
+}
+
+Move Board::recognize(Move candidate)
+{
+  MoveList ml;
+  Undo undos[2];
+  Undo * undo = &undos[0];
+
+  generate_all(ml);
+
+  while (!ml.is_empty())
+  {
+    Move move = ml.get_next();
+    bool success = make(move, undo);
+    unmake(move, undo);
+
+    if (success && similar(move, candidate))
+    {
+      cout << "recognized " << move << " as " << candidate << "\n";
+      return move;
+    }
+  }
+  return Move::None;
 }
 
 bool Board::make(Move move, Undo *& undo)

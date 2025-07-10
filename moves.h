@@ -1,6 +1,7 @@
 #pragma once
 #include <iostream>
 #include <string>
+#include <format>
 #include <array>
 #include "piece.h"
 #include "utils.h"
@@ -38,6 +39,22 @@ INLINE Move to_move(SQ from, SQ to, MT mt = Quiet)
 
 enum Move : u16 { None = to_move(A1, A1), Null = to_move(B1, B1) };
 
+static Move to_move(std::string str)
+{
+  if (str.length() < 4) return Move::None;
+
+  SQ from = to_sq(str.substr(0, 2));
+  SQ to   = to_sq(str.substr(2, 2));
+  MT mt   = Quiet;
+
+  if (str.length() > 4)
+  {
+    auto type = pt(to_piece(str[5]));
+    mt = static_cast<MT>(NProm - 1 + type);
+  }
+  return to_move(from, to, mt);
+}
+
 INLINE bool is_empty(Move move) { return move == None || move == Null; }
 
 INLINE SQ get_from(Move move) { return static_cast<SQ>(move & 63); } 
@@ -70,6 +87,27 @@ inline std::ostream & operator << (std::ostream & os, Move move)
   os << to_string(get_from(move)) << to_string(get_to(move));
   if (is_prom(move)) os << to_char(promoted(move));
   return os;
+}
+
+INLINE std::string to_string(Move move)
+{
+  std::string str;
+  str += to_string(get_from(move));
+  str += to_string(get_to(move));
+  if (is_prom(move))
+    str += to_char(promoted(move));
+  return str;
+}
+
+INLINE bool similar(Move correct, Move candidate)
+{
+  if (get_from(correct) != get_from(candidate)) return false;
+  if (get_to(correct) != get_to(candidate)) return false;
+
+  const MT mt = get_mt(correct);
+  if (!is_prom(mt)) return true;
+
+  return promoted(correct) != promoted(candidate);
 }
 
 enum class Castling : u8
@@ -181,3 +219,13 @@ INLINE std::string to_string(Castling castling, std::string fill = "")
 }
 
 }
+
+template<>
+struct std::formatter<eia::Move> : std::formatter<std::string>
+{
+  auto format(const eia::Move & move, std::format_context & ctx) const
+  {
+    std::string str = to_string(move);
+    return std::formatter<std::string>::format(str, ctx);
+  }
+};

@@ -41,14 +41,16 @@ struct Board
   Piece square[SQ_N];
 
   State state;
-  Key threefold[3000];
+  //Key threefold[3000];
 
 public:
   Board() { clear(); }  
+  Board(const Board & board);
 
   void clear();
-  int phase() const;
-  bool is_draw() const;
+  //void set(const Board * B);
+  INLINE int phase() const;
+  INLINE bool is_draw() const;
 
   INLINE bool has_pieces(Color col) const
   {
@@ -60,7 +62,6 @@ public:
   {
     return !has_pieces(~col) && !!piece[WP ^ col];
   }
-
 
   INLINE Piece operator [] (const SQ sq) const { return square[sq]; }
   INLINE Color to_move() const { return color; }
@@ -87,10 +88,12 @@ public:
     }
   }*/
 
-  bool is_attacked(SQ sq, u64 o, int opp = 0) const;
-  u64  get_attacks(u64 o, SQ sq) const;
-  bool in_check(int opp = 0) const;
-  bool castling_attacked(SQ from, SQ to) const;
+  INLINE bool is_attacked(SQ sq, u64 o, int opp = 0) const;
+  INLINE u64  get_attacks(u64 o, SQ sq) const;
+  INLINE bool in_check(int opp = 0) const;
+  INLINE bool castling_attacked(SQ from, SQ to) const;
+
+  Move recognize(Move move);
 
   template<bool full = true> void place(SQ sq, Piece p);
   template<bool full = true> void remove(SQ sq);
@@ -98,15 +101,17 @@ public:
   bool make(Move move, Undo *& undo);
   void unmake(Move move, Undo *& undo);
 
+  INLINE void generate_all(MoveList & ml) const;
+
   template<Color COL>
-  void generate_quiets(MoveList & ml);
+  void generate_quiets(MoveList & ml) const;
 
   template<Color COL, bool QS = false>
-  void generate_attacks(MoveList & ml);
+  void generate_attacks(MoveList & ml) const;
 
 private:
   template<Color COL, bool ATT, PieceType PT>
-  INLINE void gen(MoveList & ml);
+  INLINE void gen(MoveList & ml) const;
 
   INLINE u64 pawns()    const { return piece[BP] | piece[WP]; }
   INLINE u64 knights()  const { return piece[BN] | piece[WN]; }
@@ -170,7 +175,7 @@ void Board::remove(SQ sq)
 
 
 template<Color COL, bool ATT, PieceType PT>
-INLINE void Board::gen(MoveList & ml)
+INLINE void Board::gen(MoveList & ml) const
 {
   const Piece p = to_piece(PT, COL);
   const u64 mask = ATT ? occ[~COL] : ~occupied();
@@ -187,7 +192,7 @@ INLINE void Board::gen(MoveList & ml)
 }
 
 template<Color COL>
-void Board::generate_quiets(MoveList & ml)
+void Board::generate_quiets(MoveList & ml) const
 {
   const u64 o = occ[0] | occ[1];
 
@@ -260,7 +265,7 @@ void Board::generate_quiets(MoveList & ml)
 }
 
 template<Color COL, bool QS>
-void Board::generate_attacks(MoveList & ml)
+void Board::generate_attacks(MoveList & ml) const
 {
   const u64 me = occ[color];
   const u64 opp = occ[~color];

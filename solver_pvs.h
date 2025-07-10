@@ -4,6 +4,7 @@
 #include "engine.h"
 #include "board.h"
 #include "timer.h"
+#include "solver.h"
 
 namespace eia {
 
@@ -16,9 +17,8 @@ struct CommandGo
   bool infinite_ = false;
 };
 
-class Search
+class SolverPVS : public Solver
 {
-  Engine * engine = nullptr;
   Undo undos[Limits::Plies];
   Undo * undo;
   Board * B;
@@ -29,10 +29,10 @@ class Search
   u64 nodes;
 
 public:
-  Search(Engine * engine);
-  ~Search();
-  void set(const Board * board) { /*B->set(board);*/ }
-  Move get_move(MS time);
+  SolverPVS(Engine * engine);
+  ~SolverPVS();
+  void set(const Board & board) override;
+  Move get_move(MS time) override;
 
   u64 perft(int depth);
   u64 perft_inner(int depth);
