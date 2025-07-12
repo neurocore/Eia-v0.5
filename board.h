@@ -114,7 +114,10 @@ public:
 
 private:
   template<Color COL, bool ATT, PieceType PT>
-  INLINE void gen(MoveList & ml) const;
+  INLINE void gen_lookup(MoveList & ml) const;
+
+  template<Color COL, bool ATT, bool DIAG>
+  INLINE void gen_slider(MoveList & ml) const;
 
   INLINE u64 pawns()    const { return piece[BP] | piece[WP]; }
   INLINE u64 knights()  const { return piece[BN] | piece[WN]; }
@@ -134,7 +137,7 @@ private:
 template<PieceType PT>
 INLINE u64 Board::attack(SQ sq) const
 {
-        if constexpr (PT == Bishop) return b_att(occupied(), sq);
+       if constexpr (PT == Bishop) return b_att(occupied(), sq);
   else if constexpr (PT == Rook)   return r_att(occupied(), sq);
   else if constexpr (PT == Queen)  return q_att(occupied(), sq);
 
@@ -178,13 +181,32 @@ void Board::remove(SQ sq)
 
 
 template<Color COL, bool ATT, PieceType PT>
-INLINE void Board::gen(MoveList & ml) const
+INLINE void Board::gen_lookup(MoveList & ml) const
 {
-  const Piece p = to_piece(PT, COL);
+  constexpr MT type = ATT ? Cap : Quiet;
+  constexpr Piece p = to_piece(PT, COL);
   const u64 mask = ATT ? occ[~COL] : ~occupied();
-  const MT type = ATT ? Cap : Quiet;
 
   for (u64 bb = piece[p]; bb; bb = rlsb(bb))
+  {
+    const SQ s = bitscan(bb);
+    for (u64 att = attack<PT>(s) & mask; att; att = rlsb(att))
+    {
+      ml.add_move(s, bitscan(att), type);
+    }
+  }
+}
+
+template<Color COL, bool ATT, bool DIAG>
+INLINE void Board::gen_slider(MoveList & ml) const
+{
+  constexpr MT type = ATT ? Cap : Quiet;
+  constexpr PieceType PT = DIAG ? Bishop : Rook;
+  const u64 mask = ATT ? occ[~COL] : ~occupied();
+  u64 bb = DIAG ? piece[BB ^ COL] | piece[BQ ^ COL]
+                : piece[BR ^ COL] | piece[BQ ^ COL];
+
+  for (; bb; bb = rlsb(bb))
   {
     const SQ s = bitscan(bb);
     for (u64 att = attack<PT>(s) & mask; att; att = rlsb(att))
@@ -199,11 +221,10 @@ void Board::generate_quiets(MoveList & ml) const
 {
   const u64 o = occ[0] | occ[1];
 
-  gen<COL, false, Knight>(ml);
-  gen<COL, false, Bishop>(ml);
-  gen<COL, false, Rook>(ml);
-  gen<COL, false, Queen>(ml);
-  gen<COL, false, King>(ml);
+  gen_lookup<COL, false, Knight>(ml);
+  gen_lookup<COL, false, King>(ml);
+  gen_slider<COL, false, true>(ml);
+  gen_slider<COL, false, false>(ml);
 
   // Castlings
   if constexpr (COL)
@@ -239,14 +260,14 @@ void Board::generate_quiets(MoveList & ml) const
     for (u64 bb = pawns & shift_d(~o) & ~Rank7; bb; bb = rlsb(bb))
     {
       SQ s = bitscan(bb);
-      ml.add_move(s, s + 8);
+      ml.add_move(s, s + 8, PawnMove);
     }
 
     // Double move
     for (u64 bb = pawns & (~o >> 8) & (~o >> 16) & Rank2; bb; bb = rlsb(bb))
     {
       SQ s = bitscan(bb);
-      ml.add_move(s, s + 16, Pawn2);
+      ml.add_move(s, s + 16, PawnMove);
     }
   }
   else
@@ -255,14 +276,14 @@ void Board::generate_quiets(MoveList & ml) const
     for (u64 bb = pawns & shift_u(~o) & ~Rank2; bb; bb = rlsb(bb))
     {
       SQ s = bitscan(bb);
-      ml.add_move(s, s - 8);
+      ml.add_move(s, s - 8, PawnMove);
     }
 
     // Double move
     for (u64 bb = pawns & (~o << 8) & (~o << 16) & Rank7; bb; bb = rlsb(bb))
     {
       SQ s = bitscan(bb);
-      ml.add_move(s, s - 16, Pawn2);
+      ml.add_move(s, s - 16, PawnMove);
     }
   }
 }
@@ -274,11 +295,10 @@ void Board::generate_attacks(MoveList & ml) const
   const u64 opp = occ[~color];
   const u64 o = me | opp;
 
-  gen<COL, true, Knight>(ml);
-  gen<COL, true, Bishop>(ml);
-  gen<COL, true, Rook>(ml);
-  gen<COL, true, Queen>(ml);
-  gen<COL, true, King>(ml);
+  gen_lookup<COL, true, Knight>(ml);
+  gen_lookup<COL, true, King>(ml);
+  gen_slider<COL, true, true>(ml);
+  gen_slider<COL, true, false>(ml);
 
   Piece p = to_piece(Pawn, color);
 

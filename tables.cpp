@@ -148,6 +148,17 @@ const std::array<SQ_BB, Color_N> att_span = []
   return result;
 }();
 
+const std::array<SQ_SQ, SQ_N + 1> ep_square = []
+{
+  std::array<SQ_SQ, SQ_N + 1> result{};
+  for (int i = 0; i < 8; ++i)
+  {
+    result[to_sq(i, 1)][to_sq(i, 3)] = to_sq(i, 2);
+    result[to_sq(i, 6)][to_sq(i, 4)] = to_sq(i, 5);
+  }
+  return result;
+}();
+
 const SQ_BB adj_files = []
 {
   SQ_BB result{};

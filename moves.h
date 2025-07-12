@@ -11,7 +11,7 @@ namespace eia {
 enum MT : u16 // Move type
 {
   Quiet,     // PC12 (Promotion, Capture, Flag_1, Flag_2)
-  Pawn2,
+  PawnMove,  // 0001
   KCastle,   // 0010
   QCastle,   // 0011
   Cap,       // 0100
@@ -24,7 +24,7 @@ enum MT : u16 // Move type
   BCapProm,  // 1101
   RCapProm,  // 1110
   QCapProm,  // 1111
-  size       //   ^^ = (promoted - 1)
+  MT_N       //   ^^ = (promoted - 1)
 };
 
 // | 0..5 | 6..11 | 12..15 | = 16 bits
@@ -66,7 +66,7 @@ INLINE bool is_prom(MT mt) { return !!(mt & NProm); }
 INLINE bool is_attack(MT mt) { return !!(mt & NCapProm); }
 
 INLINE bool is_ep(MT mt)     { return mt == Ep; }
-INLINE bool is_pawn2(MT mt)  { return mt == Pawn2; }
+INLINE bool is_pawn(MT mt)   { return mt == PawnMove; }
 INLINE bool is_castle(MT mt) { return mt == KCastle || mt == QCastle; }
 
 INLINE bool is_cap(Move move) { return !!(move & (Cap << 12)); }
@@ -74,7 +74,7 @@ INLINE bool is_prom(Move move) { return !!(move & (NProm << 12)); }
 INLINE bool is_attack(Move move) { return !!(move & (NCapProm << 12)); }
 
 INLINE bool is_ep(Move move)     { return is_ep(get_mt(move)); }
-INLINE bool is_pawn2(Move move)  { return is_pawn2(get_mt(move)); }
+INLINE bool is_pawn(Move move)   { return is_pawn(get_mt(move)); }
 INLINE bool is_castle(Move move) { return is_castle(get_mt(move)); }
 
 INLINE PieceType promoted(MT mt) { return static_cast<PieceType>(1 + (mt & 3)); }

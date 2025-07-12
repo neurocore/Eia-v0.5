@@ -334,21 +334,22 @@ bool Board::make(Move move, Undo *& undo)
       break;
     }
 
-    case Pawn2: // ---------- FALL THROUGH! ------------
+    case PawnMove:
     {
-      state.ep = middle(from, to);
+      state.fifty = 0;
+      remove(from);
+      place(to, p);
+      state.ep = ep_square[from][to];
+      break;
     }
 
     default:
     {
       assert(square[to] == NOP);
+      irreversible = false;
       remove(from);
       place(to, p);
-
-      if (is<Pawn>(p))
-        state.fifty = 0;
-      else
-        irreversible = false;
+      break;
     }
   }
 
