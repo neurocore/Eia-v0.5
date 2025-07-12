@@ -44,7 +44,8 @@ namespace Pos
 {
   const std::string Init = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
   const std::string Fine = "8/k7/3p4/p2P1p2/P2P1P2/8/8/K7 w - -";
-  const std::string Kiwi = "8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - -";
+  const std::string Pos3 = "8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - -";
+  const std::string Pos4 = "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1";
   const std::string See1 = "1k1r4/1pp4p/p7/4p3/8/P5P1/1PP4P/2K1R3 w - -"; // Re1e5?
   const std::string See2 = "1k1r3q/1ppn3p/p4b2/4p3/8/P2N2P1/1PP1R1BP/2K1Q3 w - -"; // Nd3e5?
   const std::string Mith = "8/k7/P2b2P1/KP1Pn2P/4R3/8/6np/8 w - - 0 1"; // b6! Re1!!

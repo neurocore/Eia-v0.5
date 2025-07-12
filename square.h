@@ -1,4 +1,5 @@
 #pragma once
+#include <format>
 #include <string>
 #include <utility>
 #include <iostream>
@@ -68,3 +69,13 @@ INLINE int k_dist(SQ a, SQ b) // Chebyshev or king distance
 }
 
 }
+
+template<>
+struct std::formatter<eia::SQ> : std::formatter<std::string>
+{
+  auto format(const eia::SQ & sq, std::format_context & ctx) const
+  {
+    std::string str = to_string(sq);
+    return std::formatter<std::string>::format(str, ctx);
+  }
+};

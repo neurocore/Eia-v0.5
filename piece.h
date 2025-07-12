@@ -1,4 +1,5 @@
 #pragma once
+#include <format>
 #include "bitboard.h"
 #include "utils.h"
 
@@ -48,3 +49,13 @@ template<PieceType pt>
 INLINE bool is(Piece p) { return (p >> 1) == pt; }
 
 }
+
+template<>
+struct std::formatter<eia::Piece> : std::formatter<std::string>
+{
+  auto format(const eia::Piece & p, std::format_context & ctx) const
+  {
+    std::string str = std::string() + to_char(p);
+    return std::formatter<std::string>::format(str, ctx);
+  }
+};

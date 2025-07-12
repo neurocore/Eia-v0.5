@@ -9,8 +9,6 @@ SolverPVS::SolverPVS(Engine * engine) : Solver(engine)
 {
   B = new Board;
   undo = &undos[0];
-
-  B->set(Pos::Init); // TODO: move to engine
 }
 
 SolverPVS::~SolverPVS()

@@ -1,4 +1,5 @@
 #include <utility>
+#include <format>
 #include "board.h"
 #include "tables.h"
 #include "magics.h"
@@ -101,13 +102,58 @@ std::string Board::to_fen()
   return fen;
 }
 
+bool Board::is_correct(std::string & details) const
+{
+  // piece[] -> square[] mapping
+  for (Piece p = BP; p < Piece_N; ++p)
+  {
+    for (u64 bb = piece[p]; bb; bb = rlsb(bb))
+    {
+      SQ sq = bitscan(bb);
+      if (square[sq] != p)
+      {
+        details += format("square[{}] = {} != {}\n", sq, square[sq], p);
+      }
+    }
+  }
+
+  // square[] -> piece[] mapping
+  for (SQ sq = A1; sq < SQ_N; ++sq)
+  {
+    Piece p = square[sq];
+    if (p < NOP && !(piece[p] & bit(sq)))
+    {
+      details += format("piece[{}] not have bit({})\n", p, sq);
+    }
+  }
+
+  return details.empty();
+}
+
+bool Board::operator == (const Board & board) const
+{
+  if (color  != board.color)  return false;
+  if (occ[0] != board.occ[0]) return false;
+  if (occ[1] != board.occ[1]) return false;
+
+  for (Piece p = BP; p < Piece_N; ++p)
+    if (piece[p] != board.piece[p]) return false;
+
+  for (SQ sq = A1; sq < SQ_N; ++sq)
+    if (square[sq] != board.square[sq]) return false;
+
+  state;
+
+  return true;
+}
+
 void Board::print() const
 {
-  for (int y = 7; y >= 0; y--)
+  for (int y = 7; y >= 0; --y)
   {
     cout << ' ' << (y + 1) << " | ";
 
-    for (int x = 0; x < 8; x++)
+    for (int x = 0; x < 8; ++x)
     {
       SQ sq = to_sq(x, y);
       Piece p = square[sq];
@@ -116,8 +162,9 @@ void Board::print() const
     }
     cout << "\n";
   }
-  cout << "   +----------------   ";
-  cout << (color ? "<W>" : "<B>") << "\n";
+  cout << "   +----------------  ";
+  cout << (color ? "<W>" : "<B>") << " ";
+  cout << to_string(state.castling) << "\n";
   cout << "     a b c d e f g h   \n\n";
 }
 
@@ -167,9 +214,9 @@ INLINE bool Board::castling_attacked(SQ from, SQ to) const
   const u64 o = occupied();
   const SQ mid = middle(from, to);
 
-  return is_attacked(from, o, 1)
-      || is_attacked(mid, o, 1)
-      || is_attacked(to, o, 1);
+  return is_attacked(from, o)
+      || is_attacked(mid, o)
+      || is_attacked(to, o);
 }
 
 INLINE void Board::generate_all(MoveList & ml) const
@@ -202,7 +249,7 @@ Move Board::recognize(Move candidate)
 
     if (success && similar(move, candidate))
     {
-      cout << "recognized " << move << " as " << candidate << "\n";
+      //cout << "recognized " << move << " as " << candidate << "\n";
       return move;
     }
   }
@@ -313,25 +360,6 @@ bool Board::make(Move move, Undo *& undo)
   {
     unmake(move, undo);
     return false;
-  }
-
-  switch (mt)
-  {
-    case KCastle: case QCastle:
-    {
-      const u64 o = occupied();
-      const SQ mid = middle(from, to);
-
-      if (is_attacked(from, o, 1)
-      ||  is_attacked(mid, o, 1)
-      ||  is_attacked(to, o, 1))
-      {
-        unmake(move, undo);
-        return false;
-      }
-      break;
-    }
-    default: break;
   }
 
   undo->curr = move;

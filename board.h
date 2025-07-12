@@ -1,4 +1,5 @@
 #pragma once
+#include <string>
 #include <cassert>
 #include "consts.h"
 #include "movelist.h"
@@ -48,7 +49,6 @@ public:
   Board(const Board & board);
 
   void clear();
-  //void set(const Board * B);
   INLINE int phase() const;
   INLINE bool is_draw() const;
 
@@ -62,6 +62,9 @@ public:
   {
     return !has_pieces(~col) && !!piece[WP ^ col];
   }
+
+  bool is_correct(std::string & details) const;
+  bool operator == (const Board & board) const;
 
   INLINE Piece operator [] (const SQ sq) const { return square[sq]; }
   INLINE Color to_move() const { return color; }
@@ -318,8 +321,7 @@ void Board::generate_attacks(MoveList & ml) const
 
     if (state.ep) // En passant
     {
-      const Piece p = to_piece(Pawn, ~color);
-      for (u64 bb = piece[p] & atts[p][state.ep]; bb; bb = rlsb(bb))
+      for (u64 bb = piece[p] & atts[p ^ 1][state.ep]; bb; bb = rlsb(bb))
       {
         ml.add_move(bitscan(bb), state.ep, Ep);
       }
@@ -364,8 +366,7 @@ void Board::generate_attacks(MoveList & ml) const
 
     if (state.ep) // En passant
     {
-      const Piece p = to_piece(Pawn, ~color);
-      for (u64 bb = piece[p] & atts[p][state.ep]; bb; bb = rlsb(bb))
+      for (u64 bb = piece[p] & atts[p ^ 1][state.ep]; bb; bb = rlsb(bb))
       {
         ml.add_move(bitscan(bb), state.ep, Ep);
       }
