@@ -92,9 +92,17 @@ public:
   }*/
 
   INLINE bool is_attacked(SQ sq, u64 o, int opp = 0) const;
-  INLINE u64  get_attacks(u64 o, SQ sq) const;
+  INLINE u64  get_all_attackers(u64 o, SQ sq) const;
   INLINE bool in_check(int opp = 0) const;
   INLINE bool castling_attacked(SQ from, SQ to) const;
+  INLINE u64  king_attackers(int opp = 0) const;
+  INLINE u64  opp_attacks() const;
+
+  template<Color COL>
+  INLINE u64  king_attrs() const;
+
+  template<Color COL>
+  INLINE u64  opp_atts() const;
 
   Move recognize(Move move);
 
@@ -114,10 +122,10 @@ public:
 
 private:
   template<Color COL, bool ATT, PieceType PT>
-  INLINE void gen_lookup(MoveList & ml) const;
+  INLINE void gen_lookup(MoveList & ml, u64 mask) const;
 
   template<Color COL, bool ATT, bool DIAG>
-  INLINE void gen_slider(MoveList & ml) const;
+  INLINE void gen_slider(MoveList & ml, u64 mask) const;
 
   INLINE u64 pawns()    const { return piece[BP] | piece[WP]; }
   INLINE u64 knights()  const { return piece[BN] | piece[WN]; }
@@ -142,6 +150,63 @@ INLINE u64 Board::attack(SQ sq) const
   else if constexpr (PT == Queen)  return q_att(occupied(), sq);
 
   return atts[to_piece(PT, Black)][sq];
+}
+
+template<Color COL>
+INLINE u64 Board::king_attrs() const
+{
+  u64 att = Empty;
+  const u64 o = occupied();
+  const SQ king = bitscan(piece[BK ^ COL]);
+
+  const u64 bq = piece[WB ^ COL] | piece[WQ ^ COL];
+  const u64 rq = piece[WR ^ COL] | piece[WQ ^ COL];
+
+  att |= b_att(o, king) & bq;
+  att |= r_att(o, king) & rq;
+  att |= atts[BN][king] & piece[WN ^ COL];
+  att |= atts[BP ^ COL][king] & piece[WP ^ COL];
+  return att;
+}
+
+template<Color COL>
+INLINE u64 Board::opp_atts() const
+{
+  u64 att;
+  const u64 o = occupied();
+  const u64 pawns = piece[WP ^ COL];
+
+  if constexpr (COL) att = shift_dl(pawns) | shift_dr(pawns);
+  else               att = shift_ul(pawns) | shift_ur(pawns);
+
+  for (u64 bb = piece[WN ^ COL]; bb; bb = rlsb(bb))
+  {
+    SQ sq = bitscan(bb);
+    att |= atts[WN ^ COL][sq];
+  }
+
+  for (u64 bb = piece[WK ^ COL]; bb; bb = rlsb(bb))
+  {
+    SQ sq = bitscan(bb);
+    att |= atts[WK ^ COL][sq];
+  }
+
+  const u64 bq = piece[WB ^ COL] | piece[WQ ^ COL];
+  const u64 rq = piece[WR ^ COL] | piece[WQ ^ COL];
+
+  for (u64 bb = bq; bb; bb = rlsb(bb))
+  {
+    SQ sq = bitscan(bb);
+    att |= b_att(o, sq);
+  }
+
+  for (u64 bb = rq; bb; bb = rlsb(bb))
+  {
+    SQ sq = bitscan(bb);
+    att |= r_att(o, sq);
+  }
+
+  return att;
 }
 
 template<bool full>
@@ -181,11 +246,10 @@ void Board::remove(SQ sq)
 
 
 template<Color COL, bool ATT, PieceType PT>
-INLINE void Board::gen_lookup(MoveList & ml) const
+INLINE void Board::gen_lookup(MoveList & ml, u64 mask) const
 {
   constexpr MT type = ATT ? Cap : Quiet;
   constexpr Piece p = to_piece(PT, COL);
-  const u64 mask = ATT ? occ[~COL] : ~occupied();
 
   for (u64 bb = piece[p]; bb; bb = rlsb(bb))
   {
@@ -198,11 +262,10 @@ INLINE void Board::gen_lookup(MoveList & ml) const
 }
 
 template<Color COL, bool ATT, bool DIAG>
-INLINE void Board::gen_slider(MoveList & ml) const
+INLINE void Board::gen_slider(MoveList & ml, u64 mask) const
 {
   constexpr MT type = ATT ? Cap : Quiet;
   constexpr PieceType PT = DIAG ? Bishop : Rook;
-  const u64 mask = ATT ? occ[~COL] : ~occupied();
   u64 bb = DIAG ? piece[BB ^ COL] | piece[BQ ^ COL]
                 : piece[BR ^ COL] | piece[BQ ^ COL];
 
@@ -221,43 +284,26 @@ void Board::generate_quiets(MoveList & ml) const
 {
   const u64 o = occ[0] | occ[1];
 
-  gen_lookup<COL, false, Knight>(ml);
-  gen_lookup<COL, false, King>(ml);
-  gen_slider<COL, false, true>(ml);
-  gen_slider<COL, false, false>(ml);
-
-  // Castlings
-  if constexpr (COL)
+  if (several(state.king_atts))
   {
-    if (!!(state.castling & Castling::WK) && !(o & Span_WK))
-    {
-      if (!castling_attacked(E1, G1)) ml.add_move(E1, G1, KCastle);
-    }
-
-    if (!!(state.castling & Castling::WQ) && !(o & Span_WQ))
-    {
-      if (!castling_attacked(E1, C1)) ml.add_move(E1, C1, QCastle);
-    }
+    gen_lookup<COL, false, King>(ml, ~o);
+    return;
   }
-  else
-  {
-    if (!!(state.castling & Castling::BK) && !(o & Span_BK))
-    {
-      if (!castling_attacked(E8, G8)) ml.add_move(E8, G8, KCastle);
-    }
 
-    if (!!(state.castling & Castling::BQ) && !(o & Span_BQ))
-    {
-      if (!castling_attacked(E8, C8)) ml.add_move(E8, C8, QCastle);
-    }
-  }
+  const u64 mask = !state.king_atts ? ~o
+    : between[bitscan(piece[BK ^ COL])][bitscan(state.king_atts)];
+
+  gen_lookup<COL, false, King>(ml, ~o); // special case (!)
+  gen_lookup<COL, false, Knight>(ml, mask);
+  gen_slider<COL, false, true>(ml, mask);
+  gen_slider<COL, false, false>(ml, mask);
 
   u64 pawns = piece[to_piece(Pawn, COL)];
 
   if constexpr (COL)
   {
     // Forward push
-    for (u64 bb = pawns & shift_d(~o) & ~Rank7; bb; bb = rlsb(bb))
+    for (u64 bb = pawns & shift_d(mask) & ~Rank7; bb; bb = rlsb(bb))
     {
       SQ s = bitscan(bb);
       ml.add_move(s, s + 8, PawnMove);
@@ -273,7 +319,7 @@ void Board::generate_quiets(MoveList & ml) const
   else
   {
     // Forward push
-    for (u64 bb = pawns & shift_u(~o) & ~Rank2; bb; bb = rlsb(bb))
+    for (u64 bb = pawns & shift_u(mask) & ~Rank2; bb; bb = rlsb(bb))
     {
       SQ s = bitscan(bb);
       ml.add_move(s, s - 8, PawnMove);
@@ -286,19 +332,63 @@ void Board::generate_quiets(MoveList & ml) const
       ml.add_move(s, s - 16, PawnMove);
     }
   }
+
+  if (state.king_atts) return;
+
+  // Castlings
+  if constexpr (COL)
+  {
+    if (!!(state.castling & Castling::WK)
+    &&   !(o & Span_WK)
+    &&   !(state.threats & Path_WK))
+    {
+      if (!castling_attacked(E1, G1)) ml.add_move(E1, G1, KCastle);
+    }
+
+    if (!!(state.castling & Castling::WQ)
+    &&   !(o & Span_WQ)
+    &&   !(state.threats & Path_WQ))
+    {
+      if (!castling_attacked(E1, C1)) ml.add_move(E1, C1, QCastle);
+    }
+  }
+  else
+  {
+    if (!!(state.castling & Castling::BK)
+    &&   !(o & Span_BK)
+    &&   !(state.threats & Path_BK))
+    {
+      if (!castling_attacked(E8, G8)) ml.add_move(E8, G8, KCastle);
+    }
+
+    if (!!(state.castling & Castling::BQ)
+    &&   !(o & Span_BQ)
+    &&   !(state.threats & Path_BQ))
+    {
+      if (!castling_attacked(E8, C8)) ml.add_move(E8, C8, QCastle);
+    }
+  }
 }
 
 template<Color COL, bool QS>
 void Board::generate_attacks(MoveList & ml) const
 {
-  const u64 me = occ[color];
-  const u64 opp = occ[~color];
+  const u64 me = occ[COL];
+  const u64 opp = occ[~COL];
   const u64 o = me | opp;
 
-  gen_lookup<COL, true, Knight>(ml);
-  gen_lookup<COL, true, King>(ml);
-  gen_slider<COL, true, true>(ml);
-  gen_slider<COL, true, false>(ml);
+  if (several(state.king_atts))
+  {
+    gen_lookup<COL, true, King>(ml, opp);
+    return;
+  }
+
+  const u64 mask = state.king_atts ? state.king_atts : opp;
+
+  gen_lookup<COL, true, King>(ml, opp); // special case (!)
+  gen_lookup<COL, true, Knight>(ml, mask);
+  gen_slider<COL, true, true>(ml, mask);
+  gen_slider<COL, true, false>(ml, mask);
 
   Piece p = to_piece(Pawn, color);
 
@@ -312,28 +402,28 @@ void Board::generate_attacks(MoveList & ml) const
     }
 
     // Promotion with capture
-    for (u64 bb = piece[p] & shift_dl(opp) & Rank7; bb; bb = rlsb(bb))
+    for (u64 bb = piece[p] & shift_dl(mask) & Rank7; bb; bb = rlsb(bb))
     {
       SQ s = bitscan(bb);
       ml.add_capprom<QS>(s, s + 9);
     }
 
     // Promotion with capture
-    for (u64 bb = piece[p] & shift_dr(opp) & Rank7; bb; bb = rlsb(bb))
+    for (u64 bb = piece[p] & shift_dr(mask) & Rank7; bb; bb = rlsb(bb))
     {
       SQ s = bitscan(bb);
       ml.add_capprom<QS>(s, s + 7);
     }
 
     // Right pawn capture
-    for (u64 bb = piece[p] & shift_dl(opp) & ~Rank7; bb; bb = rlsb(bb))
+    for (u64 bb = piece[p] & shift_dl(mask) & ~Rank7; bb; bb = rlsb(bb))
     {
       SQ s = bitscan(bb);
       ml.add_move(s, s + 9, Cap);
     }
 
     // Left pawn capture
-    for (u64 bb = piece[p] & shift_dr(opp) & ~Rank7; bb; bb = rlsb(bb))
+    for (u64 bb = piece[p] & shift_dr(mask) & ~Rank7; bb; bb = rlsb(bb))
     {
       SQ s = bitscan(bb);
       ml.add_move(s, s + 7, Cap);
@@ -357,28 +447,28 @@ void Board::generate_attacks(MoveList & ml) const
     }
 
     // Promotion with capture
-    for (u64 bb = piece[p] & shift_ur(opp) & Rank2; bb; bb = rlsb(bb))
+    for (u64 bb = piece[p] & shift_ur(mask) & Rank2; bb; bb = rlsb(bb))
     {
       SQ s = bitscan(bb);
       ml.add_capprom<QS>(s, s - 9);
     }
 
     // Promotion with capture
-    for (u64 bb = piece[p] & shift_ul(opp) & Rank2; bb; bb = rlsb(bb))
+    for (u64 bb = piece[p] & shift_ul(mask) & Rank2; bb; bb = rlsb(bb))
     {
       SQ s = bitscan(bb);
       ml.add_capprom<QS>(s, s - 7);
     }
 
     // Right pawn capture
-    for (u64 bb = piece[p] & shift_ur(opp) & ~Rank2; bb; bb = rlsb(bb))
+    for (u64 bb = piece[p] & shift_ur(mask) & ~Rank2; bb; bb = rlsb(bb))
     {
       SQ s = bitscan(bb);
       ml.add_move(s, s - 9, Cap);
     }
 
     // Left pawn capture
-    for (u64 bb = piece[p] & shift_ul(opp) & ~Rank2; bb; bb = rlsb(bb))
+    for (u64 bb = piece[p] & shift_ul(mask) & ~Rank2; bb; bb = rlsb(bb))
     {
       SQ s = bitscan(bb);
       ml.add_move(s, s - 7, Cap);

@@ -196,6 +196,11 @@ const u64 Span_WK = bit(F1) | bit(G1);
 const u64 Span_BQ = bit(B8) | bit(C8) | bit(D8);
 const u64 Span_WQ = bit(B1) | bit(C1) | bit(D1);
 
+const u64 Path_BK = bit(E8) | bit(F8) | bit(G8);
+const u64 Path_WK = bit(E1) | bit(F1) | bit(G1);
+const u64 Path_BQ = bit(E8) | bit(D8) | bit(C8);
+const u64 Path_WQ = bit(E1) | bit(D1) | bit(C1);
+
 INLINE Castling to_castling(const char c)
 {
   size_t i = index_of("kKqQ", c);

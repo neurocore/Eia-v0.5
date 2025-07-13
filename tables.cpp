@@ -88,10 +88,12 @@ const std::array<SQ_Val, SQ_N + 1> dir = []
   std::array<SQ_Val, SQ_N + 1> result{};
   for (SQ i = A1; i < SQ_N; ++i)
   {
-    for (SQ j = A1; j < SQ_N; ++j)
+    for (SQ j = i + 1; j < SQ_N; ++j)
     {
       if (int dt = on_line(i, j); dt)
         result[i][j] = dt;
+
+      result[j][i] = -result[i][j];
     }
   }
   return result;
@@ -102,11 +104,13 @@ const std::array<SQ_BB, SQ_N + 1> between = []
   std::array<SQ_BB, SQ_N + 1> result{};
   for (SQ i = A1; i < SQ_N; ++i)
   {
-    for (SQ j = A1; j < SQ_N; ++j)
+    for (SQ j = i + 1; j < SQ_N; ++j)
     {
       if (int dt = on_line(i, j); dt)
         for (int k = i + dt; k < j; k += dt)
           result[i][j] |= Bit << k;
+
+      result[j][i] = result[i][j];
     }
   }
   return result;

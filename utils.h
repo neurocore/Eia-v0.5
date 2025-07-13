@@ -36,19 +36,30 @@ inline int parse_int(const std::string_view str)
   return result;
 }
 
-inline bool input_available()
+class InputHandler
 {
   DWORD mode;
-  static HANDLE hInput = GetStdHandle(STD_INPUT_HANDLE);
-  static BOOL console = GetConsoleMode(hInput, &mode);
+  HANDLE handle = GetStdHandle(STD_INPUT_HANDLE);
+  BOOL console = GetConsoleMode(handle, &mode);
 
-  if (!console)
+public:
+  inline bool input_available()
   {
-    DWORD totalBytesAvail;
-    if (!PeekNamedPipe(hInput, 0, 0, 0, &totalBytesAvail, 0)) return true;
-    return totalBytesAvail;
+    if (!console)
+    {
+      DWORD bytes_avail;
+      if (!PeekNamedPipe(handle, 0, 0, 0, &bytes_avail, 0)) return true;
+      return bytes_avail > 0;
+    }
+    else return _kbhit();
   }
-  else return _kbhit();
-}
+
+  inline bool is_console() const
+  {
+    return console;
+  }
+};
+
+static InputHandler Input;
 
 }

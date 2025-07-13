@@ -36,6 +36,7 @@ INLINE u64 lsb(u64 bb) { return bb & (Empty - bb); }
 INLINE u64 rlsb(u64 bb) { return bb & (bb - Bit); }
 
 INLINE bool only_one(u64 bb) { return bb && !rlsb(bb); }
+INLINE bool several(u64 bb)  { return rlsb(bb) > 0ull; }
 
 INLINE u64 msb(u64 bb)
 {

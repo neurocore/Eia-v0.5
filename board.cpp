@@ -93,6 +93,9 @@ bool Board::set(string fen)
   //state.bhash ^= hash_wtm[color];
   //threefold ~= Key(state.hash, true);
 
+  state.king_atts = king_attackers();
+  state.threats = opp_attacks();
+
   return true;
 }
 
@@ -190,7 +193,8 @@ INLINE bool Board::is_attacked(SQ sq, u64 o, int opp) const
   return false;
 }
 
-INLINE u64 Board::get_attacks(u64 o, SQ sq) const
+// used in SEE
+INLINE u64 Board::get_all_attackers(u64 o, SQ sq) const
 {
   u64 att = Empty;
   att |= b_att(o, sq) & diags();
@@ -217,6 +221,16 @@ INLINE bool Board::castling_attacked(SQ from, SQ to) const
   return is_attacked(from, o)
       || is_attacked(mid, o)
       || is_attacked(to, o);
+}
+
+INLINE u64 Board::king_attackers(int opp) const
+{
+  return color ^ opp ? king_attrs<White>() : king_attrs<Black>();
+}
+
+INLINE u64 Board::opp_attacks() const
+{
+  return color ? opp_atts<White>() : opp_atts<Black>();
 }
 
 INLINE void Board::generate_all(MoveList & ml) const
@@ -362,6 +376,9 @@ bool Board::make(Move move, Undo *& undo)
     unmake(move, undo);
     return false;
   }
+
+  state.king_atts = king_attackers();
+  state.threats = opp_attacks();
 
   undo->curr = move;
   return true;
