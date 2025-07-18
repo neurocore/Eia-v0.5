@@ -5,23 +5,18 @@
 #include "board.h"
 #include "timer.h"
 #include "solver.h"
+#include "eval.h"
 
 namespace eia {
 
-struct CommandGo
-{
-  MS wtime_ = Time::Def;
-  MS btime_ = Time::Def;
-  MS winc_  = Time::Inc;
-  MS binc_  = Time::Inc;
-  bool infinite_ = false;
-};
+enum NodeType { PV, NonPV, Root };
 
 class SolverPVS : public Solver
 {
   Undo undos[Limits::Plies];
   Undo * undo;
   Board * B;
+  Eval * E;
   Timer timer;
 
   int max_ply;
@@ -37,13 +32,18 @@ public:
   u64 perft(int depth);
   u64 perft_inner(int depth);
 
-  void shift_killers();
-  bool time_lack() const;
-  void check_input() const;
-
+  bool abort() const;
   int ply() const { return static_cast<int>(undo - undos); }
+
+  template<NodeType NT>
   int pvs(int alpha, int beta, int depth);
+
   int qs(int alpha, int beta);
 };
+
+// explicit instantiate for use in cpp leads to better compile time
+template int SolverPVS::pvs<PV>(int alpha, int beta, int depth);
+template int SolverPVS::pvs<NonPV>(int alpha, int beta, int depth);
+template int SolverPVS::pvs<Root>(int alpha, int beta, int depth);
 
 }

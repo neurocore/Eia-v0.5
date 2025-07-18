@@ -49,8 +49,11 @@ public:
   Board(const Board & board);
 
   void clear();
-  INLINE int phase() const;
-  INLINE bool is_draw() const;
+  int phase() const;
+  INLINE bool is_draw() const
+  {
+    return false;
+  }
 
   INLINE bool has_pieces(Color col) const
   {

@@ -3,6 +3,7 @@
 #include <conio.h>
 #include <string_view>
 #include <string>
+#include <iostream>
 #include <charconv>
 #include <algorithm>
 #include "types.h"
@@ -29,9 +30,9 @@ INLINE std::string cut(std::string & str, std::string delim = " ")
   return part;
 }
 
-inline int parse_int(const std::string_view str)
+inline int parse_int(const std::string_view str, int def = 0)
 {
-  int result = 0;
+  int result = def;
   std::from_chars(str.data(), str.data() + str.size(), result);
   return result;
 }
@@ -43,7 +44,7 @@ class InputHandler
   BOOL console = GetConsoleMode(handle, &mode);
 
 public:
-  inline bool input_available()
+  inline bool available()
   {
     if (!console)
     {
@@ -61,5 +62,20 @@ public:
 };
 
 static InputHandler Input;
+
+template<bool flush = false, typename... Args>
+INLINE void say(std::format_string<Args...> fmt, Args&&... args)
+{
+  std::cout << std::format(fmt, std::forward<Args>(args)...);
+  if constexpr (flush) std::cout.flush();
+}
+
+template<typename... Args>
+INLINE void log(std::format_string<Args...> fmt, Args&&... args)
+{
+#ifdef _DEBUG
+  std::cout << std::format(fmt, std::forward<Args>(args)...);
+#endif
+}
 
 }

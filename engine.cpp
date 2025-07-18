@@ -11,6 +11,8 @@ Engine::Engine()
 {
   S[0] = new SolverPVS(this);
   S[1] = new Reader(this);
+  cout.sync_with_stdio(false);
+  cin.sync_with_stdio(false);
 }
 
 Engine::~Engine()
@@ -124,7 +126,17 @@ bool Engine::parse(string str)
   {
     SearchParams sp;
 
-    // TODO!
+    string part;
+    while(!(part = cut(str)).empty())
+    {
+      if      (part == "wtime") { sp.time[1] = parse_int(cut(str), Time::Def); break; }
+      else if (part == "btime") { sp.time[0] = parse_int(cut(str), Time::Def); break; }
+      else if (part == "winc")  { sp.inc[1] = parse_int(cut(str), Time::Inc); break; }
+      else if (part == "binc")  { sp.inc[0] = parse_int(cut(str), Time::Inc); break; }
+      else if (part == "infinite") { sp.infinite = true; break; }
+      else break;
+    }
+    go(sp);
   }
   else if (cmd == "")
   {

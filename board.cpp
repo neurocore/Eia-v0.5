@@ -31,19 +31,14 @@ void Board::clear()
   //threefold.clear();
 }
 
-INLINE int Board::phase() const
+int Board::phase() const
 {
   int phase = Phase::Total
             - Phase::Queen * popcnt(queens())
             - Phase::Rook  * popcnt(rooks())
             - Phase::Light * popcnt(lights());
 
-  return max(phase, 0);
-}
-
-INLINE bool Board::is_draw() const
-{
-  return false; // TODO
+  return std::max(phase, 0);
 }
 
 bool Board::set(string fen)
@@ -259,7 +254,7 @@ Move Board::recognize(Move candidate)
   {
     Move move = ml.get_next();
     bool success = make(move, undo);
-    unmake(move, undo);
+    if (success) unmake(move, undo);
 
     if (success && similar(move, candidate))
     {
@@ -282,7 +277,7 @@ bool Board::make(Move move, Undo *& undo)
 
   (undo++)->state = state;
 
-  state.castling &= uncastle[from] & uncastle[to];    
+  state.castling &= uncastle[from] & uncastle[to];
   state.cap = square[to];
   state.ep = SQ_N;
   state.fifty++;

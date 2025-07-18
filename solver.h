@@ -10,8 +10,8 @@ class Solver
 {
 protected:
   Engine * engine = nullptr;
-  bool thinking = false;
-  bool infinite = false;
+  mutable bool thinking = false;
+  mutable bool infinite = false;
 
 public:
   Solver(Engine * engine) : engine(engine) {}
