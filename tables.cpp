@@ -163,13 +163,47 @@ const std::array<SQ_SQ, SQ_N + 1> ep_square = []
   return result;
 }();
 
-const SQ_BB adj_files = []
+const SQ_BB isolator = []
 {
   SQ_BB result{};
   for (SQ sq = A1; sq < SQ_N; ++sq)
   {
     result[sq]  = file(sq) > 0 ? file_bb[file(sq) - 1] : Empty;
     result[sq] |= file(sq) < 7 ? file_bb[file(sq) + 1] : Empty;
+  }
+  return result;
+}();
+
+const std::array<SQ_BB, Color_N> att_rear = []
+{
+  std::array<SQ_BB, Color_N> result{};
+  for (SQ sq = A1; sq < SQ_N; ++sq)
+  {
+    result[0][sq] = att_span[0][sq] ^ isolator[sq];
+    result[1][sq] = att_span[1][sq] ^ isolator[sq];
+  }
+  return result;
+}();
+
+const std::array<SQ_BB, Color_N> psupport = []
+{
+  std::array<SQ_BB, Color_N> result{};
+  for (SQ sq = A1; sq < SQ_N; ++sq)
+  {
+    u64 adj = rank_bb[rank(sq)] & isolator[sq];
+    result[0][sq] = adj | atts[WP][sq];
+    result[1][sq] = adj | atts[BP][sq];
+  }
+  return result;
+}();
+
+const std::array<SQ_BB, Color_N> kingzone = []
+{
+  std::array<SQ_BB, Color_N> result{};
+  for (SQ sq = A1; sq < SQ_N; ++sq)
+  {
+    result[0][sq] = (atts[BK][sq] | (atts[BK][sq] >> 8)) ^ bit(sq);
+    result[1][sq] = (atts[WK][sq] | (atts[WK][sq] << 8)) ^ bit(sq);
   }
   return result;
 }();

@@ -7,10 +7,31 @@ using namespace std;
 
 namespace eia {
 
+// from Toga
+const int safety_table[100] =
+{
+    0,   0,   1,   2,   3,   5,   7,   9,  12,  15,
+   18,  22,  26,  30,  35,  39,  44,  50,  56,  62,
+   68,  75,  82,  85,  89,  97, 105, 113, 122, 131,
+  140, 150, 169, 180, 191, 202, 213, 225, 237, 248,
+  260, 272, 283, 295, 307, 319, 330, 342, 354, 366,
+  377, 389, 401, 412, 424, 436, 448, 459, 471, 483,
+  494, 500, 500, 500, 500, 500, 500, 500, 500, 500,
+  500, 500, 500, 500, 500, 500, 500, 500, 500, 500,
+  500, 500, 500, 500, 500, 500, 500, 500, 500, 500,
+  500, 500, 500, 500, 500, 500, 500, 500, 500, 500
+};
+
+const int weakness_push_table[] =
+{
+  128, 106, 86, 68, 52, 38, 26, 16, 8, 2
+};
+
 int Eval::eval(const Board * B, int alpha, int beta)
 {
+  ei.clear(B);
   int val = 0;
-    
+
   for (int i = 0; i < BK; i++) // material
   {
     const u64 bb = B->piece[i];
@@ -28,7 +49,7 @@ int Eval::eval(const Board * B, int alpha, int beta)
   //}
 
   val += evaluate(B); // collecting ei
-  //val += ei.king_safety();
+  val += ei.king_safety(); // TODO: not tapered?
 
   int score = (B->color ? val : -val) + term[Tempo];
   return score * (100 - B->state.fifty) / 100;
@@ -43,7 +64,7 @@ int Eval::evaluate(const Board * B)
   vals += evaluateB<White>(B)  - evaluateB<Black>(B);
   vals += evaluateR<White>(B)  - evaluateR<Black>(B);
   vals += evaluateQ<White>(B)  - evaluateQ<Black>(B);
-  //vals += evaluateK<White>(B)  - evaluateK<Black>(B);
+  vals += evaluateK<White>(B)  - evaluateK<Black>(B);
 
   return vals.tapered(B->phase());
 }
@@ -66,15 +87,15 @@ Duo Eval::evaluateP(const Board * B)
     u64 fore_friendly = front[col][sq] & B->piece[me];
 
     u64 cannot_pass = front[col][sq] & B->piece[opp];
-    //u64 has_support = att_rear[col][sq] & B->piece[me];
+    u64 has_support = att_rear[col][sq] & B->piece[me];
     u64 has_sentry = att_span[col][sq] & B->piece[opp];
 
     // isolated
 
-    /*if (!(isolator[sq] & B->piece[me]))
+    if (!(isolator[sq] & B->piece[me]))
     {
       vals -= Duo::both(term[Isolated]);
-    }*/
+    }
 
     // doubled
 
@@ -85,27 +106,27 @@ Duo Eval::evaluateP(const Board * B)
 
     // blocked weak
 
-    /*if (cannot_pass && !has_support)
+    if (cannot_pass && !has_support)
     {
       ei.add_weak(col, sq);
-    }*/
+    }
 
     // backward
 
-    //if (!has_support && has_sentry)
-    //{
-    //  bool developed = col ? rank(sq) > 3 : rank(sq) < 4;
-    //  if (!developed) vals -= Duo::both(term[Backward]);
+    if (!has_support && has_sentry)
+    {
+      bool developed = col ? rank(sq) > 3 : rank(sq) < 4;
+      if (!developed) vals -= Duo::both(term[Backward]);
 
-    //  //ei.add_weak(col, sq);
-    //}
+      ei.add_weak(col, sq);
+    }
 
     // passers
 
-    if (!cannot_pass && !fore_friendly)
+    /*if (!cannot_pass && !fore_friendly)
     {
-      //vals += eval_passer<col>(B, sq);
-    }
+      vals += eval_passer<col>(B, sq);
+    }*/
   }
   return vals;
 }
@@ -119,6 +140,10 @@ Duo Eval::evaluateN(const Board * B)
   {
     const SQ sq = bitscan(bb);
     const u64 att = B->attack<Knight>(sq);
+
+    // king attacks
+
+    ei.add_attack(col, AttWeight::Light, att);
 
     // pst & mobility
 
@@ -151,6 +176,10 @@ Duo Eval::evaluateB(const Board * B)
     const SQ sq = bitscan(bb);
     const u64 att = B->attack<Bishop>(sq);
 
+    // king attacks
+
+    ei.add_attack(col, AttWeight::Light, att);
+
     // pst & mobility
 
     vals += pst[p][sq];
@@ -182,6 +211,10 @@ Duo Eval::evaluateR(const Board * B)
   {
     const SQ sq = bitscan(bb);
     const u64 att = B->attack<Rook>(sq);
+
+    // king attacks
+
+    ei.add_attack(col, AttWeight::Rook, att);
 
     // pst & mobility
 
@@ -232,6 +265,10 @@ Duo Eval::evaluateQ(const Board * B)
     const SQ sq = bitscan(bb);
     const u64 att = B->attack<Queen>(sq);
 
+    // king attacks
+
+    ei.add_attack(col, AttWeight::Queen, att);
+
     // pst & mobility
 
     vals += pst[p][sq];
@@ -261,6 +298,96 @@ Duo Eval::evaluateQ(const Board * B)
   }
 
   return vals;
+}
+
+template<Color col>
+Duo Eval::evaluateK(const Board * B)
+{
+  Piece p = to_piece(King, col);
+  Duo vals;
+  for (u64 bb = B->piece[p]; bb; bb = rlsb(bb))
+  {
+    const SQ sq = bitscan(bb);
+
+    // pst
+
+    vals += pst[p][sq];
+
+    // pawn weakness
+
+    const int push = ei.weakness(~col, term[WeaknessPush]);
+    vals += Duo::as_eg(push);
+
+    // pawn shield
+
+    u64 pawns = B->piece[BP ^ col];
+    u64 row1 = col ? Rank2 : Rank7;
+    u64 row2 = col ? Rank3 : Rank6;
+
+    if (file(sq) > 4)
+    {
+      if      (pawns & row1 & FileF) vals += Duo::as_op(term[Shield1]);
+      else if (pawns & row2 & FileF) vals += Duo::as_op(term[Shield2]);
+
+      if      (pawns & row1 & FileG) vals += Duo::as_op(term[Shield1]);
+      else if (pawns & row2 & FileG) vals += Duo::as_op(term[Shield2]);
+
+      if      (pawns & row1 & FileH) vals += Duo::as_op(term[Shield1]);
+      else if (pawns & row2 & FileH) vals += Duo::as_op(term[Shield2]);
+    }
+    else
+    {
+      if      (pawns & row1 & FileA) vals += Duo::as_op(term[Shield1]);
+      else if (pawns & row2 & FileA) vals += Duo::as_op(term[Shield2]);
+
+      if      (pawns & row1 & FileB) vals += Duo::as_op(term[Shield1]);
+      else if (pawns & row2 & FileB) vals += Duo::as_op(term[Shield2]);
+
+      if      (pawns & row1 & FileC) vals += Duo::as_op(term[Shield1]);
+      else if (pawns & row2 & FileC) vals += Duo::as_op(term[Shield2]);
+    }
+  }
+  return vals;
+}
+
+//////////////////
+
+void EvalInfo::clear(const Board * B)
+{
+  king[0] = bitscan(B->piece[BK]);
+  king[1] = bitscan(B->piece[WK]);
+  att_weight[0] = att_weight[1] = 0;
+  att_count[0] = att_count[1] = 0;
+  eg_weak[0] = eg_weak[1] = 0;
+  pinned = Empty;
+}
+
+void EvalInfo::add_attack(Color col, AttWeight weight, u64 att)
+{
+  const int count = popcnt(att & kingzone[~col][king[~col]]);
+  att_weight[col] += count * static_cast<int>(weight);
+  att_count[col] += count;
+}
+
+int EvalInfo::king_safety(Color col) const
+{
+  return att_count[col] > 2 ? safety_table[att_weight[col]] : 0;
+}
+
+int EvalInfo::king_safety() const
+{
+  return king_safety(White) - king_safety(Black);
+}
+
+void EvalInfo::add_weak(Color col, SQ sq)
+{
+  int val = weakness_push_table[k_dist(king[col], sq)];
+  if (val > eg_weak[col]) eg_weak[col] = val;
+}
+
+int EvalInfo::weakness(Color col, int bonus) const
+{
+  return eg_weak[col] * bonus / 128;
 }
 
 //////////////////

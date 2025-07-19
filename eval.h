@@ -69,9 +69,30 @@ enum Term
   Term_N
 };
 
+
+enum class AttWeight { Light = 2, Rook = 3, Queen = 5 };
+
 struct Board;
+struct EvalInfo
+{
+  SQ king[Color_N];
+  int att_weight[Color_N];
+  int att_count[Color_N];
+  int eg_weak[Color_N];
+  u64 pinned;
+
+  void clear(const Board * B);
+  void add_attack(Color col, AttWeight weight, u64 att);
+  int king_safety(Color col) const;
+  int king_safety() const;
+  void add_weak(Color col, SQ sq);
+  int weakness(Color col, int bonus) const;
+};
+
+
 class Eval
 {
+  EvalInfo ei;
   int term[Term_N];
 
   int mat[12];
@@ -101,16 +122,11 @@ private:
 };
 
 const int PFile[8] = {-3, -1, +0, +1, +1, +0, -1, -3};
-
 const int NLine[8] = {-4, -2, +0, +1, +1, +0, -2, -4};
 const int NRank[8] = {-2, -1, +0, +1, +2, +3, +2, +1};
-
 const int BLine[8] = {-3, -1, +0, +1, +1, +0, -1, -3};
-
 const int RFile[8] = {-2, -1, +0, +1, +1, +0, -1, -2};
-
 const int QLine[8] = {-3, -1, +0, +1, +1, +0, -1, -3};
-
 const int KLine[8] = {-3, -1, +0, +1, +1, +0, -1, -3};
 const int KFile[8] = {+3, +4, +2, +0, +0, +2, +4, +3};
 const int KRank[8] = {+1, +0, -2, -3, -4, -5, -6, -7};
