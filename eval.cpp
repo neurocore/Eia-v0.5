@@ -123,12 +123,113 @@ Duo Eval::evaluateP(const Board * B)
 
     // passers
 
-    /*if (!cannot_pass && !fore_friendly)
+    if (!cannot_pass && !fore_friendly)
     {
       vals += eval_passer<col>(B, sq);
-    }*/
+    }
   }
   return vals;
+}
+
+template<Color col>
+Duo Eval::eval_passer(const Board * B, SQ sq)
+{
+  const SQ king = ei.king[col];
+  const SQ kopp = ei.king[~col];
+
+  // kpk probe <- TODO
+  int kpk = 0;
+  /*if (!B->has_pieces(col) && !B->has_pieces(~col))
+  {
+    int win = Kpk::probe<col>(col, king, sq, kopp);
+    if (win > 0)
+    {
+      u64 pawns = B->piece[BP] | B->piece[WP];
+      if (only_one(pawns))
+      {
+        kpk += term[Unstoppable];
+      }
+    }
+  }*/
+
+  int v = 0;
+  const Piece p = BP ^ col;
+  const u64 sentries = att_span[col][sq] & B->piece[opp(p)];
+  int prank = col ? rank(sq) : 7 - rank(sq);
+  prank += prank == 1; // double pawn move
+  prank += B->color == col; // tempo
+  const int scale = passer_scale[prank];
+
+  // TODO: decrease scale factor for edge passers
+
+  if (!sentries) // Passer
+  {
+    v += term[Passer] * scale / 256;
+
+    if (!(front[col][sq] & B->occ[col]) // Unstoppable
+    &&  !B->has_pieces(~col))
+    {
+      SQ prom = to_sq(file(sq), col ? 7 : 0);
+      int turn = static_cast<int>(B->color != col);
+
+      // opp king is not in square
+      if (k_dist(kopp, prom) - turn > k_dist(sq, prom))
+      {
+        v += term[Unstoppable];
+      }
+    }
+    else
+    if (!(bit(sq) & (FileA | FileH)) // King passer
+    &&  !B->has_pieces(~col))
+    {
+      SQ prom = to_sq(file(sq), col ? 7 : 0);
+
+      // own king controls all promote path
+      if (file(king) != file(sq)
+      &&  k_dist(king, sq) <= 1
+      &&  k_dist(king, prom) <= 1)
+      {
+        v += term[Unstoppable];
+      }
+    }
+    else // Bonuses for increasing passers potential
+    {
+      if (psupport[col][sq] & B->piece[p]) // Supported
+      {
+        v += term[Supported] * scale / 256;
+      }
+
+      const u64 o = B->occ[0] | B->occ[1];
+      if (!(front_one[col][sq] & o)) // Free passer
+      {
+        SQ stop = col ? sq + 8 : sq - 8;
+        Move move = to_move(sq, stop);
+        /*if (B->see(move) > 0)
+        {
+          v += term[FreePasser];
+        }*/
+      }
+
+      // King tropism to stop square
+
+      SQ stop = col ? sq + 8 : sq - 8;
+      int tropism = 20 * k_dist(kopp, stop)
+                  -  5 * k_dist(king, stop);
+
+      if (tropism > 0) v += tropism;
+    }
+  }
+  else if (only_one(sentries)) // Candidate
+  {
+    SQ j = bitscan(sentries); // simplest case
+    if (front[~col][j] & B->piece[p])
+    {
+      v += term[Candidate] * scale / 256;
+    }
+  }
+
+  v += kpk;
+  return Duo(v / 2, v);
 }
 
 template<Color col>

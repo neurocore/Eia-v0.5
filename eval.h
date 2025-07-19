@@ -119,6 +119,8 @@ private:
   template<Color col> Duo evaluateR(const Board * B);
   template<Color col> Duo evaluateQ(const Board * B);
   template<Color col> Duo evaluateK(const Board * B);
+
+  template<Color col> Duo eval_passer(const Board * B, SQ sq);
 };
 
 const int PFile[8] = {-3, -1, +0, +1, +1, +0, -1, -3};
