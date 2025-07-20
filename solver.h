@@ -1,10 +1,19 @@
 #pragma once
 #include "moves.h"
+#include "movepicker.h"
 
 namespace eia {
 
 struct Board;
 class Engine;
+
+struct Undo
+{
+  State state;
+  MovePicker mp;
+  // Vals pst;
+  Move curr, best;
+};
 
 class Solver
 {

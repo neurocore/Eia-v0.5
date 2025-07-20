@@ -24,15 +24,12 @@ struct State
 
   u64 king_atts = Empty;
   u64 threats = Empty;
+
+  Move killer[2];
+  Move counter;
 };
 
-struct Undo
-{
-  State state;
-  MoveList ml;
-  // Vals pst;
-  Move curr, best;
-};
+struct Undo;
 
 struct Board
 {
@@ -81,19 +78,7 @@ public:
   void print(Move move) const;
 
   template<PieceType PT>
-  INLINE u64 attack(SQ sq) const;
-
-  /*INLINE u64 attack(Piece p, SQ sq) const
-  {
-    switch (p)
-    {
-      case BB: case WB: return attack<Bishop>(sq);
-      case BR: case WR: return attack<Rook>(sq);
-      case BQ: case WQ: return attack<Queen>(sq);
-      default: return atts[p][sq];
-    }
-  }*/
-
+  INLINE u64  attack(SQ sq) const;
   INLINE bool is_attacked(SQ sq, u64 o, int opp = 0) const;
   INLINE u64  get_all_attackers(u64 o, SQ sq) const;
   INLINE bool in_check(int opp = 0) const;
@@ -107,7 +92,9 @@ public:
   template<Color COL>
   INLINE u64  opp_atts() const;
 
+  int see(Move move) const;
   Move recognize(Move move);
+  bool pseudolegal(Move move) const;
 
   template<bool full = true> void place(SQ sq, Piece p);
   template<bool full = true> void remove(SQ sq);
@@ -345,14 +332,14 @@ void Board::generate_quiets(MoveList & ml) const
     &&   !(o & Span_WK)
     &&   !(state.threats & Path_WK))
     {
-      if (!castling_attacked(E1, G1)) ml.add_move(E1, G1, KCastle);
+      ml.add_move(E1, G1, KCastle);
     }
 
     if (!!(state.castling & Castling::WQ)
     &&   !(o & Span_WQ)
     &&   !(state.threats & Path_WQ))
     {
-      if (!castling_attacked(E1, C1)) ml.add_move(E1, C1, QCastle);
+      ml.add_move(E1, C1, QCastle);
     }
   }
   else
@@ -361,14 +348,14 @@ void Board::generate_quiets(MoveList & ml) const
     &&   !(o & Span_BK)
     &&   !(state.threats & Path_BK))
     {
-      if (!castling_attacked(E8, G8)) ml.add_move(E8, G8, KCastle);
+      ml.add_move(E8, G8, KCastle);
     }
 
     if (!!(state.castling & Castling::BQ)
     &&   !(o & Span_BQ)
     &&   !(state.threats & Path_BQ))
     {
-      if (!castling_attacked(E8, C8)) ml.add_move(E8, C8, QCastle);
+      ml.add_move(E8, C8, QCastle);
     }
   }
 }

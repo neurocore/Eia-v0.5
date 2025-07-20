@@ -4,7 +4,7 @@
 #include "tables.h"
 #include "magics.h"
 #include "timer.h"
-#include "search.h"
+#include "solver.h"
 
 using namespace std;
 
@@ -242,6 +242,60 @@ INLINE void Board::generate_all(MoveList & ml) const
   }
 }
 
+int Board::see(Move move) const
+{
+  auto least_valuable_piece = [&](u64 attadef, Color col, Piece & p) -> u64
+  {
+    for (p = BP ^ col; p <= (BK ^ col); p = p + 2)
+    {
+      const u64 subset = attadef & piece[p];
+      if (subset) return lsb(subset);
+    }
+    return Empty;
+  };
+
+  auto consider_xrays = [&](u64 o, SQ sq) -> u64
+  {
+    u64 att = Empty;
+    att |= o & diags() & b_att(o, sq);
+    att |= o & ortho() & r_att(o, sq);
+    return att;
+  };
+
+  const SQ from = get_from(move);
+  const SQ to = get_to(move);
+
+  const int value[] = { 100, 100, 325, 325, 325, 325, 500, 500, 1000, 1000, 20000, 20000, 0, 0 };
+  int gain[32];
+  int d = 0;
+  Piece p = square[from];
+
+  u64 o       = occ[0] | occ[1];
+  u64 xrayers = o ^ (knights() | kings());
+  u64 from_bb = bit(from);
+  u64 attadef = get_all_attackers(o, to) | from_bb;
+  gain[d]     = value[square[to]];
+
+  do
+  {
+    //writeln(attadef.to_bitboard);
+    //writeln(o.to_bitboard);
+    //writefln("gain[%d] = %d", d, gain[d]);
+
+    d++;
+    gain[d]  = value[p] - gain[d - 1]; // speculative store, if defended
+    attadef ^= from_bb; // reset bit in set to traverse
+    o       ^= from_bb; // reset bit in temporary occupancy (for x-Rays)
+
+    if (from_bb & xrayers) attadef |= consider_xrays(o, to);
+    from_bb = least_valuable_piece(attadef, ~col(p), p);
+  }
+  while (from_bb);
+
+  while (--d) gain[d - 1] = -max(-gain[d - 1], gain[d]);
+  return gain[0];
+}
+
 Move Board::recognize(Move candidate)
 {
   MoveList ml;
@@ -258,11 +312,96 @@ Move Board::recognize(Move candidate)
 
     if (success && similar(move, candidate))
     {
-      //cout << "recognized " << move << " as " << candidate << "\n";
       return move;
     }
   }
   return Move::None;
+}
+
+// TODO: test on every generated move
+bool Board::pseudolegal(Move move) const
+{
+  if (is_empty(move)) return false;
+
+  const SQ from  = get_from(move);
+  const SQ to    = get_to(move);
+  const MT mt    = get_mt(move);
+  const Piece p  = square[from];
+  const Piece d  = square[to];
+  const bool cap = is_cap(mt);
+  const bool ep  = is_ep(mt);
+  const u64 o    = occupied();
+
+  if (p == NOP) return false;            // moving piece must exist
+  if (col(p) != color) return false;      // turn must correspond
+  if (between[from][to] & o) return false; // no obstruction for move
+  if (!ep && cap ^ (d < NOP)) return false; // cap flag match with dest
+
+  const u64 att = atts[p][from];
+
+  if ((mt == Quiet) || cap) // simple move (quiet or capture)
+  {
+    if (!(att & bit(to))) return false; // piece can move that way
+  }
+
+  if (is_pawn(p))
+  {
+    if (mt == Ep) return state.ep < NOP && to == state.ep;
+
+    const u64 PromRank = color ? Rank7 : Rank2;
+
+    if (mt == Cap || is_capprom(mt))
+    {
+      if (!(att & bit(to))) return false; // piece can move that way
+      if (is_prom(mt)) return PromRank & bit(from); // correct promotion
+      return true;
+    }
+
+    if (mt == PawnMove || is_prom(mt))
+    {
+      const u64 mov = pmov[color][from];
+      if (!(mov & bit(to))) return false; // piece can move that way
+      if (is_prom(mt)) return PromRank & bit(from); // correct promotion
+      return true;
+    }
+
+    return false;
+  }
+  else if (is_king(p))
+  {
+    if (mt == KCastle)
+    {
+      if (color)
+      {
+        return !!(state.castling & Castling::WK)
+             && !(o & Span_WK)
+             && !(state.threats & Path_WK);
+      }
+      else
+      {
+        return !!(state.castling & Castling::BK)
+             && !(o & Span_BK)
+             && !(state.threats & Path_BK);
+      }
+    }
+    else if (mt == QCastle)
+    {
+      if (color)
+      {
+        return !!(state.castling & Castling::WQ)
+             && !(o & Span_WQ)
+             && !(state.threats & Path_WQ);
+      }
+      else
+      {
+        return !!(state.castling & Castling::BQ)
+             && !(o & Span_BQ)
+             && !(state.threats & Path_BQ);
+      }
+    }
+    else return true;
+  }
+  return true;
 }
 
 bool Board::make(Move move, Undo *& undo)

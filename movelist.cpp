@@ -1,13 +1,14 @@
 #include "movelist.h"
+#include "board.h"
 
 namespace eia {
 
-Move MoveList::get_best(i64 lower_bound)
+Move MoveList::get_best(u64 lower_bound)
 {
   curr = first;
   for (MoveVal * ptr = first + 1; ptr != last; ++ptr)
   {
-    if (*ptr > *curr) curr = ptr;
+    if (value(*ptr) > value(*curr)) curr = ptr;
   }
 
   if (*curr >= lower_bound) return move(*curr);
@@ -25,6 +26,59 @@ void MoveList::remove_move(Move move)
       remove(ptr);
       break;
     }
+  }
+}
+
+void MoveList::value_attacks(const Board * B)
+{
+  const int cost[] = {1, 1, 3, 3, 3, 3, 5, 5, 9, 9, 200, 200, 0, 0};
+  const int prom[] = {0, cost[WN], cost[WB], cost[WR], cost[WQ], 0};
+
+  for (MoveVal * ptr = first; ptr != last; ptr++)
+  {
+    const Move mv = move(*ptr);
+    const SQ from = get_from(move(mv));
+    const SQ to   = get_to(move(mv));
+    const MT mt   = get_mt(move(mv));
+
+    const int a = cost[B->square[from]]; // attack
+    const int v = cost[B->square[to]];  // victim
+
+    u64 val = 0;
+
+    if (is_prom(mt))
+    {
+      int p = prom[promoted(mt)];
+      val = O_WinCap + 100 * (p + v) - a;
+    }
+    else if (is_ep(mt))
+    {
+      val = O_EqCap;
+    }
+    else if (is_cap(mt))
+    {
+      int score = B->see(mv);
+      u64 order = compare(score, 0, O_BadCap, O_EqCap, O_WinCap);
+      val = order + score;
+    }
+
+    *ptr += val << 32;
+  }
+}
+
+void MoveList::value_quiets(const Board * B, const History & history)
+{
+  for (MoveVal * ptr = first; ptr != last; ptr++)
+  {
+    const Move mv = move(*ptr);
+    const SQ from = get_from(move(mv));
+    const SQ to   = get_to(move(mv));
+
+    const bool leave_threat = B->state.threats & bit(from);
+    const bool enter_threat = B->state.threats & bit(to);
+    
+    u64 val = history[B->color][leave_threat][enter_threat][from][to];
+    *ptr += (O_Quiet + val) << 32;
   }
 }
 

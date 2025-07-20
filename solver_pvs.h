@@ -18,6 +18,8 @@ class SolverPVS : public Solver
   Board * B;
   Eval * E;
   Timer timer;
+  Counter counter;
+  History history;
 
   int max_ply;
   MS to_think;
@@ -34,6 +36,7 @@ public:
 
   bool abort() const;
   int ply() const { return static_cast<int>(undo - undos); }
+  void update_moves_stats(int depth);
 
   template<NodeType NT>
   int pvs(int alpha, int beta, int depth);

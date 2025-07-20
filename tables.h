@@ -20,6 +20,7 @@ using SQ_Val = std::array<int, SQ_N + 1>;
 // psupport = (rank | backrank) & isolator
 
 extern const std::array<SQ_BB, Piece_N> atts;
+extern const std::array<SQ_BB, Color_N> pmov;
 extern const std::array<SQ_Val, SQ_N + 1> dir;
 extern const std::array<SQ_BB, SQ_N + 1> between;
 extern const std::array<SQ_BB, Color_N> front_one;

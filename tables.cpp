@@ -72,6 +72,24 @@ const std::array<SQ_BB, Piece_N> atts = []
   return result;
 }();
 
+const std::array<SQ_BB, Color_N> pmov = []
+{
+  std::array<SQ_BB, Color_N> result{};
+
+  for (SQ sq = A1; sq < SQ_N; ++sq)
+  {
+    if (rank(sq) > 0 && rank(sq) < 7)
+    {
+      result[0][sq] = bit(sq) >> 8;
+      result[1][sq] = bit(sq) << 8;
+    }
+
+    if (rank(sq) == 6) result[0][sq] |= bit(sq) >> 16;
+    if (rank(sq) == 1) result[1][sq] |= bit(sq) << 16;
+  }
+  return result;
+}();
+
 constexpr int on_line(SQ i, SQ j)
 {
   int dx = file(j) - file(i);

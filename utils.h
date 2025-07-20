@@ -15,6 +15,12 @@ template<typename T> INLINE int sgn(T val)
   return (T(0) < val) - (val < T(0));
 }
 
+template<typename T, typename R>
+R compare(T a, T b, R less, R equal, R more)
+{
+  return (a < b ? less : (a > b ? more : equal));
+}
+
 INLINE ptrdiff_t index_of(std::string_view str, char ch)
 {
   auto it = std::find(str.begin(), str.end(), ch);

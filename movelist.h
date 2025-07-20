@@ -4,13 +4,15 @@
 
 namespace eia {
                      //   32     16     16
-using MoveVal = i64; // value | 0000 | move
+using MoveVal = u64; // value | 0000 | move
 
 INLINE int value(MoveVal mv) { return mv >> 32; } // compiler be smart
 INLINE Move move(MoveVal mv) { return static_cast<Move>(mv & 0xFFFF); }
 
 // only queen in QS; remove bishop in PVS
 enum class PromMode { QS, PVS, ALL };
+
+struct Board;
 
 // TODO: make cyclic?
 // to hold and pick moves
@@ -33,7 +35,7 @@ public:
   void remove_curr()   { remove(curr); }
   void reveal_pocket() { first = &moves[0]; }
 
-  Move get_best(i64 lower_bound = limits<i64>::min());
+  Move get_best(u64 lower_bound = 0ull);
   void remove_move(Move move);
 
   void add(Move move)
@@ -73,9 +75,23 @@ public:
     }
   }
 
+  void value_attacks(const Board * B);
+  void value_quiets(const Board * B, const History & history);
+
 private:
   // TODO: rid of mixing
   void remove(MoveVal * ptr) { *ptr = *(--last); }
+};
+
+enum Order : int
+{
+  O_Hash    = 0x50000000,
+  O_WinCap  = 0x40000000,
+  O_EqCap   = 0x30000000,
+  O_Killer1 = 0x20000001,
+  O_Killer2 = 0x20000000,
+  O_Quiet   = 0x10000000,
+  O_BadCap  = 0x00000000
 };
 
 }

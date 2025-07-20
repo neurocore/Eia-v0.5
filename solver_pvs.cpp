@@ -59,13 +59,21 @@ u64 SolverPVS::perft(int depth)
 
   timer.start();
 
-  MoveList ml;
+  /*MoveList ml;
   B->generate_all(ml);
 
   while (!ml.is_empty())
   {
     Move move = ml.get_next();
     if (is_empty(move)) break;
+  */
+
+  MovePicker mp; // must be correct
+  mp.init(B, &history, Move::None);
+
+  Move move;
+  for (; !is_empty(move = mp.get_next()); mp.pop_curr())
+  {
     if (!B->make(move, undo)) continue;
 
     say("{}", move);
@@ -92,14 +100,22 @@ u64 SolverPVS::perft_inner(int depth)
 {
   if (depth <= 0) return 1;
 
-  MoveList ml;
+  u64 count = 0ull;
+
+ /* MoveList ml;
   B->generate_all(ml);
 
-  u64 count = 0ull;
   while (!ml.is_empty())
   {
     Move move = ml.get_next();
-    if (is_empty(move)) break;
+    if (is_empty(move)) break;*/
+
+  MovePicker mp; // must be correct
+  mp.init(B, &history, Move::None);
+
+  Move move;
+  for (; !is_empty(move = mp.get_next()); mp.pop_curr())
+  {
     if (!B->make(move, undo)) continue;
 
     count += depth > 1 ? perft_inner(depth - 1) : 1;
@@ -136,11 +152,35 @@ bool SolverPVS::abort() const
   return false;
 }
 
+void SolverPVS::update_moves_stats(int depth)
+{
+  // History table
+
+  const Move move = undo->curr;
+  const SQ from = get_from(move);
+  const SQ to = get_to(move);
+
+  const bool leave = B->state.threats & bit(from);
+  const bool enter = B->state.threats & bit(to);
+
+  history[B->color][leave][enter][from][to] += depth * depth;
+
+  if (ply() > 0) // Counter move
+  {
+    Move prev = (undo - 1)->curr;
+    counter[~B->color][get_from(prev)][get_to(prev)] = move;
+  }
+
+  // Killers
+
+  // TODO
+}
+
 template<NodeType NT>
 int SolverPVS::pvs(int alpha, int beta, int depth)
 {
   const bool in_check = !!B->state.king_atts;
-  //HashType hash_type = HashType.Alpha;
+  //HashType hash_type = HashType::Alpha;
   int val = ply() - Val::Inf;
   undo->best = Move::None;
   nodes++;
@@ -150,14 +190,20 @@ int SolverPVS::pvs(int alpha, int beta, int depth)
 
   int legal = 0;
 
-  MoveList ml;
-  B->generate_all(ml);
+  /*MoveList ml;
+  B->generate_all(ml);*/
 
-  while (!ml.is_empty())
+  MovePicker mp;
+  mp.init(B, &history, Move::None);
+
+  Move move;
+  for (; !is_empty(move = mp.get_next()); mp.pop_curr())
   {
-    Move move = ml.get_next();
-    if (is_empty(move)) break;
     if (!B->make(move, undo)) continue;
+
+    /*for (int i = 0; i < ply(); i++)
+      log("  ");
+    log("{}\n", move);*/
 
     undo->curr = move;
     legal++;
@@ -187,8 +233,10 @@ int SolverPVS::pvs(int alpha, int beta, int depth)
 
       if (val >= beta)
       {
-        //if (!move.is_attack() && !in_check)
-          //update_moves_stats(B.color, move, depth, undo);
+        if (!is_attack(move) && !in_check)
+        {
+          update_moves_stats(depth);
+        }
 
         //hash_type = HashType::Beta;
         break;

@@ -63,7 +63,8 @@ INLINE MT get_mt(Move move) { return static_cast<MT>(move >> 12); }
 
 INLINE bool is_cap(MT mt) { return !!(mt & Cap); }
 INLINE bool is_prom(MT mt) { return !!(mt & NProm); }
-INLINE bool is_attack(MT mt) { return !!(mt & NCapProm); }
+INLINE bool is_capprom(MT mt) { return !!(mt & NCapProm); }
+INLINE bool is_attack(MT mt) { return is_cap(mt) || is_prom(mt); }
 
 INLINE bool is_ep(MT mt)     { return mt == Ep; }
 INLINE bool is_pawn(MT mt)   { return mt == PawnMove; }
@@ -71,7 +72,8 @@ INLINE bool is_castle(MT mt) { return mt == KCastle || mt == QCastle; }
 
 INLINE bool is_cap(Move move) { return !!(move & (Cap << 12)); }
 INLINE bool is_prom(Move move) { return !!(move & (NProm << 12)); }
-INLINE bool is_attack(Move move) { return !!(move & (NCapProm << 12)); }
+INLINE bool is_capprom(Move move) { return !!(move & (NCapProm << 12)); }
+INLINE bool is_attack(Move move) { return is_attack(get_mt(move)); }
 
 INLINE bool is_ep(Move move)     { return is_ep(get_mt(move)); }
 INLINE bool is_pawn(Move move)   { return is_pawn(get_mt(move)); }
@@ -222,6 +224,9 @@ INLINE std::string to_string(Castling castling, std::string fill = "")
   str += has<Castling::BQ>(castling) ? "q" : fill;
   return str;
 }
+
+using History = int[Color_N][2][2][SQ_N][SQ_N];
+using Counter = Move[Color_N][SQ_N][SQ_N];
 
 }
 

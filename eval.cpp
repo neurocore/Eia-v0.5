@@ -204,10 +204,10 @@ Duo Eval::eval_passer(const Board * B, SQ sq)
       {
         SQ stop = col ? sq + 8 : sq - 8;
         Move move = to_move(sq, stop);
-        /*if (B->see(move) > 0)
+        if (B->see(move) > 0)
         {
           v += term[FreePasser];
-        }*/
+        }
       }
 
       // King tropism to stop square
