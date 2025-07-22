@@ -242,6 +242,26 @@ INLINE void Board::generate_all(MoveList & ml) const
   }
 }
 
+void Board::generate_legal(MoveList & ml)
+{
+  Undo undos[2];
+  Undo * undo = &undos[0];
+  MoveList pseudo;
+
+  generate_all(pseudo);
+
+  while (!pseudo.empty())
+  {
+    Move move = pseudo.get_next();
+
+    if (make(move, undo))
+    {
+      unmake(move, undo);
+      ml.add(move);
+    }
+  }
+}
+
 int Board::see(Move move) const
 {
   auto least_valuable_piece = [&](u64 attadef, Color col, Piece & p) -> u64
@@ -304,7 +324,7 @@ Move Board::recognize(Move candidate)
 
   generate_all(ml);
 
-  while (!ml.is_empty())
+  while (!ml.empty())
   {
     Move move = ml.get_next();
     bool success = make(move, undo);
@@ -332,12 +352,15 @@ bool Board::pseudolegal(Move move) const
   const bool ep  = is_ep(mt);
   const u64 o    = occupied();
 
-  if (p == NOP) return false;            // moving piece must exist
-  if (col(p) != color) return false;      // turn must correspond
-  if (between[from][to] & o) return false; // no obstruction for move
-  if (!ep && cap ^ (d < NOP)) return false; // cap flag match with dest
+  if (p == NOP) return false;         // moving piece must exist
+  if (col(p) != color) return false;    // turn must correspond
+  if (is_garbage(mt)) return false;       // garbage move types (6 & 7)
+  if (between[from][to] & o) return false;  // no obstruction for move
+  if (!ep && cap ^ (d < NOP)) return false;   // cap flag match with dest
+  if (d < NOP && col(d) == color) return false; // can't capture own piece
 
-  const u64 att = atts[p][from];
+  const u64 mask = !only_one(state.king_atts) ? ~o : check_ray();
+  const u64 att = atts[p][from] & (is_king(p) ? ~o : mask);
 
   if ((mt == Quiet) || cap) // simple move (quiet or capture)
   {
@@ -346,6 +369,7 @@ bool Board::pseudolegal(Move move) const
 
   if (is_pawn(p))
   {
+    if (several(state.king_atts)) return false;
     if (mt == Ep) return state.ep < NOP && to == state.ep;
 
     const u64 PromRank = color ? Rank7 : Rank2;
@@ -359,7 +383,7 @@ bool Board::pseudolegal(Move move) const
 
     if (mt == PawnMove || is_prom(mt))
     {
-      const u64 mov = pmov[color][from];
+      const u64 mov = pmov[color][from] & mask;
       if (!(mov & bit(to))) return false; // piece can move that way
       if (is_prom(mt)) return PromRank & bit(from); // correct promotion
       return true;
@@ -371,37 +395,43 @@ bool Board::pseudolegal(Move move) const
   {
     if (mt == KCastle)
     {
+      if (state.king_atts) return false;
+
       if (color)
       {
         return !!(state.castling & Castling::WK)
-             && !(o & Span_WK)
+             && !(o & Span_WK) && (to == G1)
              && !(state.threats & Path_WK);
       }
       else
       {
         return !!(state.castling & Castling::BK)
-             && !(o & Span_BK)
+             && !(o & Span_BK) && (to == G8)
              && !(state.threats & Path_BK);
       }
     }
     else if (mt == QCastle)
     {
+      if (state.king_atts) return false;
+
       if (color)
       {
         return !!(state.castling & Castling::WQ)
-             && !(o & Span_WQ)
+             && !(o & Span_WQ) && (to == C1)
              && !(state.threats & Path_WQ);
       }
       else
       {
         return !!(state.castling & Castling::BQ)
-             && !(o & Span_BQ)
+             && !(o & Span_BQ) && (to == C8)
              && !(state.threats & Path_BQ);
       }
     }
-    else return true;
+    else return is_castle(mt) || mt == Quiet;
   }
-  return true;
+  
+  return !is_castle(mt) && !is_prom(mt) && !is_pawn(mt) && !is_ep(mt)
+      && !several(state.king_atts);
 }
 
 bool Board::make(Move move, Undo *& undo)

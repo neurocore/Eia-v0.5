@@ -34,8 +34,12 @@ public:
   u64 perft(int depth);
   u64 perft_inner(int depth);
 
+  // checks pseudolegal test correctness
+  int plegt();
+
   bool abort() const;
   int ply() const { return static_cast<int>(undo - undos); }
+  void set_movepicker(MovePicker & mp, Move hash);
   void update_moves_stats(int depth);
 
   template<NodeType NT>

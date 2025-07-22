@@ -13,7 +13,7 @@ enum class Stage
   Done
 };
 
-class MovePicker
+struct MovePicker
 {
   Stage stage;
   Board * B;
@@ -21,10 +21,7 @@ class MovePicker
   MoveList ml;
   Move hash_mv, killer[2], counter;
 
-public:
-  void init(Board * B, History * history, Move hash = Move::None);
   Move get_next(int skip_quiets = false);
-  void pop_curr();
 };
 
 }

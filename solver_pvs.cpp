@@ -69,10 +69,10 @@ u64 SolverPVS::perft(int depth)
   */
 
   MovePicker mp; // must be correct
-  mp.init(B, &history, Move::None);
+  set_movepicker(mp, Move::None);
 
   Move move;
-  for (; !is_empty(move = mp.get_next()); mp.pop_curr())
+  while (!is_empty(move = mp.get_next()))
   {
     if (!B->make(move, undo)) continue;
 
@@ -111,10 +111,10 @@ u64 SolverPVS::perft_inner(int depth)
     if (is_empty(move)) break;*/
 
   MovePicker mp; // must be correct
-  mp.init(B, &history, Move::None);
+  set_movepicker(mp, Move::None);
 
   Move move;
-  for (; !is_empty(move = mp.get_next()); mp.pop_curr())
+  while (!is_empty(move = mp.get_next()))
   {
     if (!B->make(move, undo)) continue;
 
@@ -123,6 +123,49 @@ u64 SolverPVS::perft_inner(int depth)
     B->unmake(move, undo);
   }
   return count;
+}
+
+int SolverPVS::plegt()
+{
+  const u16 count = 0xFFFF;
+  int false_pos = 0;
+  int false_neg = 0;
+
+  MoveList pseudo, legal;
+  B->generate_all(pseudo);
+  B->generate_legal(legal);
+  B->print();
+
+  say("Pseudo moves: {}\n", pseudo.count());
+  say("Legal moves: {}\n\n", legal.count());
+
+  string report;
+
+  for (u16 i = 0u; i < count; i++)
+  {
+    const Move move = static_cast<Move>(i);
+    const bool passed = B->pseudolegal(move);
+    const Piece p = B->square[get_from(move)];
+
+    if (passed && !pseudo.contains(move)) // pseudolegality is enough
+    {
+      false_pos++;
+      report += format("!pos - 0x{:04X} : {} | {}\n", i, p, detailed(move));
+    }
+
+    if (!passed && legal.contains(move)) // a narrower check 
+    {
+      false_neg++;
+      report += format("!neg - 0x{:04X} : {} | {}\n", i, p, detailed(move));
+    }
+  }
+
+  say("{}", report);
+  say("\nCount: {}\n", count);
+  say("False pos: {}\n", false_pos);
+  say("False neg: {}\n", false_neg);
+
+  return false_pos + false_neg;
 }
 
 bool SolverPVS::abort() const
@@ -152,6 +195,25 @@ bool SolverPVS::abort() const
   return false;
 }
 
+void SolverPVS::set_movepicker(MovePicker & mp, Move hash)
+{
+  mp.ml.clear();
+
+  mp.B = B;
+  mp.H = &history;
+  mp.hash_mv = hash;
+  mp.killer[0] = Move::None; // undo->killer[0];
+  mp.killer[1] = Move::None; // undo->killer[1];
+
+  mp.stage = B->pseudolegal(hash) ? Stage::Hash : Stage::GenCaps;
+
+  if (!ply()) return;
+
+  const Move prev = (undo - 1)->curr;
+  mp.counter = is_empty(prev) ? Move::None
+             : counter[~B->color][get_from(prev)][get_to(prev)];
+}
+
 void SolverPVS::update_moves_stats(int depth)
 {
   // History table
@@ -165,7 +227,9 @@ void SolverPVS::update_moves_stats(int depth)
 
   history[B->color][leave][enter][from][to] += depth * depth;
 
-  if (ply() > 0) // Counter move
+  // Counter move
+
+  if (ply() > 0)
   {
     Move prev = (undo - 1)->curr;
     counter[~B->color][get_from(prev)][get_to(prev)] = move;
@@ -173,7 +237,11 @@ void SolverPVS::update_moves_stats(int depth)
 
   // Killers
 
-  // TODO
+  if (undo->killer[0] != move)
+  {
+    undo->killer[1] = undo->killer[0];
+    undo->killer[0] = move;
+  }
 }
 
 template<NodeType NT>
@@ -194,10 +262,10 @@ int SolverPVS::pvs(int alpha, int beta, int depth)
   B->generate_all(ml);*/
 
   MovePicker mp;
-  mp.init(B, &history, Move::None);
+  set_movepicker(mp, Move::None);
 
   Move move;
-  for (; !is_empty(move = mp.get_next()); mp.pop_curr())
+  while (!is_empty(move = mp.get_next()))
   {
     if (!B->make(move, undo)) continue;
 
@@ -264,11 +332,12 @@ int SolverPVS::qs(int alpha, int beta)
   if (ply() >= Limits::Plies) return stand_pat;
 
   MoveList ml;
+  ml.clear();
 
   if (B->color) B->generate_attacks<White, true>(ml);
   else          B->generate_attacks<Black, true>(ml);
 
-  while (!ml.is_empty())
+  while (!ml.empty())
   {
     Move move = ml.get_next();
     if (is_empty(move)) break;

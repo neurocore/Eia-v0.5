@@ -3,15 +3,31 @@
 
 namespace eia {
 
+bool MoveList::contains(Move move) const
+{
+  for (MoveVal * ptr = first; ptr < last; ++ptr)
+  {
+    if (*ptr == move) return true;
+  }
+  return false;
+}
+
 Move MoveList::get_best(u64 lower_bound)
 {
-  curr = first;
-  for (MoveVal * ptr = first + 1; ptr != last; ++ptr)
+  assert(first < last);
+
+  MoveVal * best = first;
+  for (MoveVal * ptr = first + 1; ptr < last; ++ptr)
   {
-    if (value(*ptr) > value(*curr)) curr = ptr;
+    if (value(*ptr) > value(*best)) best = ptr;
   }
 
-  if (*curr >= lower_bound) return move(*curr);
+  if (*best >= lower_bound)
+  {
+    Move mv = move(*best);
+    remove(best);
+    return mv;
+  }
 
   first = last; // putting all moves into pocket
   return Move::None;
@@ -41,7 +57,7 @@ void MoveList::value_attacks(const Board * B)
     const SQ to   = get_to(move(mv));
     const MT mt   = get_mt(move(mv));
 
-    const int a = cost[B->square[from]]; // attack
+    const int a = cost[B->square[from]]; // attacker
     const int v = cost[B->square[to]];  // victim
 
     u64 val = 0;

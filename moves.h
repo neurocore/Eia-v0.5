@@ -30,6 +30,13 @@ enum MT : u16 // Move type
 // | 0..5 | 6..11 | 12..15 | = 16 bits
 // | FROM |  TO   |   MT   |
 
+const std::string mt_str[] =
+{
+  "Quiet", "PawnMove", "KCastle", "QCastle",
+  "Cap", "Ep", "MT(6)", "MT(7)",
+  "NProm", "BProm", "RProm", "QProm", 
+  "NCapProm", "BCapProm", "RCapProm", "QCapProm", 
+};
 
 enum Move : u16;
 INLINE Move to_move(SQ from, SQ to, MT mt = Quiet)
@@ -65,6 +72,7 @@ INLINE bool is_cap(MT mt) { return !!(mt & Cap); }
 INLINE bool is_prom(MT mt) { return !!(mt & NProm); }
 INLINE bool is_capprom(MT mt) { return !!(mt & NCapProm); }
 INLINE bool is_attack(MT mt) { return is_cap(mt) || is_prom(mt); }
+INLINE bool is_garbage(MT mt) { return mt == 6 || mt == 7; }
 
 INLINE bool is_ep(MT mt)     { return mt == Ep; }
 INLINE bool is_pawn(MT mt)   { return mt == PawnMove; }
@@ -74,6 +82,7 @@ INLINE bool is_cap(Move move) { return !!(move & (Cap << 12)); }
 INLINE bool is_prom(Move move) { return !!(move & (NProm << 12)); }
 INLINE bool is_capprom(Move move) { return !!(move & (NCapProm << 12)); }
 INLINE bool is_attack(Move move) { return is_attack(get_mt(move)); }
+INLINE bool is_garbage(Move move) { return is_garbage(get_mt(move)); }
 
 INLINE bool is_ep(Move move)     { return is_ep(get_mt(move)); }
 INLINE bool is_pawn(Move move)   { return is_pawn(get_mt(move)); }
@@ -98,6 +107,15 @@ INLINE std::string to_string(Move move)
   str += to_string(get_to(move));
   if (is_prom(move))
     str += to_char(promoted(move));
+  return str;
+}
+
+INLINE std::string detailed(Move move)
+{
+  std::string str;
+  str += to_string(get_from(move)) + " | ";
+  str += to_string(get_to(move)) + " | ";
+  str += mt_str[get_mt(move)];
   return str;
 }
 

@@ -80,7 +80,7 @@ template<typename... Args>
 INLINE void log(std::format_string<Args...> fmt, Args&&... args)
 {
 #ifdef _DEBUG
-  std::cout << std::format(fmt, std::forward<Args>(args)...);
+  //std::cout << std::format(fmt, std::forward<Args>(args)...);
 #endif
 }
 

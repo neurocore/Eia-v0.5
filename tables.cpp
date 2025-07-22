@@ -25,6 +25,11 @@ const Rays k_offset =
 
 const Rays diag_offset = { {-1,-1}, {-1, 1}, {1,-1}, {1, 1} };
 const Rays rook_offset = { {-1, 0}, {0, 1}, {1, 0}, {0,-1} };
+const Rays q_offset =
+{
+  {-1,-1}, {-1, 1}, {1,-1}, {1, 1},
+  {-1, 0}, {0, 1}, {1, 0}, {0,-1}
+};
 
 constexpr SQ_BB init_piece(Piece piece, Rays rays, bool slider = false)
 {
@@ -62,12 +67,10 @@ const std::array<SQ_BB, Piece_N> atts = []
   result[BK] = init_piece(BK, k_offset);
   result[WB] = init_piece(WB, diag_offset, true);
   result[BB] = init_piece(BB, diag_offset, true);
-  result[WQ] = init_piece(WQ, diag_offset, true);
-  result[BQ] = init_piece(BQ, diag_offset, true);
   result[WR] = init_piece(WR, rook_offset, true);
   result[BR] = init_piece(BR, rook_offset, true);
-  result[WQ] = init_piece(WQ, rook_offset, true);
-  result[BQ] = init_piece(BQ, rook_offset, true);
+  result[WQ] = init_piece(WQ, q_offset, true);
+  result[BQ] = init_piece(BQ, q_offset, true);
 
   return result;
 }();

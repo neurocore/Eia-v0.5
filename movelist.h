@@ -13,34 +13,31 @@ INLINE Move move(MoveVal mv) { return static_cast<Move>(mv & 0xFFFF); }
 enum class PromMode { QS, PVS, ALL };
 
 struct Board;
-
-// TODO: make cyclic?
-// to hold and pick moves
 class MoveList
 {
   MoveVal moves[256];
-  MoveVal * first, * last, * curr;
+  MoveVal * first, * last;
 
 public:
   MoveList()    { clear(); }
-  void clear()  { first = last = curr = &moves[0]; }
-  void rewind() { curr = &moves[0]; }
+  void clear()  { first = last = &moves[0]; }
+  void rewind() { first = &moves[0]; }
 
   bool   empty() const { return last == first; }
   size_t count() const { return last -  first; }
 
-  Move   get_next()    { return move(*(curr++)); }
-  bool   is_empty()    { return curr >= last; }
+  Move   get_next()    { assert(first < last); return move(*(first++)); }
 
-  void remove_curr()   { remove(curr); }
+  void put_to_pocket() { first = last; }
   void reveal_pocket() { first = &moves[0]; }
 
+  bool contains(Move move) const;
   Move get_best(u64 lower_bound = 0ull);
   void remove_move(Move move);
 
   void add(Move move)
   {
-    assert(count() < 256);
+    assert(last < &moves[256]);
     *(last++) = move;
   }
 
@@ -79,8 +76,12 @@ public:
   void value_quiets(const Board * B, const History & history);
 
 private:
-  // TODO: rid of mixing
-  void remove(MoveVal * ptr) { *ptr = *(--last); }
+  void remove(MoveVal * ptr)
+  {
+    assert(ptr >= first && ptr < last);
+    assert(first < last);
+    *ptr = *(--last);
+  }
 };
 
 enum Order : int

@@ -24,9 +24,6 @@ struct State
 
   u64 king_atts = Empty;
   u64 threats = Empty;
-
-  Move killer[2];
-  Move counter;
 };
 
 struct Undo;
@@ -103,6 +100,7 @@ public:
   void unmake(Move move, Undo *& undo);
 
   INLINE void generate_all(MoveList & ml) const;
+  void generate_legal(MoveList & ml);
 
   template<Color COL>
   void generate_quiets(MoveList & ml) const;
@@ -129,6 +127,13 @@ private:
   INLINE u64 ortho()    const { return rooks()   | queens(); }
 
   INLINE u64 occupied() const { return occ[0] | occ[1]; }
+
+  INLINE u64 check_ray() const
+  {
+    SQ attacker = bitscan(state.king_atts);
+    SQ king = bitscan(piece[BK ^ color]);
+    return between[attacker][king];
+  }
 };
 
 
@@ -272,6 +277,7 @@ INLINE void Board::gen_slider(MoveList & ml, u64 mask) const
 template<Color COL>
 void Board::generate_quiets(MoveList & ml) const
 {
+  const auto was = ml.count();
   const u64 o = occ[0] | occ[1];
 
   if (several(state.king_atts))
@@ -280,8 +286,7 @@ void Board::generate_quiets(MoveList & ml) const
     return;
   }
 
-  const u64 mask = !state.king_atts ? ~o
-    : between[bitscan(piece[BK ^ COL])][bitscan(state.king_atts)];
+  const u64 mask = !state.king_atts ? ~o : check_ray();
 
   gen_lookup<COL, false, King>(ml, ~o); // special case (!)
   gen_lookup<COL, false, Knight>(ml, mask);

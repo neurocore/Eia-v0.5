@@ -40,6 +40,10 @@ void Engine::start()
 {
   //logf("%v", options);
 
+  /*B.set("r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1");
+  B.print();
+  B.pseudolegal(Move(0x178E));*/
+
   new_game();
   //log(B);
 
@@ -68,7 +72,7 @@ bool Engine::parse(string str)
       Name, Vers, Auth, options
     ));
   }
-  else if (cmd == "isready")
+  else if (cmd == "isready") [[likely]]
   {
     print_message("readyok");
   }
@@ -80,28 +84,34 @@ bool Engine::parse(string str)
   {
     new_game();
   }
-  else if (cmd == "stop")
+  else if (cmd == "stop") [[likely]]
   {
     stop();
   }
-  else if (cmd == "perft")
+  else if (cmd == "perft") [[unlikely]]
   {
     string part = cut(str);
     int depth = parse_int(part);
     if (depth < 1) depth = 1;
     perft(depth);
   }
-  else if (cmd == "debug")
+  else if (cmd == "plegt") [[unlikely]]
+  {
+    string part = cut(str);
+    int unused = parse_int(part);
+    plegt();
+  }
+  else if (cmd == "debug") [[unlikely]]
   {
     string part = cut(str);
     if (part == "on") set_debug(true);
     if (part == "off") set_debug(false);
   }
-  else if (cmd == "register")
+  else if (cmd == "register") [[unlikely]]
   {
     print_message("registration ok");
   }
-  else if (cmd == "position")
+  else if (cmd == "position") [[likely]]
   {
     string fen;
     string op = cut(str);
@@ -122,7 +132,7 @@ bool Engine::parse(string str)
     }
     set_pos(fen, moves);
   }
-  else if (cmd == "go")
+  else if (cmd == "go") [[likely]]
   {
     SearchParams sp;
 
@@ -165,6 +175,14 @@ void Engine::perft(int depth)
   S[1]->set(B);
   S[0]->perft(depth);
   S[1]->perft(depth);
+}
+
+void Engine::plegt()
+{
+  S[0]->set(B);
+  S[1]->set(B);
+  S[0]->plegt();
+  S[1]->plegt();
 }
 
 void Engine::set_debug(bool val)
