@@ -1,5 +1,6 @@
 #pragma once
 #include <string>
+#include <vector>
 #include "piece.h"
 #include "duo.h"
 
@@ -48,7 +49,7 @@ namespace eia {
   TERM(BishopFork,      13)  \
   TERM(KnightAdj,        4)  \
   TERM(RookAdj,          3)  \
-  TERM(EarlyQueen,       3)  \
+  TERM(EarlyQueen,       5)  \
   TERM(ContactCheckR,  100)  \
   TERM(ContactCheckQ,  180)  \
   TERM(Shield1,         10)  \
@@ -90,9 +91,21 @@ struct EvalInfo
 };
 
 
+struct EvalDetail
+{
+  Piece p;
+  SQ sq;
+  Duo vals;
+  std::string_view factor;
+};
+
+using EvalDetails = std::vector<EvalDetail>;
+
+
 class Eval
 {
   EvalInfo ei;
+  EvalDetails ed;
   int term[Term_N];
 
   int mat[12];
@@ -109,18 +122,31 @@ public:
   void set(std::string str);
   void set(Eval * eval);
 
+  const EvalDetails & get_details() { return ed; }
+
+  template<bool explain = false>
   int eval(const Board * B, int alpha, int beta);
 
 private:
-  int evaluate(const Board * B);
-  template<Color col> Duo evaluateP(const Board * B);
-  template<Color col> Duo evaluateN(const Board * B);
-  template<Color col> Duo evaluateB(const Board * B);
-  template<Color col> Duo evaluateR(const Board * B);
-  template<Color col> Duo evaluateQ(const Board * B);
-  template<Color col> Duo evaluateK(const Board * B);
+  template<bool explain>
+  inline Duo apply(const Duo & vals, Piece p, SQ sq, std::string_view factor)
+  {
+    if constexpr (explain)
+      ed.emplace_back(EvalDetail{p, sq, vals, factor});
 
-  template<Color col> Duo eval_passer(const Board * B, SQ sq);
+    return vals;
+  }
+
+  template<bool explain> int evaluate(const Board * B);
+
+  template<Color col, bool explain> Duo evaluateP(const Board * B);
+  template<Color col, bool explain> Duo evaluateN(const Board * B);
+  template<Color col, bool explain> Duo evaluateB(const Board * B);
+  template<Color col, bool explain> Duo evaluateR(const Board * B);
+  template<Color col, bool explain> Duo evaluateQ(const Board * B);
+  template<Color col, bool explain> Duo evaluateK(const Board * B);
+
+  template<Color col, bool explain> Duo eval_passer(const Board * B, SQ sq);
 };
 
 const int PFile[8] = {-3, -1, +0, +1, +1, +0, -1, -3};
@@ -132,5 +158,8 @@ const int QLine[8] = {-3, -1, +0, +1, +1, +0, -1, -3};
 const int KLine[8] = {-3, -1, +0, +1, +1, +0, -1, -3};
 const int KFile[8] = {+3, +4, +2, +0, +0, +2, +4, +3};
 const int KRank[8] = {+1, +0, -2, -3, -4, -5, -6, -7};
+
+// from CPW-Engine
+const int PAdj[9] = {-5, -4, -3, -2, -1, 0, +1, +2, +3};
 
 }

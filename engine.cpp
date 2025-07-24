@@ -101,6 +101,12 @@ bool Engine::parse(string str)
     int unused = parse_int(part);
     plegt();
   }
+  else if (cmd == "eval") [[unlikely]]
+  {
+    string part = cut(str);
+    int unused = parse_int(part);
+    eval();
+  }
   else if (cmd == "debug") [[unlikely]]
   {
     string part = cut(str);
@@ -183,6 +189,29 @@ void Engine::plegt()
   S[1]->set(B);
   S[0]->plegt();
   S[1]->plegt();
+}
+
+void Engine::eval()
+{
+  S[0]->set(B);
+  S[1]->set(B);
+
+  for (int i = 0; i < 2; ++i)
+  {
+    if (!S[i]->is_solver()) continue;
+
+    SolverPVS * PVS = dynamic_cast<SolverPVS *>(S[i]);
+
+    int val = PVS->eval();
+    string str = format("Eval: {}\n\n", val);
+
+    auto & details = PVS->eval_details();
+    for (const auto & d : details)
+    {
+      str += format("{} {} {} {}\n", d.p, d.sq, d.vals, d.factor);
+    }
+    print_message(str);
+  }
 }
 
 void Engine::set_debug(bool val)

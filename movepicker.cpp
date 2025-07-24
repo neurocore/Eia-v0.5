@@ -41,33 +41,33 @@ Move MovePicker::get_next(int skip_quiets)
         stage = Stage::BadCaps;
         return get_next(skip_quiets);
       }
-      //stage = Stage::Killer1;
-      stage = Stage::GenQuiets;
+      stage = Stage::Killer1;
+      //stage = Stage::GenQuiets;
 
       [[fallthrough]];
 
-    //case Stage::Killer1:
+    case Stage::Killer1:
 
-    //  log("Stage::Killer1\n");
-    //  stage = Stage::Killer2;
-    //  if (!skip_quiets
-    //  &&  killer[0] != hash_mv
-    //  &&  B->pseudolegal(killer[0])) return killer[0];
+      log("Stage::Killer1\n");
+      stage = Stage::Killer2;
+      if (!skip_quiets
+      &&  killer[0] != hash_mv
+      &&  B->pseudolegal(killer[0])) return killer[0];
 
-    //  [[fallthrough]];
+      [[fallthrough]];
 
-    //case Stage::Killer2:
+    case Stage::Killer2:
 
-    //  log("Stage::Killer2\n");
-    //  //stage = Stage::CounterMove;
-    //  stage = Stage::GenQuiets;
-    //  if (!skip_quiets
-    //  &&  killer[1] != hash_mv
-    //  &&  B->pseudolegal(killer[1])) return killer[1];
+      log("Stage::Killer2\n");
+      stage = Stage::CounterMove;
+      //stage = Stage::GenQuiets;
+      if (!skip_quiets
+      &&  killer[1] != hash_mv
+      &&  B->pseudolegal(killer[1])) return killer[1];
 
-    //  [[fallthrough]];
+      [[fallthrough]];
 
-    /*case Stage::CounterMove:
+    case Stage::CounterMove:
 
       log("Stage::CounterMove\n");
       stage = Stage::GenQuiets;
@@ -77,7 +77,7 @@ Move MovePicker::get_next(int skip_quiets)
       &&  counter != killer[1]
       &&  B->pseudolegal(counter)) return counter;
 
-      [[fallthrough]];*/
+      [[fallthrough]];
 
     case Stage::GenQuiets:
 

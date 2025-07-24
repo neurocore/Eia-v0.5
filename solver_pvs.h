@@ -28,6 +28,7 @@ class SolverPVS : public Solver
 public:
   SolverPVS(Engine * engine);
   ~SolverPVS();
+  bool is_solver() { return true; }
   void set(const Board & board) override;
   Move get_move(MS time) override;
 
@@ -36,6 +37,9 @@ public:
 
   // checks pseudolegal test correctness
   int plegt();
+
+  int eval() { return E->eval<true>(B, -Val::Inf, Val::Inf); }
+  const EvalDetails & eval_details() { return E->get_details(); }
 
   bool abort() const;
   int ply() const { return static_cast<int>(undo - undos); }

@@ -45,40 +45,40 @@ void MoveList::remove_move(Move move)
   }
 }
 
+u64 MoveList::value_attack(Move mv, const Board * B)
+{
+  static const int cost[] = {1, 1, 3, 3, 3, 3, 5, 5, 9, 9, 200, 200, 0, 0};
+  static const int prom[] = {0, cost[WN], cost[WB], cost[WR], cost[WQ], 0};
+
+  if (is_ep(mv)) return O_EqCap;
+
+  const SQ from = get_from(move(mv));
+  const SQ to   = get_to(move(mv));
+  const MT mt   = get_mt(move(mv));
+
+  const int a = cost[B->square[from]]; // attacker
+  const int v = cost[B->square[to]];  // victim
+
+  if (is_prom(mt))
+  {
+    int p = prom[promoted(mt)];
+    return O_WinCap + 100 * (p + v) - a;
+  }
+  else if (is_cap(mt))
+  {
+    int score = 10000 * B->see(mv);
+    u64 order = compare(score, 0, O_BadCap, O_EqCap, O_WinCap);
+    score = order == O_EqCap ? 100 * v - a : score;
+    return order + score;
+  }
+}
+
 void MoveList::value_attacks(const Board * B)
 {
-  const int cost[] = {1, 1, 3, 3, 3, 3, 5, 5, 9, 9, 200, 200, 0, 0};
-  const int prom[] = {0, cost[WN], cost[WB], cost[WR], cost[WQ], 0};
-
   for (MoveVal * ptr = first; ptr != last; ptr++)
   {
     const Move mv = move(*ptr);
-    const SQ from = get_from(move(mv));
-    const SQ to   = get_to(move(mv));
-    const MT mt   = get_mt(move(mv));
-
-    const int a = cost[B->square[from]]; // attacker
-    const int v = cost[B->square[to]];  // victim
-
-    u64 val = 0;
-
-    if (is_prom(mt))
-    {
-      int p = prom[promoted(mt)];
-      val = O_WinCap + 100 * (p + v) - a;
-    }
-    else if (is_ep(mt))
-    {
-      val = O_EqCap;
-    }
-    else if (is_cap(mt))
-    {
-      int score = B->see(mv);
-      u64 order = compare(score, 0, O_BadCap, O_EqCap, O_WinCap);
-      val = order + score;
-    }
-
-    *ptr += val << 32;
+    *ptr += value_attack(mv, B) << 32;
   }
 }
 

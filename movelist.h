@@ -76,6 +76,7 @@ public:
   void value_quiets(const Board * B, const History & history);
 
 private:
+  inline u64 value_attack(Move move, const Board * B);
   void remove(MoveVal * ptr)
   {
     assert(ptr >= first && ptr < last);

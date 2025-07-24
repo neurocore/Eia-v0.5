@@ -25,10 +25,12 @@ protected:
 public:
   Solver(Engine * engine) : engine(engine) {}
 
+  virtual bool is_solver() { return 0; }
   virtual Move get_move(MS time) = 0;
   virtual void set(const Board & board) = 0;
   virtual u64 perft(int depth) { return 0; }
   virtual int plegt() { return 0; }
+  virtual int eval() { return 0; }
   void stop() { thinking = false; }
   void set_analysis(bool val) { infinite = val; }
 };

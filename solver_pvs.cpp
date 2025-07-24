@@ -202,8 +202,8 @@ void SolverPVS::set_movepicker(MovePicker & mp, Move hash)
   mp.B = B;
   mp.H = &history;
   mp.hash_mv = hash;
-  mp.killer[0] = Move::None; // undo->killer[0];
-  mp.killer[1] = Move::None; // undo->killer[1];
+  mp.killer[0] = undo->killer[0];
+  mp.killer[1] = undo->killer[1];
 
   mp.stage = B->pseudolegal(hash) ? Stage::Hash : Stage::GenCaps;
 
@@ -301,7 +301,7 @@ int SolverPVS::pvs(int alpha, int beta, int depth)
 
       if (val >= beta)
       {
-        if (!is_attack(move) && !in_check)
+        if (!is_attack(move)/* && !in_check*/)
         {
           update_moves_stats(depth);
         }
@@ -331,16 +331,12 @@ int SolverPVS::qs(int alpha, int beta)
 
   if (ply() >= Limits::Plies) return stand_pat;
 
-  MoveList ml;
-  ml.clear();
+  MovePicker mp;
+  set_movepicker(mp, Move::None);
 
-  if (B->color) B->generate_attacks<White, true>(ml);
-  else          B->generate_attacks<Black, true>(ml);
-
-  while (!ml.empty())
+  Move move;
+  while (!is_empty(move = mp.get_next(true)))
   {
-    Move move = ml.get_next();
-    if (is_empty(move)) break;
     if (!B->make(move, undo)) continue;
 
     nodes++;
