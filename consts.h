@@ -37,7 +37,7 @@ enum Val
 
 enum HashTables
 {
-  Size = 128
+  Size = 64
 };
 
 namespace Pos
@@ -96,7 +96,7 @@ namespace Tune
                         + "BishopFork:13 "
                         + "KnightAdj:4 "
                         + "RookAdj:3 "
-                        + "EarlyQueen:3 "
+                        + "EarlyQueen:12 "
                         + "ContactCheckR:100 "
                         + "ContactCheckQ:180 "
                         + "Shield1:10 "

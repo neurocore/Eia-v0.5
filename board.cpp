@@ -28,6 +28,7 @@ void Board::clear()
 
   color = White;
   occ[0] = occ[1] = Empty;
+  state = State();
   //threefold.clear();
 }
 
@@ -85,7 +86,7 @@ bool Board::set(string fen)
 
   // full move counter - no need
 
-  //state.bhash ^= hash_wtm[color];
+  state.bhash ^= color ? Empty : Zobrist::turn;
   //threefold ~= Key(state.hash, true);
 
   state.king_atts = king_attackers();
@@ -532,7 +533,7 @@ bool Board::make(Move move, Undo *& undo)
   }
 
   color = ~color;
-  //state.bhash ^= hash_wtm[0];
+  state.bhash ^= Zobrist::turn;
   //threefold ~= Key(state.hash, irreversible);
 
   if (in_check(1))
@@ -624,6 +625,29 @@ void Board::unmake(Move move, Undo *& undo)
   }
 
   state = (--undo)->state;
+}
+
+void Board::make_null(Undo *& undo)
+{
+  undo->state = state;
+  undo++;
+
+  color = ~color;
+  state.ep = SQ_N;
+  state.bhash ^= Zobrist::turn;
+
+  //threefold ~= Key(state.hash, true);
+}
+
+void Board::unmake_null(Undo *& undo)
+{
+  color = ~color;
+    
+  undo--;
+  state = undo->state;
+
+  /*assert(threefold.length > 0);
+  threefold.popBack();*/
 }
 
 }

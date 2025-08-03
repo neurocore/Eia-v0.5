@@ -71,6 +71,7 @@ u64 MoveList::value_attack(Move mv, const Board * B)
     score = order == O_EqCap ? 100 * v - a : score;
     return order + score;
   }
+  return O_BadCap;
 }
 
 void MoveList::value_attacks(const Board * B)

@@ -9,7 +9,7 @@ namespace eia {
 
 Engine::Engine()
 {
-  S[0] = new SolverPVS(this);
+  S[0] = new SolverPVS(this, new EvalAdvanced);
   S[1] = new Reader(this);
   cout.sync_with_stdio(false);
   cin.sync_with_stdio(false);
@@ -101,6 +101,12 @@ bool Engine::parse(string str)
     int unused = parse_int(part);
     plegt();
   }
+  else if (cmd == "evalt") [[unlikely]]
+  {
+    string part = cut(str);
+    int depth = parse_int(part, 6);
+    evalt(depth);
+  }
   else if (cmd == "eval") [[unlikely]]
   {
     string part = cut(str);
@@ -167,6 +173,8 @@ void Engine::new_game()
   B.set();
   S[0]->set(B);
   S[1]->set(B);
+  S[0]->new_game();
+  S[1]->new_game();
 }
 
 void Engine::stop()
@@ -191,27 +199,59 @@ void Engine::plegt()
   S[1]->plegt();
 }
 
+void Engine::evalt(int depth)
+{
+  SolverPVS * PVS[2];
+
+  PVS[0] = new SolverPVS(this, new EvalAdvanced);
+  PVS[1] = new SolverPVS(this, new EvalSimple);
+
+  //B.set();
+  PVS[0]->set(B);
+  PVS[1]->set(B);
+  PVS[0]->new_game();
+  PVS[1]->new_game();
+
+  PVS[0]->set_analysis(true);
+  PVS[1]->set_analysis(true);
+
+  B.print();
+
+  vector<int> E[2];
+  for (int d = 0; d < depth; d += 2)
+  {
+    int v0 = PVS[0]->pvs<Root>(-Val::Inf, Val::Inf, d);
+    int v1 = PVS[1]->pvs<Root>(-Val::Inf, Val::Inf, d);
+    E[0].push_back(v0);
+    E[1].push_back(v1);
+  }
+
+  for (int i = 0; i < 2; i++)
+  {
+    for (int d = 0; d < depth; d += 2)
+    {
+      cout << E[i][d / 2] << " ";
+    }
+    cout << endl;    
+  }
+
+  delete PVS[0];
+  delete PVS[1];
+}
+
 void Engine::eval()
 {
-  S[0]->set(B);
-  S[1]->set(B);
+  EvalAdvanced<true> E;
 
-  for (int i = 0; i < 2; ++i)
+  int val = E.eval(&B, -Val::Inf, Val::Inf);
+  string str = format("Eval: {}\n\n", val);
+
+  auto & details = E.get_details();
+  for (const auto & d : details)
   {
-    if (!S[i]->is_solver()) continue;
-
-    SolverPVS * PVS = dynamic_cast<SolverPVS *>(S[i]);
-
-    int val = PVS->eval();
-    string str = format("Eval: {}\n\n", val);
-
-    auto & details = PVS->eval_details();
-    for (const auto & d : details)
-    {
-      str += format("{} {} {} {}\n", d.p, d.sq, d.vals, d.factor);
-    }
-    print_message(str);
+    str += format("{} {} {} {}\n", d.p, d.sq, d.vals, d.factor);
   }
+  print_message(str);
 }
 
 void Engine::set_debug(bool val)

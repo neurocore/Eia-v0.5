@@ -1,20 +1,25 @@
 #include <format>
 #include <iostream>
 #include "solver_pvs.h"
+#include "hash.h"
 
 using namespace std;
 
 namespace eia {
 
-SolverPVS::SolverPVS(Engine * engine) : Solver(engine)
+// from GreKo 2021.12
+const int Futility_Margin[] = { 0, 50, 350, 550 };
+
+SolverPVS::SolverPVS(Engine * engine, Eval * eval) : Solver(engine), E(eval)
 {
   B = new Board;
-  E = new Eval;
+  H = new Hash::Table(HashTables::Size);
   undo = &undos[0];
 }
 
 SolverPVS::~SolverPVS()
 {
+  delete H;
   delete E;
   delete B;
 }
@@ -27,7 +32,6 @@ void SolverPVS::set(const Board & board)
 Move SolverPVS::get_move(MS time)
 {
   timer.start();
-  thinking = true;
   to_think = time;
   max_ply = 0;
   nodes = 0ull;
@@ -245,10 +249,12 @@ void SolverPVS::update_moves_stats(int depth)
 }
 
 template<NodeType NT>
-int SolverPVS::pvs(int alpha, int beta, int depth)
+int SolverPVS::pvs(int alpha, int beta, int depth, bool is_null)
 {
+  using namespace Hash;
+  if constexpr (NT == Root) thinking = true;
   const bool in_check = !!B->state.king_atts;
-  //HashType hash_type = HashType::Alpha;
+  Type hash_type = Type::Upper;
   int val = ply() - Val::Inf;
   undo->best = Move::None;
   nodes++;
@@ -258,35 +264,146 @@ int SolverPVS::pvs(int alpha, int beta, int depth)
 
   int legal = 0;
 
-  /*MoveList ml;
-  B->generate_all(ml);*/
+  // 0. Mate pruning
+
+  //if (ply > 0)
+  //{
+  //  alpha = max(-Val.Inf + ply, alpha);
+  //  beta = min(Val.Inf - (ply + 1), beta);
+  //  if (alpha >= beta) return alpha;
+  //}
+
+  if (false) {
+
+  // 1. Retrieving hash move
+
+  const Entry & entry = H->probe(B->hash(), ply());
+  Move hash_move = entry.move;
+
+  if (entry.type != Type::None)
+  {
+    if (entry.depth >= depth
+    && (depth == 0 || NT != PV))
+    {
+      // Table is exact or produces a cutoff
+      if (entry.type == Type::Exact
+      || (entry.type == Type::Lower && entry.val >= beta)
+      || (entry.type == Type::Upper && entry.val <= alpha))
+      {
+        return entry.val;
+      }
+    }
+  }
+
+  if constexpr (NT == NonPV)
+  {
+    int static_eval = E->eval(B, alpha, beta);
+
+    // 2. Futility Pruning
+
+    if (!in_check
+    &&  !is_null
+    &&  depth >= 1
+    &&  depth <= 3)
+    {
+      if (static_eval <= alpha - Futility_Margin[depth])
+        return qs(alpha, beta);
+      if (static_eval >= beta + Futility_Margin[depth])
+        return beta;
+    }
+
+    // 3. Null Move Pruning
+
+    if (!in_check
+    &&  !is_null
+    &&  B->has_pieces(B->color)
+    &&  static_eval > beta
+    &&  beta > -Val::Mate
+    &&  depth >= 2)
+    {
+      int R = 3 + depth / 4;
+
+      B->make_null(undo);
+      int v = -pvs<NonPV>(-beta, -beta + 1, depth - R, true);
+      B->unmake_null(undo);
+
+      if (abort()) return alpha;
+
+      if (v >= beta)
+      {
+        if (v > Val::Mate) v = beta; // don't return unproved mates
+        if (depth >= 6) // verification search at high depths
+        {
+          v = pvs<NonPV>(alpha, beta, depth - R, true);
+          if (v >= beta) return v;
+        }
+      }
+    }
+  }
+
+  // 4. Internal Iterative Deepening
+
+  if constexpr (NT == PV)
+  {
+    if (depth >= 3
+    &&  hash_move == Move::None)
+    {
+      int new_depth = depth - 2;
+
+      int v = pvs<NonPV>(alpha, beta, new_depth, is_null);
+      if (v <= alpha)
+        v = pvs<NonPV>(-Val::Inf, beta, new_depth, is_null);
+
+      if (!is_empty(undo->best))
+        if (B->pseudolegal(undo->best))
+          hash_move = undo->best;
+    }
+  }
+
+  }
+
+  Move hash_move = Move::None;
+
+
+  // Looking all legal moves
 
   MovePicker mp;
-  set_movepicker(mp, Move::None);
+  set_movepicker(mp, hash_move);
 
   Move move;
   while (!is_empty(move = mp.get_next()))
   {
     if (!B->make(move, undo)) continue;
 
-    /*for (int i = 0; i < ply(); i++)
-      log("  ");
-    log("{}\n", move);*/
-
     undo->curr = move;
     legal++;
     int new_depth = depth - 1;
     int reduction = 0;
 
+    // LMR
+
+    if constexpr (NT == NonPV)
+    {
+      if (!is_null
+      &&  !in_check
+      &&  depth >= 4
+      &&  !B->in_check()
+      &&  !is_attack(move))
+      {
+        // from Fruit Reloaded
+        reduction = static_cast<int>(sqrt(depth - 1) + sqrt(legal - 1));
+      }
+    }
+
     if (legal == 1)
-      val = -pvs<PV>(-beta, -alpha, new_depth);
+      val = -pvs<PV>(-beta, -alpha, new_depth, is_null);
     else
     {
-      val = -pvs<NonPV>(-alpha - 1, -alpha, new_depth - reduction);
+      val = -pvs<NonPV>(-alpha - 1, -alpha, new_depth - reduction, is_null);
       if (val > alpha && reduction > 0)
-        val = -pvs<NonPV>(-alpha - 1, -alpha, new_depth);
+        val = -pvs<NonPV>(-alpha - 1, -alpha, new_depth, is_null);
       if (val > alpha && val < beta)
-        val = -pvs<PV>(-beta, -alpha, new_depth);
+        val = -pvs<PV>(-beta, -alpha, new_depth, is_null);
     }
 
     B->unmake(move, undo);
@@ -296,7 +413,7 @@ int SolverPVS::pvs(int alpha, int beta, int depth)
     if (val > alpha)
     {
       alpha = val;
-      //hash_type = HashType::Exact;
+      hash_type = Type::Exact;
       undo->best = move;
 
       if (val >= beta)
@@ -306,18 +423,19 @@ int SolverPVS::pvs(int alpha, int beta, int depth)
           update_moves_stats(depth);
         }
 
-        //hash_type = HashType::Beta;
+        hash_type = Type::Lower;
         break;
       }
     }
-
-    if (!legal)
-    {
-      return in_check ? val : 0; // contempt();
-    }
   }
 
-  // TODO: if not abort store in tt
+  if (!legal)
+  {
+    return in_check ? val : 0; // contempt();
+  }
+
+  //if (!abort())
+    //H.store(B->state.hash, ply, undo->best, alpha, depth, hash_type);
 
   return alpha;
 }

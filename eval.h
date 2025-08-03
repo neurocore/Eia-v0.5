@@ -104,8 +104,8 @@ using EvalDetails = std::vector<EvalDetail>;
 
 class Eval
 {
+protected:
   EvalInfo ei;
-  EvalDetails ed;
   int term[Term_N];
 
   int mat[12];
@@ -122,32 +122,78 @@ public:
   void set(std::string str);
   void set(Eval * eval);
 
+  virtual int eval(const Board * B, int alpha, int beta) = 0;
+};
+
+
+template<bool Expl>
+class EvalExplained : public Eval
+{
+public:
   const EvalDetails & get_details() { return ed; }
 
-  template<bool explain = false>
-  int eval(const Board * B, int alpha, int beta);
+protected:
+  EvalDetails ed;
 
-private:
-  template<bool explain>
   inline Duo apply(const Duo & vals, Piece p, SQ sq, std::string_view factor)
   {
-    if constexpr (explain)
+    if constexpr (Expl)
       ed.emplace_back(EvalDetail{p, sq, vals, factor});
 
     return vals;
   }
-
-  template<bool explain> int evaluate(const Board * B);
-
-  template<Color col, bool explain> Duo evaluateP(const Board * B);
-  template<Color col, bool explain> Duo evaluateN(const Board * B);
-  template<Color col, bool explain> Duo evaluateB(const Board * B);
-  template<Color col, bool explain> Duo evaluateR(const Board * B);
-  template<Color col, bool explain> Duo evaluateQ(const Board * B);
-  template<Color col, bool explain> Duo evaluateK(const Board * B);
-
-  template<Color col, bool explain> Duo eval_passer(const Board * B, SQ sq);
 };
+
+
+template<bool Expl = false>
+class EvalAdvanced : public EvalExplained<Expl>
+{
+public:
+  int eval(const Board * B, int alpha, int beta) override;
+
+protected:
+  using EvalExplained<Expl>::ed;
+  using EvalExplained<Expl>::apply;
+
+  using EvalExplained<Expl>::ei;
+  using EvalExplained<Expl>::term;
+  using EvalExplained<Expl>::mat;
+  using EvalExplained<Expl>::pst;
+  using EvalExplained<Expl>::passer_scale;
+  using EvalExplained<Expl>::n_adj;
+  using EvalExplained<Expl>::r_adj;
+
+private:
+  template<Color Ñol> Duo evaluateP(const Board * B);
+  template<Color Ñol> Duo evaluateN(const Board * B);
+  template<Color Ñol> Duo evaluateB(const Board * B);
+  template<Color Ñol> Duo evaluateR(const Board * B);
+  template<Color Ñol> Duo evaluateQ(const Board * B);
+  template<Color Ñol> Duo evaluateK(const Board * B);
+
+  template<Color Ñol> Duo eval_passer(const Board * B, SQ sq);
+};
+
+
+template<bool Expl = false>
+class EvalSimple : public EvalExplained<Expl>
+{
+protected:
+  using EvalExplained<Expl>::ed;
+  using EvalExplained<Expl>::apply;
+
+  using EvalExplained<Expl>::ei;
+  using EvalExplained<Expl>::term;
+  using EvalExplained<Expl>::mat;
+  using EvalExplained<Expl>::pst;
+  using EvalExplained<Expl>::passer_scale;
+  using EvalExplained<Expl>::n_adj;
+  using EvalExplained<Expl>::r_adj;
+
+public:
+  int eval(const Board * B, int alpha, int beta) override;
+};
+
 
 const int PFile[8] = {-3, -1, +0, +1, +1, +0, -1, -3};
 const int NLine[8] = {-4, -2, +0, +1, +1, +0, -2, -4};

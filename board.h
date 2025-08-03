@@ -5,6 +5,7 @@
 #include "movelist.h"
 #include "tables.h"
 #include "magics.h"
+#include "zobrist.h"
 
 namespace eia {
 
@@ -47,6 +48,13 @@ public:
   INLINE bool is_draw() const
   {
     return false;
+  }
+
+  inline u64 hash() const
+  {
+    return state.bhash
+      ^ Zobrist::castle[(u8)state.castling]
+      ^ Zobrist::ep[state.ep];
   }
 
   INLINE bool has_pieces(Color col) const
@@ -93,11 +101,14 @@ public:
   Move recognize(Move move);
   bool pseudolegal(Move move) const;
 
-  template<bool full = true> void place(SQ sq, Piece p);
-  template<bool full = true> void remove(SQ sq);
+  template<bool full = true> inline void place(SQ sq, Piece p);
+  template<bool full = true> inline void remove(SQ sq);
 
   bool make(Move move, Undo *& undo);
   void unmake(Move move, Undo *& undo);
+
+  void make_null(Undo *& undo);
+  void unmake_null(Undo *& undo);
 
   INLINE void generate_all(MoveList & ml) const;
   void generate_legal(MoveList & ml);
@@ -216,7 +227,7 @@ void Board::place(SQ sq, Piece p)
     // state.pst += E->pst[p][sq];
     // state.mkey += matkey[p];
 
-    // state.bhash ^= hash_key[p][sq]; // TODO
+    state.bhash ^= Zobrist::key[p][sq];
   }
 }
 
@@ -235,7 +246,7 @@ void Board::remove(SQ sq)
     // state.pst -= E->pst[p][sq];
     // state.mkey -= matkey[p];
 
-    // state.bhash ^= hash_key[p][sq]; // TODO
+    state.bhash ^= Zobrist::key[p][sq];
   }
 }
 

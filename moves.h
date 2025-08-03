@@ -140,6 +140,8 @@ enum class Castling : u8
   ALL = BK | BQ | WK | WQ
 };
 
+enum { Castling_N = 16 };
+
 INLINE Castling operator | (Castling a, Castling b)
 {
   return static_cast<Castling>(static_cast<u8>(a) | static_cast<u8>(b));
