@@ -37,7 +37,8 @@ struct Board
   Piece square[SQ_N];
 
   State state;
-  //Key threefold[3000];
+  u64 threefold[8192];
+  int moves_cnt;
 
 public:
   Board() { clear(); }  
@@ -45,10 +46,8 @@ public:
 
   void clear();
   int phase() const;
-  INLINE bool is_draw() const
-  {
-    return false;
-  }
+  bool is_draw() const;
+  bool is_repetition() const;
 
   inline u64 hash() const
   {
@@ -137,6 +136,9 @@ private:
   INLINE u64 diags()    const { return bishops() | queens(); }
   INLINE u64 ortho()    const { return rooks()   | queens(); }
 
+  INLINE u64 blights()  const { return piece[BN] | piece[BB]; }
+  INLINE u64 wlights()  const { return piece[BN] | piece[BB]; }
+
   INLINE u64 occupied() const { return occ[0] | occ[1]; }
 
   INLINE u64 check_ray() const
@@ -144,6 +146,15 @@ private:
     SQ attacker = bitscan(state.king_atts);
     SQ king = bitscan(piece[BK ^ color]);
     return between[attacker][king];
+  }
+
+  INLINE u64 get_mask(bool cap) const
+  {
+    if (only_one(state.king_atts))
+    {
+      return cap ? state.king_atts : check_ray();
+    }
+    return cap ? occ[~color] : ~occupied();
   }
 };
 

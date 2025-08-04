@@ -42,6 +42,47 @@ int Board::phase() const
   return std::max(phase, 0);
 }
 
+bool Board::is_draw() const
+{
+  if (state.fifty > 99 || is_repetition()) return true;
+
+  // Insufficient material
+
+  const int total = popcnt(occupied());
+
+  if (total == 2)
+  {
+    return true; // KK
+  }
+  else if (total == 3)
+  {
+    if (lights()) return true; // KLK
+  }
+  else if (total == 4)
+  {
+    if (several(knights())) return true; // KNNK, KNKN
+
+    if (only_one(blights())
+    &&  only_one(wlights()))
+      return true; // KLKL
+  }
+}
+
+bool Board::is_repetition() const
+{
+  const u64 key = hash();
+
+  // Going until first irreversible move
+  // Position must repeat twice
+
+  for (int i = moves_cnt - 2; i >= 0; i -= 2)
+  {
+    if (i < moves_cnt - state.fifty) break;
+    if (threefold[i] == key) return true;
+  }
+  return false;
+}
+
 bool Board::set(string fen)
 {
   SQ sq = A8;
@@ -87,7 +128,7 @@ bool Board::set(string fen)
   // full move counter - no need
 
   state.bhash ^= color ? Empty : Zobrist::turn;
-  //threefold ~= Key(state.hash, true);
+  moves_cnt = 0;
 
   state.king_atts = king_attackers();
   state.threats = opp_attacks();
@@ -360,11 +401,17 @@ bool Board::pseudolegal(Move move) const
   if (!ep && cap ^ (d < NOP)) return false;   // cap flag match with dest
   if (d < NOP && col(d) == color) return false; // can't capture own piece
 
-  const u64 mask = !only_one(state.king_atts) ? ~o : check_ray();
-  const u64 att = atts[p][from] & (is_king(p) ? ~o : mask);
+  const u64 mask = get_mask(cap);
 
-  if ((mt == Quiet) || cap) // simple move (quiet or capture)
+  if (mt == Quiet) // quiet move
   {
+    const u64 att = atts[p][from] & (is_king(p) ? ~o : mask);
+    if (!(att & bit(to))) return false; // piece can move that way
+  }
+
+  if (cap) // simple capture move
+  {
+    const u64 att = atts[p][from] & (is_king(p) ? occ[~color] : mask);
     if (!(att & bit(to))) return false; // piece can move that way
   }
 
@@ -377,6 +424,7 @@ bool Board::pseudolegal(Move move) const
 
     if (mt == Cap || is_capprom(mt))
     {
+      const u64 att = atts[p][from] & mask;
       if (!(att & bit(to))) return false; // piece can move that way
       if (is_prom(mt)) return PromRank & bit(from); // correct promotion
       return true;
@@ -428,7 +476,7 @@ bool Board::pseudolegal(Move move) const
              && !(state.threats & Path_BQ);
       }
     }
-    else return is_castle(mt) || mt == Quiet;
+    else return is_castle(mt) || mt == Quiet || mt == Cap;
   }
   
   return !is_castle(mt) && !is_prom(mt) && !is_pawn(mt) && !is_ep(mt)
@@ -443,7 +491,6 @@ bool Board::make(Move move, Undo *& undo)
   const SQ to   = get_to(move);
   const MT mt   = get_mt(move);
   const Piece p = square[from];
-  bool irreversible = true;
 
   (undo++)->state = state;
 
@@ -525,7 +572,6 @@ bool Board::make(Move move, Undo *& undo)
     default:
     {
       assert(square[to] == NOP);
-      irreversible = false;
       remove(from);
       place(to, p);
       break;
@@ -534,7 +580,7 @@ bool Board::make(Move move, Undo *& undo)
 
   color = ~color;
   state.bhash ^= Zobrist::turn;
-  //threefold ~= Key(state.hash, irreversible);
+  threefold[moves_cnt++] = hash();
 
   if (in_check(1))
   {
@@ -558,9 +604,7 @@ void Board::unmake(Move move, Undo *& undo)
   const MT mt   = get_mt(move);
   const Piece p = square[to];
 
-  //assert(threefold.length > 0);
-  //threefold.popBack();
-
+  moves_cnt--;
   color = ~color;
 
   switch (mt)
@@ -635,8 +679,7 @@ void Board::make_null(Undo *& undo)
   color = ~color;
   state.ep = SQ_N;
   state.bhash ^= Zobrist::turn;
-
-  //threefold ~= Key(state.hash, true);
+  threefold[moves_cnt++] = hash();
 }
 
 void Board::unmake_null(Undo *& undo)
@@ -644,10 +687,8 @@ void Board::unmake_null(Undo *& undo)
   color = ~color;
     
   undo--;
+  moves_cnt--;
   state = undo->state;
-
-  /*assert(threefold.length > 0);
-  threefold.popBack();*/
 }
 
 }

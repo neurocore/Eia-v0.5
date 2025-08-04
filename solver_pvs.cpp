@@ -46,6 +46,8 @@ Move SolverPVS::get_move(MS time)
 
     say<1>("info depth {} seldepth {} score cp {} nodes {} time {} pv {}\n",
         depth, max_ply, val, nodes, timer.getms(), best);
+
+    if (val > Val::Mate || val < -Val::Mate) break;
   }
 
   say<1>("bestmove {}\n", best);
@@ -201,15 +203,17 @@ bool SolverPVS::abort() const
 
 void SolverPVS::set_movepicker(MovePicker & mp, Move hash)
 {
+  const bool hash_correct = B->pseudolegal(hash);
+
   mp.ml.clear();
 
   mp.B = B;
   mp.H = &history;
-  mp.hash_mv = hash;
   mp.killer[0] = undo->killer[0];
   mp.killer[1] = undo->killer[1];
 
-  mp.stage = B->pseudolegal(hash) ? Stage::Hash : Stage::GenCaps;
+  mp.hash_mv = hash_correct ? hash : Move::None;
+  mp.stage = hash_correct ? Stage::Hash : Stage::GenCaps;
 
   if (!ply()) return;
 
@@ -273,17 +277,15 @@ int SolverPVS::pvs(int alpha, int beta, int depth, bool is_null)
   //  if (alpha >= beta) return alpha;
   //}
 
-  if (false) {
-
   // 1. Retrieving hash move
 
   const Entry & entry = H->probe(B->hash(), ply());
   Move hash_move = entry.move;
 
-  if (entry.type != Type::None)
+  if constexpr (NT == NonPV) // +100 elo (1+1 h2h-10)
   {
-    if (entry.depth >= depth
-    && (depth == 0 || NT != PV))
+    if (entry.type  != Type::None
+    &&  entry.depth >= depth)
     {
       // Table is exact or produces a cutoff
       if (entry.type == Type::Exact
@@ -295,10 +297,10 @@ int SolverPVS::pvs(int alpha, int beta, int depth, bool is_null)
     }
   }
 
-  if constexpr (NT == NonPV)
-  {
-    int static_eval = E->eval(B, alpha, beta);
+  int static_eval = NT == NonPV ? E->eval(B, alpha, beta) : 0;
 
+  if constexpr (NT == NonPV) // +70 elo (1+1 h2h-16)
+  {
     // 2. Futility Pruning
 
     if (!in_check
@@ -311,7 +313,12 @@ int SolverPVS::pvs(int alpha, int beta, int depth, bool is_null)
       if (static_eval >= beta + Futility_Margin[depth])
         return beta;
     }
+  }
 
+  if (false) {
+
+  if constexpr (NT == NonPV)
+  {
     // 3. Null Move Pruning
 
     if (!in_check
@@ -361,9 +368,6 @@ int SolverPVS::pvs(int alpha, int beta, int depth, bool is_null)
   }
 
   }
-
-  Move hash_move = Move::None;
-
 
   // Looking all legal moves
 
@@ -434,8 +438,8 @@ int SolverPVS::pvs(int alpha, int beta, int depth, bool is_null)
     return in_check ? val : 0; // contempt();
   }
 
-  //if (!abort())
-    //H.store(B->state.hash, ply, undo->best, alpha, depth, hash_type);
+  if (!abort())
+    H->store(B->hash(), ply(), undo->best, alpha, depth, hash_type);
 
   return alpha;
 }
