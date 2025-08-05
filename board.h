@@ -9,10 +9,10 @@
 
 namespace eia {
 
-struct Key
+const int see_value[] =
 {
-  u64 hash;
-  bool irrev;
+  100, 100, 325, 325, 325, 325, 500, 500, 
+  1000, 1000, 20000, 20000, 0, 0, 0, 0
 };
 
 struct State
@@ -55,6 +55,8 @@ public:
       ^ Zobrist::castle[(u8)state.castling]
       ^ Zobrist::ep[state.ep];
   }
+
+  u64 calc_hash() const;
 
   INLINE bool has_pieces(Color col) const
   {
@@ -99,6 +101,7 @@ public:
   int see(Move move) const;
   Move recognize(Move move);
   bool pseudolegal(Move move) const;
+  int best_cap_value() const;
 
   template<bool full = true> inline void place(SQ sq, Piece p);
   template<bool full = true> inline void remove(SQ sq);
@@ -137,7 +140,7 @@ private:
   INLINE u64 ortho()    const { return rooks()   | queens(); }
 
   INLINE u64 blights()  const { return piece[BN] | piece[BB]; }
-  INLINE u64 wlights()  const { return piece[BN] | piece[BB]; }
+  INLINE u64 wlights()  const { return piece[WN] | piece[WB]; }
 
   INLINE u64 occupied() const { return occ[0] | occ[1]; }
 

@@ -264,7 +264,11 @@ int SolverPVS::pvs(int alpha, int beta, int depth, bool is_null)
   nodes++;
 
   if (!in_check && depth <= 0) return qs(alpha, beta);
-  if (ply() > 0 && B->is_draw()) return 0; // contempt();
+
+  if constexpr (NT != Root) // +70 (1+1 h2h-10)
+  {
+    if (B->is_draw()) return 0; // contempt();
+  }
 
   int legal = 0;
 
@@ -279,15 +283,15 @@ int SolverPVS::pvs(int alpha, int beta, int depth, bool is_null)
 
   // 1. Retrieving hash move
 
-  const Entry & entry = H->probe(B->hash(), ply());
-  Move hash_move = entry.move;
+  Entry entry;
+  const bool tt_hit = H->probe(B->hash(), ply(), entry);
+  Move hash_move = tt_hit ? entry.move : Move::None;
 
   if constexpr (NT == NonPV) // +100 elo (1+1 h2h-10)
   {
-    if (entry.type  != Type::None
+    if (tt_hit
     &&  entry.depth >= depth)
     {
-      // Table is exact or produces a cutoff
       if (entry.type == Type::Exact
       || (entry.type == Type::Lower && entry.val >= beta)
       || (entry.type == Type::Upper && entry.val <= alpha))
@@ -297,7 +301,8 @@ int SolverPVS::pvs(int alpha, int beta, int depth, bool is_null)
     }
   }
 
-  int static_eval = NT == NonPV ? E->eval(B, alpha, beta) : 0;
+  int static_eval = tt_hit ? entry.val
+                  : (NT == NonPV ? E->eval(B, alpha, beta) : 0);
 
   if constexpr (NT == NonPV) // +70 elo (1+1 h2h-16)
   {
@@ -315,16 +320,14 @@ int SolverPVS::pvs(int alpha, int beta, int depth, bool is_null)
     }
   }
 
-  if (false) {
-
-  if constexpr (NT == NonPV)
+  if constexpr (NT == NonPV) // +100 elo (10s+.1 h2h-20)
   {
     // 3. Null Move Pruning
 
     if (!in_check
     &&  !is_null
     &&  B->has_pieces(B->color)
-    &&  static_eval > beta
+    &&  static_eval >= beta
     &&  beta > -Val::Mate
     &&  depth >= 2)
     {
@@ -334,40 +337,34 @@ int SolverPVS::pvs(int alpha, int beta, int depth, bool is_null)
       int v = -pvs<NonPV>(-beta, -beta + 1, depth - R, true);
       B->unmake_null(undo);
 
-      if (abort()) return alpha;
-
       if (v >= beta)
       {
-        if (v > Val::Mate) v = beta; // don't return unproved mates
-        if (depth >= 6) // verification search at high depths
-        {
-          v = pvs<NonPV>(alpha, beta, depth - R, true);
-          if (v >= beta) return v;
-        }
+        return v > Val::Mate ? beta : v;
       }
     }
   }
 
+  /*
+
   // 4. Internal Iterative Deepening
 
-  if constexpr (NT == PV)
+  if constexpr (NT == PV) // -50 elo (10s+.1 h2h-20)
   {
     if (depth >= 3
     &&  hash_move == Move::None)
     {
       int new_depth = depth - 2;
 
-      int v = pvs<NonPV>(alpha, beta, new_depth, is_null);
+      int v = pvs<PV>(alpha, beta, new_depth, is_null);
       if (v <= alpha)
-        v = pvs<NonPV>(-Val::Inf, beta, new_depth, is_null);
+        v = pvs<PV>(-Val::Inf, beta, new_depth, is_null);
 
       if (!is_empty(undo->best))
         if (B->pseudolegal(undo->best))
           hash_move = undo->best;
     }
   }
-
-  }
+  */
 
   // Looking all legal moves
 
@@ -439,7 +436,10 @@ int SolverPVS::pvs(int alpha, int beta, int depth, bool is_null)
   }
 
   if (!abort())
-    H->store(B->hash(), ply(), undo->best, alpha, depth, hash_type);
+  {
+    Move best = hash_type == Upper ? Move::None : undo->best;
+    H->store(B->hash(), ply(), best, alpha, depth, hash_type);
+  }
 
   return alpha;
 }
@@ -447,11 +447,39 @@ int SolverPVS::pvs(int alpha, int beta, int depth, bool is_null)
 int SolverPVS::qs(int alpha, int beta)
 {
   max_ply = std::max(max_ply, ply());
+
+  if (ply() >= Limits::Plies) return E->eval(B, alpha, beta);
+  if (B->is_draw()) return 0; // contempt();
+
+  // 1. Retrieving hash eval
+
+  Entry entry;
+  const bool tt_hit = H->probe(B->hash(), ply(), entry);
+
+  if (tt_hit) // +?? elo (1+1 h2h-10)
+  {
+    if (entry.type == Type::Exact
+    || (entry.type == Type::Lower && entry.val >= beta)
+    || (entry.type == Type::Upper && entry.val <= alpha))
+    {
+      return entry.val;
+    }
+  }
+
+  // 2. Calculating stand pat
+
   int stand_pat = E->eval(B, alpha, beta);
+  //H->store(B->hash(), ply(), Move::None, stand_pat, 0, Type::None);
+
   if (stand_pat >= beta) return beta;
   if (stand_pat > alpha) alpha = stand_pat;
 
-  if (ply() >= Limits::Plies) return stand_pat;
+  // 3. Delta pruning (+?? 10s+.1 h2h-30)
+
+  if (std::max(143, B->best_cap_value()) < alpha - stand_pat)
+  {
+    return stand_pat;
+  }
 
   MovePicker mp;
   set_movepicker(mp, Move::None);

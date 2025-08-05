@@ -5,7 +5,7 @@ using namespace std;
 
 namespace eia::Zobrist {
 
-u64 key[SQ_N][Piece_N];
+u64 key[Piece_N][SQ_N];
 u64 castle[Castling_N];
 u64 ep[SQ_N + 1];
 u64 turn = [&]() -> u64
@@ -15,7 +15,7 @@ u64 turn = [&]() -> u64
 
   for (Piece p = BP; p < Piece_N; ++p)
     for (SQ sq = A1; sq < SQ_N; ++sq)
-      key[sq][p] = distr(gen);
+      key[p][sq] = distr(gen);
 
   for (int i = 0; i < 16; i++)
     castle[i] = i ? distr(gen) : Empty;

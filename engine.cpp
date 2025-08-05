@@ -148,14 +148,16 @@ bool Engine::parse(string str)
   {
     SearchParams sp;
 
-    string part;
-    while(!(part = cut(str)).empty())
+    while(true)
     {
-      if      (part == "wtime") { sp.time[1] = parse_int(cut(str), Time::Def); break; }
-      else if (part == "btime") { sp.time[0] = parse_int(cut(str), Time::Def); break; }
-      else if (part == "winc")  { sp.inc[1] = parse_int(cut(str), Time::Inc); break; }
-      else if (part == "binc")  { sp.inc[0] = parse_int(cut(str), Time::Inc); break; }
-      else if (part == "infinite") { sp.infinite = true; break; }
+      string part = cut(str);
+      if (part.empty()) break;
+
+      if      (part == "wtime")    sp.time[1] = parse_int(cut(str), Time::Def);
+      else if (part == "btime")    sp.time[0] = parse_int(cut(str), Time::Def);
+      else if (part == "winc")     sp.inc[1] = parse_int(cut(str), Time::Inc); 
+      else if (part == "binc")     sp.inc[0] = parse_int(cut(str), Time::Inc); 
+      else if (part == "infinite") sp.infinite = true; 
       else break;
     }
     go(sp);

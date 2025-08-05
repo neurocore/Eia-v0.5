@@ -66,6 +66,7 @@ bool Board::is_draw() const
     &&  only_one(wlights()))
       return true; // KLKL
   }
+  return false;
 }
 
 bool Board::is_repetition() const
@@ -75,12 +76,30 @@ bool Board::is_repetition() const
   // Going until first irreversible move
   // Position must repeat twice
 
-  for (int i = moves_cnt - 2; i >= 0; i -= 2)
+  for (int i = moves_cnt - 5; i >= 0; i -= 2)
   {
     if (i < moves_cnt - state.fifty) break;
     if (threefold[i] == key) return true;
   }
   return false;
+}
+
+u64 Board::calc_hash() const
+{
+  u64 key = 0ull;
+  for (Piece p = BP; p < Piece_N; ++p)
+  {
+    for (u64 bb = piece[p]; bb; bb = rlsb(bb))
+    {
+      SQ sq = bitscan(bb);
+      key ^= Zobrist::key[p][sq];
+    }
+  }
+
+  key ^= Zobrist::castle[(u8)state.castling]
+      ^  Zobrist::ep[state.ep];
+
+  return color ? key : key ^ Zobrist::turn;
 }
 
 bool Board::set(string fen)
@@ -327,7 +346,6 @@ int Board::see(Move move) const
   const SQ from = get_from(move);
   const SQ to = get_to(move);
 
-  const int value[] = { 100, 100, 325, 325, 325, 325, 500, 500, 1000, 1000, 20000, 20000, 0, 0 };
   int gain[32];
   int d = 0;
   Piece p = square[from];
@@ -336,7 +354,7 @@ int Board::see(Move move) const
   u64 xrayers = o ^ (knights() | kings());
   u64 from_bb = bit(from);
   u64 attadef = get_all_attackers(o, to) | from_bb;
-  gain[d]     = value[square[to]];
+  gain[d]     = see_value[square[to]];
 
   do
   {
@@ -345,7 +363,7 @@ int Board::see(Move move) const
     //writefln("gain[%d] = %d", d, gain[d]);
 
     d++;
-    gain[d]  = value[p] - gain[d - 1]; // speculative store, if defended
+    gain[d]  = see_value[p] - gain[d - 1]; // speculative score, if defended
     attadef ^= from_bb; // reset bit in set to traverse
     o       ^= from_bb; // reset bit in temporary occupancy (for x-Rays)
 
@@ -483,6 +501,29 @@ bool Board::pseudolegal(Move move) const
       && !several(state.king_atts);
 }
 
+int Board::best_cap_value() const
+{
+  int val = see_value[WP];
+
+  // Most valuable opponents piece
+  for (Piece p = WQ ^ color; p > WP; p = p + 2)
+  {
+    if (piece[p])
+    {
+      val = see_value[p];
+      break;
+    }
+  }
+
+  // Potential promotion
+  if (piece[BP ^ color] & (color ? Rank7 : Rank2))
+  {
+    val += see_value[WQ] - see_value[WP];
+  }
+
+  return val;
+}
+
 bool Board::make(Move move, Undo *& undo)
 {
   assert(!is_empty(move));
@@ -581,6 +622,16 @@ bool Board::make(Move move, Undo *& undo)
   color = ~color;
   state.bhash ^= Zobrist::turn;
   threefold[moves_cnt++] = hash();
+
+#ifdef _DEBUG
+  if (hash() != calc_hash())
+  {
+    print();
+    say(" actual hash: 0x{:016X}\n", hash());
+    say("correct hash: 0x{:016X}\n", calc_hash());
+    assert(false);
+  }
+#endif
 
   if (in_check(1))
   {

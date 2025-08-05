@@ -63,17 +63,18 @@ public:
     clear();
   }
 
-  Entry probe(u64 key, int height)
+  bool probe(u64 key, int height, Entry & entry)
   {
-    const Entry & entry = table[key & (size - 1)];
+    Entry & e = table[key & (size - 1)];
 
-    if (entry.key16 != key_high(key)) return entry0;
+    if (e.key16 != key_high(key)) return false;
 
     read++;
 
-    Entry result = entry;
+    Entry result = e;
     result.val = val_from(result.val, height);
-    return result;    
+    entry = result; 
+    return true;
   }
 
   void store(u64 key, int height, Move move, int val, int depth, Type type)
