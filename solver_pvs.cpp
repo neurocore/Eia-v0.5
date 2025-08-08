@@ -74,7 +74,7 @@ u64 SolverPVS::perft(int depth)
     if (is_empty(move)) break;
   */
 
-  MovePicker mp; // must be correct
+  MovePickerPVS mp; // must be correct
   set_movepicker(mp, Move::None);
 
   Move move;
@@ -116,7 +116,7 @@ u64 SolverPVS::perft_inner(int depth)
     Move move = ml.get_next();
     if (is_empty(move)) break;*/
 
-  MovePicker mp; // must be correct
+  MovePickerPVS mp; // must be correct
   set_movepicker(mp, Move::None);
 
   Move move;
@@ -201,27 +201,6 @@ bool SolverPVS::abort() const
   return false;
 }
 
-void SolverPVS::set_movepicker(MovePicker & mp, Move hash)
-{
-  const bool hash_correct = B->pseudolegal(hash);
-
-  mp.ml.clear();
-
-  mp.B = B;
-  mp.H = &history;
-  mp.killer[0] = undo->killer[0];
-  mp.killer[1] = undo->killer[1];
-
-  mp.hash_mv = hash_correct ? hash : Move::None;
-  mp.stage = hash_correct ? Stage::Hash : Stage::GenCaps;
-
-  if (!ply()) return;
-
-  const Move prev = (undo - 1)->curr;
-  mp.counter = is_empty(prev) ? Move::None
-             : counter[~B->color][get_from(prev)][get_to(prev)];
-}
-
 void SolverPVS::update_moves_stats(int depth)
 {
   // History table
@@ -257,7 +236,7 @@ int SolverPVS::pvs(int alpha, int beta, int depth, bool is_null)
 {
   using namespace Hash;
   if constexpr (NT == Root) thinking = true;
-  const bool in_check = !!B->state.king_atts;
+  const bool in_check = !!B->state.checkers;
   Type hash_type = Type::Upper;
   int val = ply() - Val::Inf;
   undo->best = Move::None;
@@ -368,7 +347,7 @@ int SolverPVS::pvs(int alpha, int beta, int depth, bool is_null)
 
   // Looking all legal moves
 
-  MovePicker mp;
+  MovePickerPVS mp;
   set_movepicker(mp, hash_move);
 
   Move move;
@@ -446,6 +425,7 @@ int SolverPVS::pvs(int alpha, int beta, int depth, bool is_null)
 
 int SolverPVS::qs(int alpha, int beta)
 {
+  const bool in_check = !!B->state.checkers;
   max_ply = std::max(max_ply, ply());
 
   if (ply() >= Limits::Plies) return E->eval(B, alpha, beta);
@@ -456,7 +436,7 @@ int SolverPVS::qs(int alpha, int beta)
   Entry entry;
   const bool tt_hit = H->probe(B->hash(), ply(), entry);
 
-  if (tt_hit) // +?? elo (1+1 h2h-10)
+  if (tt_hit) // +0 elo (1+1 h2h-10) - not storing
   {
     if (entry.type == Type::Exact
     || (entry.type == Type::Lower && entry.val >= beta)
@@ -474,20 +454,25 @@ int SolverPVS::qs(int alpha, int beta)
   if (stand_pat >= beta) return beta;
   if (stand_pat > alpha) alpha = stand_pat;
 
-  // 3. Delta pruning (+?? 10s+.1 h2h-30)
+  // 3. Delta pruning (+123 elo 10s+.1 h2h-30)
 
   if (std::max(143, B->best_cap_value()) < alpha - stand_pat)
   {
     return stand_pat;
   }
 
-  MovePicker mp;
+  MovePickerQS mp;
   set_movepicker(mp, Move::None);
 
   Move move;
-  while (!is_empty(move = mp.get_next(true)))
+  while (!is_empty(move = mp.get_next()))
   {
     if (!B->make(move, undo)) continue;
+
+    // SEE pruning (+70 elo 10s+.1 h2h-30)
+    if (!in_check
+    &&  !is_prom(move)
+    &&  B->see(move) < 0) continue; 
 
     nodes++;
     undo->curr = move;

@@ -9,8 +9,7 @@ class Engine;
 struct Undo
 {
   State state;
-  MovePicker mp;
-  // Vals pst;
+  // Duo pst;
   Move curr, best;
   Move killer[2];
 };

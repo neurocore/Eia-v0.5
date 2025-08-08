@@ -62,7 +62,7 @@ static Move to_move(std::string str)
   return to_move(from, to, mt);
 }
 
-INLINE bool is_empty(Move move) { return move == None || move == Null; }
+INLINE bool is_empty(Move move) { return move == Move::None || move == Move::Null; }
 
 INLINE SQ get_from(Move move) { return static_cast<SQ>(move & 63); } 
 INLINE SQ get_to(Move move) { return static_cast<SQ>((move >> 6) & 63); } 
@@ -129,6 +129,11 @@ INLINE bool similar(Move correct, Move candidate)
 
   return promoted(correct) != promoted(candidate);
 }
+
+enum CastlingType : u8
+{
+  CT_BK, CT_WK, CT_BQ, CT_WQ
+};
 
 enum class Castling : u8
 {

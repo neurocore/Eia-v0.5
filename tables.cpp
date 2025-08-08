@@ -176,6 +176,10 @@ const std::array<SQ_BB, Color_N> att_span = []
 const std::array<SQ_SQ, SQ_N + 1> ep_square = []
 {
   std::array<SQ_SQ, SQ_N + 1> result{};
+  for (SQ i = A1; i <= SQ_N; ++i)
+    for (SQ j = A1; j <= SQ_N; ++j)
+      result[i][j] = SQ_N;
+
   for (int i = 0; i < 8; ++i)
   {
     result[to_sq(i, 1)][to_sq(i, 3)] = to_sq(i, 2);

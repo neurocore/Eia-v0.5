@@ -23,7 +23,7 @@ struct State
   int fifty = 0;
   u64 bhash = Empty;
 
-  u64 king_atts = Empty;
+  u64 checkers = Empty;
   u64 threats = Empty;
 };
 
@@ -69,6 +69,9 @@ public:
     return !has_pieces(~col) && !!piece[WP ^ col];
   }
 
+  template<CastlingType CT>
+  INLINE bool can_castle() const;
+
   bool is_correct(std::string & details) const;
   bool operator == (const Board & board) const;
 
@@ -85,7 +88,13 @@ public:
 
   template<PieceType PT>
   INLINE u64  attack(SQ sq) const;
+
+  INLINE u64  attack(Piece p, SQ sq) const;
   INLINE bool is_attacked(SQ sq, u64 o, int opp = 0) const;
+
+  template<Color COL, bool King = true>
+  INLINE u64  get_attackers(u64 o, SQ sq) const;
+
   INLINE u64  get_all_attackers(u64 o, SQ sq) const;
   INLINE bool in_check(int opp = 0) const;
   INLINE bool castling_attacked(SQ from, SQ to) const;
@@ -121,12 +130,24 @@ public:
   template<Color COL, bool QS = false>
   void generate_attacks(MoveList & ml) const;
 
+  template<Color COL>
+  void generate_checks(MoveList & ml) const;
+
 private:
   template<Color COL, bool ATT, PieceType PT>
   INLINE void gen_lookup(MoveList & ml, u64 mask) const;
 
   template<Color COL, bool ATT, bool DIAG>
   INLINE void gen_slider(MoveList & ml, u64 mask) const;
+
+  template<Color COL>
+  INLINE void gen_kill_checker(MoveList & ml) const;
+
+  template<Color COL>
+  INLINE void gen_pawn_pushes(MoveList & ml, u64 mask) const;
+
+  template<Color COL>
+  INLINE void gen_pawn_double(MoveList & ml, u64 mask) const;
 
   INLINE u64 pawns()    const { return piece[BP] | piece[WP]; }
   INLINE u64 knights()  const { return piece[BN] | piece[WN]; }
@@ -146,21 +167,33 @@ private:
 
   INLINE u64 check_ray() const
   {
-    SQ attacker = bitscan(state.king_atts);
+    SQ attacker = bitscan(state.checkers);
     SQ king = bitscan(piece[BK ^ color]);
     return between[attacker][king];
   }
 
   INLINE u64 get_mask(bool cap) const
   {
-    if (only_one(state.king_atts))
+    if (only_one(state.checkers))
     {
-      return cap ? state.king_atts : check_ray();
+      return cap ? state.checkers : check_ray();
     }
     return cap ? occ[~color] : ~occupied();
   }
 };
 
+
+template<CastlingType CT>
+INLINE bool Board::can_castle() const
+{
+  const u64 span[] = { Span_BK, Span_WK, Span_BQ, Span_WQ };
+  const u64 path[] = { Path_BK, Path_WK, Path_BQ, Path_WQ };
+  constexpr Castling castle = static_cast<Castling>(1 << CT);
+
+  return (!!(state.castling & castle)    // has rights
+      &&   !(occupied() & span[CT])      // no obstruction
+      &&   !(state.threats & path[CT])); // not attacked path
+}
 
 template<PieceType PT>
 INLINE u64 Board::attack(SQ sq) const
@@ -170,6 +203,19 @@ INLINE u64 Board::attack(SQ sq) const
   else if constexpr (PT == Queen)  return q_att(occupied(), sq);
 
   return atts[to_piece(PT, Black)][sq];
+}
+
+template<Color COL, bool King>
+INLINE u64 Board::get_attackers(u64 o, SQ sq) const
+{
+  u64 att = Empty;
+  att |= b_att(o, sq) & (piece[BB ^ COL] | piece[BQ ^ COL]);
+  att |= r_att(o, sq) & (piece[BR ^ COL] | piece[BQ ^ COL]);
+  att |= atts[BN][sq] &  piece[BN ^ COL];
+  att |= atts[WP ^ COL][sq] & piece[BP ^ COL];
+
+  if constexpr (King) att |= atts[BK][sq] & piece[BK ^ COL];
+  return att;
 }
 
 template<Color COL>
@@ -300,37 +346,77 @@ INLINE void Board::gen_slider(MoveList & ml, u64 mask) const
 }
 
 template<Color COL>
-void Board::generate_quiets(MoveList & ml) const
+INLINE void Board::gen_kill_checker(MoveList & ml) const
 {
-  const auto was = ml.count();
-  const u64 o = occ[0] | occ[1];
+  // !! This code is slightly faster, but tested lesser
 
-  if (several(state.king_atts))
+  // Excluding king-checker capture since it already
+  //  included on king attacks generation
+
+  assert(only_one(state.checkers));
+
+  // Capturing attacking piece
+
+  const Piece p = BP ^ COL; // own pawn
+  const u64 o = occupied();
+  const SQ checker = bitscan(state.checkers);
+  const u64 attackers = get_attackers<COL, false>(o, checker);
+  const u64 passers = piece[p] & (COL ? Rank7 : Rank2);
+
+  for (u64 bb = attackers & passers; bb; bb = rlsb(bb))
   {
-    gen_lookup<COL, false, King>(ml, ~o);
-    return;
+    ml.add_capprom<true>(bitscan(bb), checker);
   }
 
-  const u64 mask = !state.king_atts ? ~o : check_ray();
-
-  gen_lookup<COL, false, King>(ml, ~o); // special case (!)
-  gen_lookup<COL, false, Knight>(ml, mask);
-  gen_slider<COL, false, true>(ml, mask);
-  gen_slider<COL, false, false>(ml, mask);
-
-  u64 pawns = piece[to_piece(Pawn, COL)];
-
-  if constexpr (COL)
+  for (u64 bb = attackers & ~passers; bb; bb = rlsb(bb))
   {
-    // Forward push
+    ml.add_move(bitscan(bb), checker, Cap);
+  }
+
+  // En passant (attacker is pawn)
+
+  if (!!(state.checkers & piece[~p]) && state.ep < SQ_N)
+  {
+    for (u64 bb = piece[p] & atts[~p][state.ep]; bb; bb = rlsb(bb))
+    {
+      ml.add_move(bitscan(bb), state.ep, Ep);
+    }
+  }
+}
+
+template<Color COL>
+INLINE void Board::gen_pawn_pushes(MoveList & ml, u64 mask) const
+{
+  const u64 o = occupied();
+  const u64 pawns = piece[to_piece(Pawn, COL)];
+
+  if constexpr (COL) // Forward push
+  {
     for (u64 bb = pawns & shift_d(mask) & ~Rank7; bb; bb = rlsb(bb))
     {
       SQ s = bitscan(bb);
       ml.add_move(s, s + 8, PawnMove);
     }
+  }
+  else
+  {
+    for (u64 bb = pawns & shift_u(mask) & ~Rank2; bb; bb = rlsb(bb))
+    {
+      SQ s = bitscan(bb);
+      ml.add_move(s, s - 8, PawnMove);
+    }
+  }
+}
 
-    // Double move
-    for (u64 bb = pawns & (~o >> 8) & (~o >> 16) & Rank2; bb; bb = rlsb(bb))
+template<Color COL>
+INLINE void Board::gen_pawn_double(MoveList & ml, u64 mask) const
+{
+  const u64 o = occupied();
+  const u64 pawns = piece[to_piece(Pawn, COL)];
+
+  if constexpr (COL) // Double move
+  {
+    for (u64 bb = pawns & (~o >> 8) & (mask >> 16) & Rank2; bb; bb = rlsb(bb))
     {
       SQ s = bitscan(bb);
       ml.add_move(s, s + 16, PawnMove);
@@ -338,55 +424,42 @@ void Board::generate_quiets(MoveList & ml) const
   }
   else
   {
-    // Forward push
-    for (u64 bb = pawns & shift_u(mask) & ~Rank2; bb; bb = rlsb(bb))
-    {
-      SQ s = bitscan(bb);
-      ml.add_move(s, s - 8, PawnMove);
-    }
-
-    // Double move
-    for (u64 bb = pawns & (~o << 8) & (~o << 16) & Rank7; bb; bb = rlsb(bb))
+    for (u64 bb = pawns & (~o << 8) & (mask << 16) & Rank7; bb; bb = rlsb(bb))
     {
       SQ s = bitscan(bb);
       ml.add_move(s, s - 16, PawnMove);
     }
   }
+}
 
-  if (state.king_atts) return;
+template<Color COL>
+void Board::generate_quiets(MoveList & ml) const
+{
+  const u64 o = occupied();
 
-  // Castlings
-  if constexpr (COL)
+  gen_lookup<COL, false, King>(ml, ~o); // special case (!)
+
+  if (several(state.checkers)) return; // double check -> only evade
+
+  const u64 mask = !state.checkers ? ~o : check_ray();
+  gen_lookup<COL, false, Knight>(ml, mask);
+  gen_slider<COL, false, true>(ml, mask);
+  gen_slider<COL, false, false>(ml, mask);
+
+  gen_pawn_pushes<COL>(ml, mask);
+  gen_pawn_double<COL>(ml, mask);
+
+  if (state.checkers) return;
+
+  if constexpr (COL) // Castlings
   {
-    if (!!(state.castling & Castling::WK)
-    &&   !(o & Span_WK)
-    &&   !(state.threats & Path_WK))
-    {
-      ml.add_move(E1, G1, KCastle);
-    }
-
-    if (!!(state.castling & Castling::WQ)
-    &&   !(o & Span_WQ)
-    &&   !(state.threats & Path_WQ))
-    {
-      ml.add_move(E1, C1, QCastle);
-    }
+    if (can_castle<CT_WK>()) ml.add_move(E1, G1, KCastle);
+    if (can_castle<CT_WQ>()) ml.add_move(E1, C1, QCastle);
   }
   else
   {
-    if (!!(state.castling & Castling::BK)
-    &&   !(o & Span_BK)
-    &&   !(state.threats & Path_BK))
-    {
-      ml.add_move(E8, G8, KCastle);
-    }
-
-    if (!!(state.castling & Castling::BQ)
-    &&   !(o & Span_BQ)
-    &&   !(state.threats & Path_BQ))
-    {
-      ml.add_move(E8, C8, QCastle);
-    }
+    if (can_castle<CT_BK>()) ml.add_move(E8, G8, KCastle);
+    if (can_castle<CT_BQ>()) ml.add_move(E8, C8, QCastle);
   }
 }
 
@@ -397,15 +470,18 @@ void Board::generate_attacks(MoveList & ml) const
   const u64 opp = occ[~COL];
   const u64 o = me | opp;
 
-  if (several(state.king_atts))
-  {
-    gen_lookup<COL, true, King>(ml, opp);
-    return;
-  }
-
-  const u64 mask = state.king_atts ? state.king_atts : opp;
-
   gen_lookup<COL, true, King>(ml, opp); // special case (!)
+
+  /*if (only_one(state.checkers)) // have no speedup
+  {
+    gen_kill_checker<COL>(ml);
+    return;
+  }*/
+
+  if (several(state.checkers)) return;
+
+  const u64 mask = state.checkers ? state.checkers : opp;
+
   gen_lookup<COL, true, Knight>(ml, mask);
   gen_slider<COL, true, true>(ml, mask);
   gen_slider<COL, true, false>(ml, mask);
@@ -449,7 +525,7 @@ void Board::generate_attacks(MoveList & ml) const
       ml.add_move(s, s + 7, Cap);
     }
 
-    if (state.ep) // En passant
+    if (state.ep < SQ_N) // En passant
     {
       for (u64 bb = piece[p] & atts[p ^ 1][state.ep]; bb; bb = rlsb(bb))
       {
@@ -494,12 +570,81 @@ void Board::generate_attacks(MoveList & ml) const
       ml.add_move(s, s - 7, Cap);
     }
 
-    if (state.ep) // En passant
+    if (state.ep < SQ_N) // En passant
     {
       for (u64 bb = piece[p] & atts[p ^ 1][state.ep]; bb; bb = rlsb(bb))
       {
         ml.add_move(bitscan(bb), state.ep, Ep);
       }
+    }
+  }
+}
+
+template<Color COL>
+void Board::generate_checks(MoveList & ml) const
+{
+  // Notice that we're looking for quiet checks only
+  //  since this generator primarily used in qs
+  //  with addition to attacking moves
+
+  const u64 o = occupied();
+  const SQ king = bitscan(piece[WK ^ COL]);
+
+  // 1. Pieces that give check
+
+  gen_lookup<COL, false, Knight>(ml, atts[BN][king] & ~o);
+  gen_slider<COL, false, false>(ml, r_att(o, king) & ~o);
+  gen_slider<COL, false, true>(ml, b_att(o, king) & ~o);
+
+  const u64 mask = COL ? (atts[WP][king] << 8) & ~o
+                       : (atts[BP][king] >> 8) & ~o;
+
+  gen_pawn_pushes<COL>(ml, mask);
+  gen_pawn_double<COL>(ml, mask);
+
+  if constexpr (COL) // castling may give check too
+  {
+    if (!between[king][F1] && can_castle<CT_WK>()) ml.add_move(E1, G1, KCastle);
+    if (!between[king][D1] && can_castle<CT_WQ>()) ml.add_move(E1, C1, QCastle);
+  }
+  else
+  {
+    if (!between[king][F8] && can_castle<CT_BK>()) ml.add_move(E8, G8, KCastle);
+    if (!between[king][D8] && can_castle<CT_BQ>()) ml.add_move(E8, C8, QCastle);
+  }
+
+  // 2. Discovered checks by piece
+
+  u64 blockers  = r_att(o, king) & occ[COL];
+  u64 attackers = r_att(o ^ blockers, king) & ortho();
+
+  blockers   = b_att(o, king) & occ[COL];
+  attackers |= b_att(o ^ blockers, king) & diags();
+
+  for (u64 bb = attackers; bb; bb = rlsb(bb))
+  {
+    const u64 ray = between[king][bitscan(bb)];
+    const SQ   sq = bitscan(ray & o);
+    const Piece p = square[sq];
+
+    const u64 mask = ~o & ~(ray | bit(king)); // must discover
+
+    switch (pt(p))
+    {
+      case King:   gen_lookup<COL, false, King>(ml, mask); break;
+      case Knight: gen_lookup<COL, false, Knight>(ml, mask); break;
+      case Rook:   gen_slider<COL, false, false>(ml, mask); break;
+      case Bishop: gen_slider<COL, false, true>(ml, mask); break;
+      case Queen: /* behold the tragedy of powerful piece */ break;
+
+      case Pawn: // don't forget, only quiets here
+      {
+        gen_pawn_pushes<COL>(ml, mask);
+        gen_pawn_double<COL>(ml, mask);
+        break;
+      }
+
+      default: assert(false);
     }
   }
 }

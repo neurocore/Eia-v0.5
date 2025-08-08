@@ -1,5 +1,6 @@
 #pragma once
 #include <array>
+#include <concepts>
 #include <iostream>
 #include "square.h"
 
@@ -38,12 +39,13 @@ INLINE u64 rlsb(u64 bb) { return bb & (bb - Bit); }
 INLINE bool only_one(u64 bb) { return bb && !rlsb(bb); }
 INLINE bool several(u64 bb)  { return !!rlsb(bb); }
 
-INLINE u64 msb(u64 bb)
+template<std::integral T>
+INLINE T msb(T bb)
 {
   unsigned n = 0;
 
   while (bb >>= 1) n++;
-  return Bit << n;
+  return static_cast<T>(1) << n;
 }
 
 const std::array<int, 65536> lut = []

@@ -667,7 +667,7 @@ void Eval::init()
   }
 
   // back rank
-  for (int sq = A1; sq <= H1; sq++)
+  for (SQ sq = A1; sq <= H1; ++sq)
   {
     pst[p][sq].op -= term[KnightBackRank];
   }

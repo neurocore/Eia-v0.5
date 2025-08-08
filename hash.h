@@ -39,11 +39,13 @@ const Entry entry0 { Empty, Move::None, 0u, 0u, 0 };
 
 class Table
 {
-  u32 size, read, write;
+  int size;
+  u32 read, write;
   Entry * table;
 
 public:
   Table(int size_mb = HashTables::Size) { init(size_mb); }
+  ~Table() { delete[] table; table = nullptr; }
 
   void clear()
   {
@@ -55,8 +57,20 @@ public:
 
   void init(int size_mb)
   {
-    // ensure it has power of two
-    size = msb(size_mb * (1 << 20) / sizeof(Entry));
+    constexpr int entry_sz = sizeof(Entry);
+
+    if constexpr (only_one(entry_sz))
+    {
+      assert(size_mb <= 2048 * entry_sz);
+      size = size_mb << (20 - bitscan(entry_sz));
+    }
+    else // ensure it has power of two
+    {
+      assert(size_mb <= 2048);
+      int n = (size_mb << 20) / sizeof(Entry);
+      size = msb(n);
+    }
+    
     if (table != nullptr) delete[] table;
     table = new Entry[size];
 

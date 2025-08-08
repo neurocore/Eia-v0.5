@@ -149,7 +149,7 @@ bool Board::set(string fen)
   state.bhash ^= color ? Empty : Zobrist::turn;
   moves_cnt = 0;
 
-  state.king_atts = king_attackers();
+  state.checkers = king_attackers();
   state.threats = opp_attacks();
 
   return true;
@@ -230,6 +230,21 @@ void Board::print() const
 void Board::print(Move move) const
 {
   cout << move; // TODO: make prettifier
+}
+
+INLINE u64 Board::attack(Piece p, SQ sq) const
+{
+  switch(pt(p))
+  {
+    case Pawn:
+    case King:
+    case Knight: return atts[p][sq];
+    case Rook:   return r_att(occupied(), sq);
+    case Bishop: return b_att(occupied(), sq);
+    case Queen:  return q_att(occupied(), sq);
+    default:     assert(false);
+  }
+  return 0ull;
 }
 
 INLINE bool Board::is_attacked(SQ sq, u64 o, int opp) const
@@ -435,8 +450,8 @@ bool Board::pseudolegal(Move move) const
 
   if (is_pawn(p))
   {
-    if (several(state.king_atts)) return false;
-    if (mt == Ep) return state.ep < NOP && to == state.ep;
+    if (several(state.checkers)) return false;
+    if (mt == Ep) return state.ep < SQ_N && to == state.ep;
 
     const u64 PromRank = color ? Rank7 : Rank2;
 
@@ -462,7 +477,7 @@ bool Board::pseudolegal(Move move) const
   {
     if (mt == KCastle)
     {
-      if (state.king_atts) return false;
+      if (state.checkers) return false;
 
       if (color)
       {
@@ -479,7 +494,7 @@ bool Board::pseudolegal(Move move) const
     }
     else if (mt == QCastle)
     {
-      if (state.king_atts) return false;
+      if (state.checkers) return false;
 
       if (color)
       {
@@ -498,7 +513,7 @@ bool Board::pseudolegal(Move move) const
   }
   
   return !is_castle(mt) && !is_prom(mt) && !is_pawn(mt) && !is_ep(mt)
-      && !several(state.king_atts);
+      && !several(state.checkers);
 }
 
 int Board::best_cap_value() const
@@ -639,7 +654,7 @@ bool Board::make(Move move, Undo *& undo)
     return false;
   }
 
-  state.king_atts = king_attackers();
+  state.checkers = king_attackers();
   state.threats = opp_attacks();
 
   undo->curr = move;

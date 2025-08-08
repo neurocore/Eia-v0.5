@@ -44,6 +44,7 @@ INLINE Piece & operator -- (Piece & a) { a = static_cast<Piece>(a - 1); return a
 
 INLINE bool is_pawn(Piece p) { return p < BN; }
 INLINE bool is_king(Piece p) { return p == BK || p == WK; }
+INLINE bool is_slider(Piece p) { return p > WN && p < BK; }
 
 template<PieceType pt>
 INLINE bool is(Piece p) { return (p >> 1) == pt; }
