@@ -46,22 +46,23 @@ public:
   bool abort() const;
   int ply() const { return static_cast<int>(undo - undos); }
 
-  template<MPType Type>
-  void set_movepicker(MovePicker<Type> & mp, Move hash);
+  template<bool QS>
+  void set_movepicker(MovePicker<QS> & mp, Move hash);
   void update_moves_stats(int depth);
 
   template<NodeType NT>
   int pvs(int alpha, int beta, int depth, bool is_null = false);
 
-  int qs(int alpha, int beta);
+  template<bool InCheck = false>
+  int qs(int alpha, int beta, int max_checks_depth);
 
-  template<MPType Type>
+  template<bool QS>
   friend struct MovePicker;
 };
 
 
-template<MPType Type>
-void SolverPVS::set_movepicker(MovePicker<Type> & mp, Move hash)
+template<bool QS>
+void SolverPVS::set_movepicker(MovePicker<QS> & mp, Move hash)
 {
   const bool hash_correct = B->pseudolegal(hash);
 
@@ -73,15 +74,7 @@ void SolverPVS::set_movepicker(MovePicker<Type> & mp, Move hash)
   mp.killer[1] = undo->killer[1];
 
   mp.hash_mv = hash_correct ? hash : Move::None;
-
-  if constexpr (Type == MPType::Evade)
-  {
-    mp.stage = Stage::GenCaps;
-  }
-  else
-  {
-    mp.stage = hash_correct ? Stage::Hash : Stage::GenCaps;
-  }
+  mp.stage = hash_correct ? Stage::Hash : Stage::GenCaps;
 
   if (!ply()) return;
 
@@ -95,5 +88,8 @@ void SolverPVS::set_movepicker(MovePicker<Type> & mp, Move hash)
 template int SolverPVS::pvs<PV>(int alpha, int beta, int depth, bool is_null);
 template int SolverPVS::pvs<NonPV>(int alpha, int beta, int depth, bool is_null);
 template int SolverPVS::pvs<Root>(int alpha, int beta, int depth, bool is_null);
+
+template int SolverPVS::qs<0>(int alpha, int beta, int max_checks_depth);
+template int SolverPVS::qs<1>(int alpha, int beta, int max_checks_depth);
 
 }

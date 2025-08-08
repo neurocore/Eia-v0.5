@@ -4,8 +4,6 @@
 
 namespace eia {
 
-enum class MPType { PVS, QS, Evade };
-
 enum class Stage
 {
   Hash,
@@ -16,7 +14,7 @@ enum class Stage
   Done
 };
 
-template<MPType Type>
+template<bool QS>
 struct MovePicker
 {
   Stage stage;
@@ -28,17 +26,13 @@ struct MovePicker
   Move get_next(bool checks = true);
 };
 
-using MovePickerPVS = MovePicker<MPType::PVS>;
-using MovePickerQS = MovePicker<MPType::QS>;
-using MovePickerEvade = MovePicker<MPType::Evade>;
+using MovePickerPVS = MovePicker<false>;
+using MovePickerQS = MovePicker<true>;
 
 
-template<MPType Type>
-Move MovePicker<Type>::get_next(bool checks)
+template<bool QS>
+Move MovePicker<QS>::get_next(bool checks)
 {
-  constexpr bool QS    = Type == MPType::QS;
-  constexpr bool Evade = Type == MPType::Evade;
-
   switch (stage)
   {
     case Stage::Hash:
@@ -73,10 +67,10 @@ Move MovePicker<Type>::get_next(bool checks)
 
       if constexpr (QS)
       {
-        stage = Stage::Checks;
+        stage = Stage::GenChecks;
         return get_next(checks);
       }
-      stage = Evade ? Stage::GenQuiets : Stage::Killer1;
+      stage = Stage::Killer1;
 
       [[fallthrough]];
 
@@ -114,16 +108,8 @@ Move MovePicker<Type>::get_next(bool checks)
       log("Stage::GenQuiets\n");
       stage = Stage::Quiets;
 
-      if constexpr (Evade)
-      {
-        if (B->color) B->generate_evades<White>(ml);
-        else          B->generate_evades<Black>(ml);
-      }
-      else
-      {
-        if (B->color) B->generate_quiets<White>(ml);
-        else          B->generate_quiets<Black>(ml);
-      }
+      if (B->color) B->generate_quiets<White>(ml);
+      else          B->generate_quiets<Black>(ml);
       
       ml.remove_move(hash_mv);
       ml.remove_move(killer[0]);
@@ -154,12 +140,12 @@ Move MovePicker<Type>::get_next(bool checks)
         Move mv = ml.get_best();
         if (!is_empty(mv)) return mv;
       }
-      stage = Stage::Done;
       break;
 
     case Stage::GenChecks:
 
       log("Stage::GenChecks\n");
+      if (!B->state.checkers) break;
       stage = Stage::Checks;
 
       if (B->color) B->generate_checks<White>(ml);
@@ -175,7 +161,6 @@ Move MovePicker<Type>::get_next(bool checks)
         Move mv = ml.get_next();
         if (!is_empty(mv)) return mv;
       }
-      stage = Stage::Done;
       break;
 
     default:
@@ -184,6 +169,7 @@ Move MovePicker<Type>::get_next(bool checks)
       return Move::None;
   };
   
+  stage = Stage::Done;
   return Move::None;
 }
 
