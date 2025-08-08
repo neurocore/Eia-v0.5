@@ -10,7 +10,6 @@ enum class Stage
   GenCaps, GoodCaps,
   Killer1, Killer2, CounterMove,
   GenQuiets, Quiets, BadCaps,
-  GenChecks, Checks,
   Done
 };
 
@@ -23,7 +22,7 @@ struct MovePicker
   MoveList ml;
   Move hash_mv, killer[2], counter;
 
-  Move get_next(bool checks = true);
+  Move get_next();
 };
 
 using MovePickerPVS = MovePicker<false>;
@@ -31,7 +30,7 @@ using MovePickerQS = MovePicker<true>;
 
 
 template<bool QS>
-Move MovePicker<QS>::get_next(bool checks)
+Move MovePicker<QS>::get_next()
 {
   switch (stage)
   {
@@ -67,8 +66,8 @@ Move MovePicker<QS>::get_next(bool checks)
 
       if constexpr (QS)
       {
-        stage = Stage::GenChecks;
-        return get_next(checks);
+        stage = Stage::BadCaps;
+        return get_next();
       }
       stage = Stage::Killer1;
 
@@ -138,27 +137,6 @@ Move MovePicker<QS>::get_next(bool checks)
       if (!ml.empty())
       {
         Move mv = ml.get_best();
-        if (!is_empty(mv)) return mv;
-      }
-      break;
-
-    case Stage::GenChecks:
-
-      log("Stage::GenChecks\n");
-      if (!B->state.checkers) break;
-      stage = Stage::Checks;
-
-      if (B->color) B->generate_checks<White>(ml);
-      else          B->generate_checks<Black>(ml);
-
-      [[fallthrough]];
-
-    case Stage::Checks:
-
-      log("Stage::Checks\n");
-      if (!ml.empty())
-      {
-        Move mv = ml.get_next();
         if (!is_empty(mv)) return mv;
       }
       break;

@@ -237,12 +237,12 @@ int SolverPVS::pvs(int alpha, int beta, int depth, bool is_null)
   using namespace Hash;
   if constexpr (NT == Root) thinking = true;
   const bool in_check = !!B->state.checkers;
-  const int old_alpha = alpha;
-  int val, best = ply() - Val::Inf;
+  Type hash_type = Type::Upper;
+  int val = ply() - Val::Inf;
   undo->best = Move::None;
   nodes++;
 
-  if (!in_check && depth <= 0) return qs(alpha, beta, depth + 2);
+  if (!in_check && depth <= 0) return qs(alpha, beta);
 
   if constexpr (NT != Root) // +70 (1+1 h2h-10)
   {
@@ -293,7 +293,7 @@ int SolverPVS::pvs(int alpha, int beta, int depth, bool is_null)
     &&  depth <= 3)
     {
       if (static_eval <= alpha - Futility_Margin[depth])
-        return qs(alpha, beta, depth + 2);
+        return qs(alpha, beta);
       if (static_eval >= beta + Futility_Margin[depth])
         return beta;
     }
@@ -390,54 +390,46 @@ int SolverPVS::pvs(int alpha, int beta, int depth, bool is_null)
 
     if (abort()) return alpha;
 
-    if (val > best)
+    if (val > alpha)
     {
-      best = val;
+      alpha = val;
+      hash_type = Type::Exact;
       undo->best = move;
 
-      if (val > alpha)
+      if (val >= beta)
       {
-        alpha = val;
-
-        if (val >= beta)
+        if (!is_attack(move)/* && !in_check*/)
         {
-          if (!is_attack(undo->curr))
-          {
-            update_moves_stats(depth);
-          }
-          break;
+          update_moves_stats(depth);
         }
+
+        hash_type = Type::Lower;
+        break;
       }
     }
   }
 
   if (!legal)
   {
-    return in_check ? best : 0; // contempt();
+    return in_check ? val : 0; // contempt();
   }
 
   if (!abort())
   {
-    Hash::Type type = best >= beta ? Lower
-                    : best > old_alpha ? Exact : Upper;
-    Move best_mv = type == Upper ? Move::None : undo->best;
-    H->store(B->hash(), ply(), best_mv, best, depth, type);
+    Move best = hash_type == Upper ? Move::None : undo->best;
+    H->store(B->hash(), ply(), best, alpha, depth, hash_type);
   }
 
-  return best;
+  return alpha;
 }
 
-template<bool InCheck>
-int SolverPVS::qs(int alpha, int beta, int max_checks_depth)
+int SolverPVS::qs(int alpha, int beta)
 {
+  const bool in_check = !!B->state.checkers;
   max_ply = std::max(max_ply, ply());
 
   if (ply() >= Limits::Plies) return E->eval(B, alpha, beta);
   if (B->is_draw()) return 0; // contempt();
-
-  int val, best = ply() - Val::Inf;
-  const int old_alpha = alpha;
-  int legal = 0;
 
   // 1. Retrieving hash eval
 
@@ -456,61 +448,46 @@ int SolverPVS::qs(int alpha, int beta, int max_checks_depth)
 
   // 2. Calculating stand pat
 
-  if constexpr (!InCheck)
+  int stand_pat = E->eval(B, alpha, beta);
+  //H->store(B->hash(), ply(), Move::None, stand_pat, 0, Type::None);
+
+  if (stand_pat >= beta) return beta;
+  if (stand_pat > alpha) alpha = stand_pat;
+
+  // 3. Delta pruning (+123 elo 10s+.1 h2h-30)
+
+  if (std::max(143, B->best_cap_value()) < alpha - stand_pat)
   {
-    best = E->eval(B, alpha, beta);
-    //H->store(B->hash(), ply(), Move::None, best, 0, Type::None);
-
-    if (best > alpha) alpha = best;
-    if (alpha >= beta) return best;
-
-    // 3. Delta pruning (+123 elo 10s+.1 h2h-30)
-
-    if (std::max(143, B->best_cap_value()) < alpha - best)
-    {
-      return best;
-    }
+    return stand_pat;
   }
 
-  MovePicker<!InCheck> mp;
+  MovePickerQS mp;
   set_movepicker(mp, Move::None);
 
   Move move;
-  while (!is_empty(move = mp.get_next(/*max_checks_depth > 0*/)))
+  while (!is_empty(move = mp.get_next()))
   {
     if (!B->make(move, undo)) continue;
 
     // SEE pruning (+70 elo 10s+.1 h2h-30)
-    if (!InCheck
+    if (!in_check
     &&  !is_prom(move)
     &&  B->see(move) < 0) continue; 
 
-    legal++;
     nodes++;
     undo->curr = move;
 
-    val = -qs(-beta, -alpha, max_checks_depth - 1);
-
-    // -50 elo (10s+.1 h2h-30)
-    /*val = B->state.checkers
-        ? -qs<1>(-beta, -alpha, max_checks_depth - 1)
-        : -qs<0>(-beta, -alpha, max_checks_depth - 1);*/
+    int val = -qs(-beta, -alpha);
 
     B->unmake(move, undo);
 
     if (abort()) return alpha;
 
-    if (val > best)
-    {
-      best = val;
-      undo->best = move;
-
-      if (val > alpha) alpha = val;
-      if (val >= beta) break;
-    }
+    if (val >= beta) return beta;
+    if (val > alpha) alpha = val;
   }
 
-  return best;
+  return alpha;
 }
 
 }

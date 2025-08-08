@@ -53,8 +53,7 @@ public:
   template<NodeType NT>
   int pvs(int alpha, int beta, int depth, bool is_null = false);
 
-  template<bool InCheck = false>
-  int qs(int alpha, int beta, int max_checks_depth);
+  int qs(int alpha, int beta);
 
   template<bool QS>
   friend struct MovePicker;
@@ -89,7 +88,7 @@ template int SolverPVS::pvs<PV>(int alpha, int beta, int depth, bool is_null);
 template int SolverPVS::pvs<NonPV>(int alpha, int beta, int depth, bool is_null);
 template int SolverPVS::pvs<Root>(int alpha, int beta, int depth, bool is_null);
 
-template int SolverPVS::qs<0>(int alpha, int beta, int max_checks_depth);
-template int SolverPVS::qs<1>(int alpha, int beta, int max_checks_depth);
+//template int SolverPVS::qs<0>(int alpha, int beta, int max_checks_depth);
+//template int SolverPVS::qs<1>(int alpha, int beta, int max_checks_depth);
 
 }
