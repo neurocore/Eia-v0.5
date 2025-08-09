@@ -39,6 +39,7 @@ namespace eia {
   TERM(QMob,            16)  \
   TERM(BishopPair,      13)  \
   TERM(BadBishop,       38)  \
+  TERM(RammedBishop,     8)  \
   TERM(KnightOutpost,   10)  \
   TERM(RookSemi,        10)  \
   TERM(RookOpen,        20)  \
@@ -60,7 +61,8 @@ namespace eia {
   TERM(Supported,      100)  \
   TERM(Unstoppable,    800)  \
   TERM(FreePasser,      60)  \
-  TERM(XrayMul,         12)  \
+  TERM(Xray,            40)  \
+  TERM(PinMul,          12)  \
   TERM(Tempo,           20)   
 
 
@@ -76,18 +78,32 @@ enum class AttWeight { Light = 2, Rook = 3, Queen = 5 };
 struct Board;
 struct EvalInfo
 {
-  SQ king[Color_N];
-  int att_weight[Color_N];
-  int att_count[Color_N];
-  int eg_weak[Color_N];
-  u64 pinned;
+  SQ king[Color_N]; // used in king safety calc
+  int king_att_weight[Color_N];
+  int king_att_count[Color_N];
+
+  int eg_weak[Color_N]; // pawn info
+  u64 rammed[Color_N];
+
+  u64 occ_not_rq[Color_N]; // used in mobility to
+  u64 occ_not_bq[Color_N]; // not penalty batteries
+
+  u64 pawn_atts[Color_N]; // used in threats analysis
+  u64 pawn_atts2[Color_N];
+  u64 attacked_by[Color_N][PieceType_N];
+  u64 attacked_by2[Color_N];
+  u64 attacked[Color_N];
 
   void clear(const Board * B);
-  void add_attack(Color col, AttWeight weight, u64 att);
+
+  void add_king_attack(Color col, AttWeight weight, u64 att);
   int king_safety(Color col) const;
   int king_safety() const;
+
   void add_weak(Color col, SQ sq);
   int weakness(Color col, int bonus) const;
+
+  void add_attack(Color col, PieceType pt, u64 att);
 };
 
 
@@ -110,6 +126,7 @@ protected:
 
   int mat[12];
   Duo pst[12][64];
+  int mob[6][30];
   int passer_scale[8];
   int n_adj[9];
   int r_adj[9];
@@ -159,19 +176,21 @@ protected:
   using EvalExplained<Expl>::term;
   using EvalExplained<Expl>::mat;
   using EvalExplained<Expl>::pst;
+  using EvalExplained<Expl>::mob;
   using EvalExplained<Expl>::passer_scale;
   using EvalExplained<Expl>::n_adj;
   using EvalExplained<Expl>::r_adj;
 
 private:
-  template<Color Ñol> Duo evaluateP(const Board * B);
-  template<Color Ñol> Duo evaluateN(const Board * B);
-  template<Color Ñol> Duo evaluateB(const Board * B);
-  template<Color Ñol> Duo evaluateR(const Board * B);
-  template<Color Ñol> Duo evaluateQ(const Board * B);
-  template<Color Ñol> Duo evaluateK(const Board * B);
+  template<Color Col> Duo evalxrays(const Board * B);
+  template<Color Col> Duo evaluateP(const Board * B);
+  template<Color Col> Duo evaluateN(const Board * B);
+  template<Color Col> Duo evaluateB(const Board * B);
+  template<Color Col> Duo evaluateR(const Board * B);
+  template<Color Col> Duo evaluateQ(const Board * B);
+  template<Color Col> Duo evaluateK(const Board * B);
 
-  template<Color Ñol> Duo eval_passer(const Board * B, SQ sq);
+  template<Color Col> Duo eval_passer(const Board * B, SQ sq);
 };
 
 

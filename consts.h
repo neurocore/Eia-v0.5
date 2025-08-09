@@ -86,6 +86,7 @@ namespace Tune
                         + "QMob:16 "
                         + "BishopPair:13 "
                         + "BadBishop:38 "
+                        + "RammedBishop:20 "
                         + "KnightOutpost:10 "
                         + "RookSemi:10 "
                         + "RookOpen:20 "
@@ -107,7 +108,8 @@ namespace Tune
                         + "Unstoppable:800 "
                         + "Supported:100 "
                         + "FreePasser:60 "
-                        + "XrayMul:12 "
+                        + "Xray:40 "
+                        + "PinMul:12 "
                         + "Tempo:15 ";
 };
 

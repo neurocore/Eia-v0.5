@@ -89,6 +89,9 @@ public:
   template<PieceType PT>
   INLINE u64  attack(SQ sq) const;
 
+  template<PieceType PT>
+  INLINE u64  attack(SQ sq, u64 o) const;
+
   INLINE u64  attack(Piece p, SQ sq) const;
   INLINE bool is_attacked(SQ sq, u64 o, int opp = 0) const;
 
@@ -111,6 +114,19 @@ public:
   Move recognize(Move move);
   bool pseudolegal(Move move) const;
   int best_cap_value() const;
+
+  INLINE u64 pawns()   const { return piece[BP] | piece[WP]; }
+  INLINE u64 knights() const { return piece[BN] | piece[WN]; }
+  INLINE u64 bishops() const { return piece[BB] | piece[WB]; }
+  INLINE u64 rooks()   const { return piece[BR] | piece[WR]; }
+  INLINE u64 queens()  const { return piece[BQ] | piece[WQ]; }
+  INLINE u64 kings()   const { return piece[BK] | piece[WK]; }
+
+  template<Color COL = Color_N> INLINE u64 lights() const;
+  template<Color COL = Color_N> INLINE u64 diags() const;
+  template<Color COL = Color_N> INLINE u64 ortho() const;
+
+  INLINE u64 occupied() const { return occ[0] | occ[1]; }
 
   template<bool full = true> inline void place(SQ sq, Piece p);
   template<bool full = true> inline void remove(SQ sq);
@@ -149,22 +165,6 @@ private:
   template<Color COL>
   INLINE void gen_pawn_double(MoveList & ml, u64 mask) const;
 
-  INLINE u64 pawns()    const { return piece[BP] | piece[WP]; }
-  INLINE u64 knights()  const { return piece[BN] | piece[WN]; }
-  INLINE u64 bishops()  const { return piece[BB] | piece[WB]; }
-  INLINE u64 rooks()    const { return piece[BR] | piece[WR]; }
-  INLINE u64 queens()   const { return piece[BQ] | piece[WQ]; }
-  INLINE u64 kings()    const { return piece[BK] | piece[WK]; }
-
-  INLINE u64 lights()   const { return knights() | bishops(); }
-  INLINE u64 diags()    const { return bishops() | queens(); }
-  INLINE u64 ortho()    const { return rooks()   | queens(); }
-
-  INLINE u64 blights()  const { return piece[BN] | piece[BB]; }
-  INLINE u64 wlights()  const { return piece[WN] | piece[WB]; }
-
-  INLINE u64 occupied() const { return occ[0] | occ[1]; }
-
   INLINE u64 check_ray() const
   {
     SQ attacker = bitscan(state.checkers);
@@ -183,6 +183,31 @@ private:
 };
 
 
+template<Color COL>
+INLINE u64 Board::lights() const
+{
+  if constexpr (COL == White) return piece[WN] | piece[WB];
+  if constexpr (COL == Black) return piece[BN] | piece[BB];
+  return knights() | bishops();
+}
+
+template<Color COL>
+INLINE u64 Board::diags() const
+{
+  if constexpr (COL == White) return piece[WQ] | piece[WB];
+  if constexpr (COL == Black) return piece[BQ] | piece[BB];
+  return bishops() | queens();
+}
+
+template<Color COL>
+INLINE u64 Board::ortho() const
+{
+  if constexpr (COL == White) return piece[WQ] | piece[WR];
+  if constexpr (COL == Black) return piece[BQ] | piece[BR];
+  return rooks() | queens();
+}
+
+
 template<CastlingType CT>
 INLINE bool Board::can_castle() const
 {
@@ -198,9 +223,19 @@ INLINE bool Board::can_castle() const
 template<PieceType PT>
 INLINE u64 Board::attack(SQ sq) const
 {
-       if constexpr (PT == Bishop) return b_att(occupied(), sq);
-  else if constexpr (PT == Rook)   return r_att(occupied(), sq);
-  else if constexpr (PT == Queen)  return q_att(occupied(), sq);
+  if constexpr (PT == Bishop) return b_att(occupied(), sq);
+  if constexpr (PT == Rook)   return r_att(occupied(), sq);
+  if constexpr (PT == Queen)  return q_att(occupied(), sq);
+
+  return atts[to_piece(PT, Black)][sq];
+}
+
+template<PieceType PT>
+INLINE u64 Board::attack(SQ sq, u64 o) const
+{
+  if constexpr (PT == Bishop) return b_att(o, sq);
+  if constexpr (PT == Rook)   return r_att(o, sq);
+  if constexpr (PT == Queen)  return q_att(o, sq);
 
   return atts[to_piece(PT, Black)][sq];
 }
@@ -616,10 +651,10 @@ void Board::generate_checks(MoveList & ml) const
   // 2. Discovered checks by piece
 
   u64 blockers  = r_att(o, king) & occ[COL];
-  u64 attackers = r_att(o ^ blockers, king) & ortho();
+  u64 attackers = r_att(o ^ blockers, king) & ortho<!COL>();
 
   blockers   = b_att(o, king) & occ[COL];
-  attackers |= b_att(o ^ blockers, king) & diags();
+  attackers |= b_att(o ^ blockers, king) & diags<!COL>();
 
   for (u64 bb = attackers; bb; bb = rlsb(bb))
   {

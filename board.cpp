@@ -62,8 +62,8 @@ bool Board::is_draw() const
   {
     if (several(knights())) return true; // KNNK, KNKN
 
-    if (only_one(blights())
-    &&  only_one(wlights()))
+    if (only_one(lights<White>())
+    &&  only_one(lights<Black>()))
       return true; // KLKL
   }
   return false;
