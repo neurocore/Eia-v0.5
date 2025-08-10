@@ -33,47 +33,24 @@ const int weakness_push_table[] =
 // = bishop rammed pawns       -70 elo (need to tune?)
 // = soft mobility             -80 elo
 // + nonlinear mobility       +100 elo
-// - overloaded piece          ??? elo
+// + connected pawns           +30 elo
+// + threats                  +150 elo
+// + rebalanced material       +50 elo
 // - trapped pieces            ??? elo
 // - relative pin on queen     ??? elo
 
 template<bool Expl>
-int EvalSimple<Expl>::eval(const Board * B, int alpha, int beta)
-{
-  int val = 0;
-  Duo pos;
-
-  for (int i = 0; i < BK; i++)
-  {
-    u64 bb = B->piece[i];
-    val += mat[i] * popcnt(bb); // material
-
-    for (; bb; bb = rlsb(bb)) // pst
-    {
-      SQ sq = bitscan(bb);
-      int sign = i & 1 ? 1 : -1;
-      pos += pst[i][sq] * sign;
-    }
-  }
-
-  val += pos.tapered(B->phase());
-
-  int score = (B->color ? val : -val) + term[Tempo];
-  return score * (100 - B->state.fifty) / 100;
-}
-
-template<bool Expl>
 int EvalAdvanced<Expl>::eval(const Board * B, int alpha, int beta)
 {
-  ei.clear(B);
-  int val = 0;
+  ei.init(B);
+  Duo duo{};
 
   if constexpr (Expl) ed.clear();
-
+  
   for (int i = 0; i < BK; i++) // material
   {
     const u64 bb = B->piece[i];
-    val += mat[i] * popcnt(bb);
+    duo += mat[i] * popcnt(bb);
   }
 
   //const int margin = 300; // Lazy Eval
@@ -86,7 +63,7 @@ int EvalAdvanced<Expl>::eval(const Board * B, int alpha, int beta)
   //  return val;
   //}
 
-  Duo duo{}; // collecting ei here
+  // collecting ei here
   duo += evalxrays<White>(B) - evalxrays<Black>(B);
   duo += evaluateP<White>(B) - evaluateP<Black>(B);
   duo += evaluateN<White>(B) - evaluateN<Black>(B);
@@ -95,8 +72,16 @@ int EvalAdvanced<Expl>::eval(const Board * B, int alpha, int beta)
   duo += evaluateQ<White>(B) - evaluateQ<Black>(B);
   duo += evaluateK<White>(B) - evaluateK<Black>(B);
 
-  val += duo.tapered(B->phase());
+  duo += eval_threats<White>(B) - eval_threats<Black>(B);
+
+  int val = duo.tapered(B->phase());
   val += ei.king_safety(); // TODO: not tapered?
+
+  if constexpr (Expl)
+  {
+    cout << BitBoard{ ei.attacked_by[White][Pawn] } << endl;
+    cout << BitBoard{ ei.attacked_by[Black][Pawn] } << endl;
+  }
 
   int score = (B->color ? val : -val) + term[Tempo];
   return score * (100 - B->state.fifty) / 100;
@@ -106,7 +91,7 @@ template<bool Expl>
 template<Color Col>
 Duo EvalAdvanced<Expl>::evalxrays(const Board * B)
 {
-  Duo vals;
+  Duo vals{};
   const u64 o = B->occupied();
   const SQ king = bitscan(B->piece[BK ^ Col]);
 
@@ -127,8 +112,8 @@ Duo EvalAdvanced<Expl>::evalxrays(const Board * B)
     {
       if (pt(p) > Pawn)
       {
-        int cost = mat[p] - mat[a];
-        int penalty = mat[p] * this->term[PinMul] / 256
+        int cost = see_value[p] - see_value[a];
+        int penalty = see_value[p] * this->term[PinMul] / 256
                     + std::max(0, cost) / 8;
         
         const Duo v = -Duo::both(penalty);
@@ -157,7 +142,7 @@ Duo EvalAdvanced<Expl>::evaluateP(const Board * B)
 
   ei.add_attack(Col, Pawn, ei.pawn_atts[Col]);
 
-  Duo vals;
+  Duo vals{};
   for (u64 bb = B->piece[me]; bb; bb = rlsb(bb))
   {
     const SQ sq = bitscan(bb);
@@ -167,6 +152,7 @@ Duo EvalAdvanced<Expl>::evaluateP(const Board * B)
 
     u64 back_friendly = front[~Col][sq] & B->piece[me];
     u64 fore_friendly = front[Col][sq] & B->piece[me];
+    u64 connected  = psupport[Col][sq] & B->piece[me];
 
     u64 cannot_pass = front[Col][sq] & B->piece[opp];
     u64 has_support = att_rear[Col][sq] & B->piece[me];
@@ -176,16 +162,16 @@ Duo EvalAdvanced<Expl>::evaluateP(const Board * B)
 
     if (!(isolator[sq] & B->piece[me]))
     {
-      const Duo v = -Duo::both(this->term[Isolated]);
-      vals += this->apply(v, me, sq, "Isolated pawn");
+      const Duo v = -Duo::both(term[Isolated]);
+      vals += apply(v, me, sq, "Isolated pawn");
     }
 
     // doubled
 
     if (back_friendly && !fore_friendly) // most advanced one
     {
-      const Duo v = -Duo::both(popcnt(back_friendly) * this->term[Doubled]);
-      vals += this->apply(v, me, sq, "Doubled pawn");
+      const Duo v = -Duo::both(popcnt(back_friendly) * term[Doubled]);
+      vals += apply(v, me, sq, "Doubled pawn");
     }
 
     // blocked weak
@@ -203,11 +189,21 @@ Duo EvalAdvanced<Expl>::evaluateP(const Board * B)
       bool developed = Col ? rank(sq) > 3 : rank(sq) < 4;
       if (!developed)
       {
-        const Duo v = -Duo::both(this->term[Backward]);
-        vals += this->apply(v, me, sq, "Backward pawn");
+        const Duo v = -Duo::both(term[Backward]);
+        vals += apply(v, me, sq, "Backward pawn");
       }
 
-      this->ei.add_weak(Col, sq);
+      ei.add_weak(Col, sq);
+    }
+
+    else
+
+    // connected
+
+    if (connected)
+    {
+      const Duo v = Duo::both(term[Connected]);
+      vals += apply(v, me, sq, "Connected pawn");
     }
 
     // passers
@@ -215,7 +211,7 @@ Duo EvalAdvanced<Expl>::evaluateP(const Board * B)
     if (!cannot_pass && !fore_friendly)
     {
       const Duo v = eval_passer<Col>(B, sq);
-      vals += this->apply(v, me, sq, "Passers");
+      vals += apply(v, me, sq, "Passers");
     }
   }
   return vals;
@@ -329,7 +325,7 @@ Duo EvalAdvanced<Expl>::evaluateN(const Board * B)
 {
   constexpr Piece p = to_piece(Knight, Col);
   ei.attacked_by[Col][Knight] = 0ull;
-  Duo vals;
+  Duo vals{};
 
   for (u64 bb = B->piece[p]; bb; bb = rlsb(bb))
   {
@@ -375,7 +371,7 @@ Duo EvalAdvanced<Expl>::evaluateB(const Board * B)
 {
   constexpr Piece p = to_piece(Bishop, Col);
   ei.attacked_by[Col][Bishop] = 0ull;
-  Duo vals;
+  Duo vals{};
 
   for (u64 bb = B->piece[p]; bb; bb = rlsb(bb))
   {
@@ -427,7 +423,7 @@ Duo EvalAdvanced<Expl>::evaluateR(const Board * B)
 {
   Piece p = to_piece(Rook, Col);
   ei.attacked_by[Col][Rook] = 0ull;
-  Duo vals;
+  Duo vals{};
 
   for (u64 bb = B->piece[p]; bb; bb = rlsb(bb))
   {
@@ -488,7 +484,7 @@ Duo EvalAdvanced<Expl>::evaluateQ(const Board * B)
 {
   Piece p = to_piece(Queen, Col);
   ei.attacked_by[Col][Queen] = 0ull;
-  Duo vals;
+  Duo vals{};
 
   for (u64 bb = B->piece[p]; bb; bb = rlsb(bb))
   {
@@ -550,7 +546,7 @@ template<Color Col>
 Duo EvalAdvanced<Expl>::evaluateK(const Board * B)
 {
   Piece p = to_piece(King, Col);
-  Duo vals;
+  Duo vals{};
   for (u64 bb = B->piece[p]; bb; bb = rlsb(bb))
   {
     const SQ sq = bitscan(bb);
@@ -599,9 +595,69 @@ Duo EvalAdvanced<Expl>::evaluateK(const Board * B)
   return vals;
 }
 
+template<bool Expl>
+template<Color Col>
+Duo EvalAdvanced<Expl>::eval_threats(const Board * B)
+{
+  Duo vals{};
+  int cnt;
+
+  // Shamelessly taken from Ethereal
+
+  constexpr Color me = Col;
+  constexpr Color opp = ~Col;
+
+  const u64 pawns_atts = ei.attacked_by[opp][Pawn];
+  const u64 light_atts = ei.attacked_by[opp][Knight] | ei.attacked_by[opp][Bishop];
+  const u64 heavy_atts = ei.attacked_by[opp][Rook]   | ei.attacked_by[opp][Queen];
+
+  // Squares with more attackers, few defenders, and no pawn support
+  const u64 poor_defend = (ei.attacked[opp] & ~ei.attacked[me])
+                        | (ei.attacked_by2[opp] & ~ei.attacked_by2[me] & ~ei.attacked_by[me][Pawn]);
+
+  const u64 lights = B->lights<Col>();
+  const u64 rooks  = B->piece[BR ^ Col];
+  const u64 queens = B->piece[BQ ^ Col];
+  const u64 weak_light = lights & poor_defend;
+
+  // Penalty for each of our poorly supported pawns
+  cnt = popcnt(B->piece[BP ^ Col] & ~pawns_atts & poor_defend);
+  vals += apply(Duo::both(-cnt * term[ThreatPawn]), BP ^ Col, SQ_N, "Threat pawns");
+
+  // lights <- pawns
+  cnt = popcnt(lights & pawns_atts);
+  vals += apply(Duo::both(-cnt * term[ThreatL_P]), BN ^ Col, SQ_N, "Threat lights <- pawns");
+
+  // lights <- lights
+  cnt = popcnt(lights & light_atts);
+  vals += apply(Duo::both(-cnt * term[ThreatL_L]), BN ^ Col, SQ_N, "Threat lights <- lights");
+
+  // weak lights <- heavy
+  cnt = popcnt(weak_light & heavy_atts);
+  vals += apply(Duo::both(-cnt * term[ThreatL_H]), BN ^ Col, SQ_N, "Threat lights <- heavy");
+
+  // weak lights <- king
+  cnt = popcnt(weak_light & ei.attacked_by[opp][King]);
+  vals += apply(Duo::both(-cnt * term[ThreatL_K]), BN ^ Col, SQ_N, "Threat weak lights <- king");
+
+  // rooks <- pawns, lights
+  cnt = popcnt(rooks & (pawns_atts | light_atts));
+  vals += apply(Duo::both(-cnt * term[ThreatR_L]), BR ^ Col, SQ_N, "Threat rooks <- pawns, lights");
+
+  // weak rooks <- king
+  cnt = popcnt(rooks & poor_defend & ei.attacked_by[opp][King]);
+  vals += apply(Duo::both(-cnt * term[ThreatR_K]), BR ^ Col, SQ_N, "Threat weak rooks <- king");
+
+  // queens <- any
+  cnt = popcnt(queens & ei.attacked[opp]);
+  vals += apply(Duo::both(-cnt * term[ThreatQ_1]), BQ ^ Col, SQ_N, "Threat queens <- any");
+
+  return vals;
+}
+
 //////////////////
 
-void EvalInfo::clear(const Board * B)
+void EvalInfo::init(const Board * B)
 {
   king[0] = bitscan(B->piece[BK]);
   king[1] = bitscan(B->piece[WK]);
@@ -629,6 +685,8 @@ void EvalInfo::clear(const Board * B)
   attacked[1] = attacked_by[1][King] = atts[WK][king[1]];
 
   attacked_by2[0] = attacked_by2[1] = 0ull;
+
+  attacked_by[0][Pawn] = attacked_by[1][Pawn] = 0ull;
 }
 
 void EvalInfo::add_king_attack(Color col, AttWeight weight, u64 att)
@@ -727,12 +785,12 @@ void Eval::init()
 
   // Material //////////////////////////////////////////////////////
 
-  mat[WP] = 100;
-  mat[WN] = term[MatKnight];
-  mat[WB] = term[MatBishop];
-  mat[WR] = term[MatRook];
-  mat[WQ] = term[MatQueen];
-  mat[WK] = 20000;
+  mat[WP] = Duo(term[MatPawnOp],   term[MatPawnEg]);
+  mat[WN] = Duo(term[MatKnightOp], term[MatKnightEg]);
+  mat[WB] = Duo(term[MatBishopOp], term[MatBishopEg]);
+  mat[WR] = Duo(term[MatRookOp],   term[MatRookEg]);
+  mat[WQ] = Duo(term[MatQueenOp],  term[MatQueenEg]);
+  mat[WK] = Duo::both(20000); // no sense great number
 
   for (int i = 0; i < 12; i += 2)
     mat[i] = -mat[i + 1];
@@ -931,9 +989,6 @@ void Eval::init()
 
 // instantiations
 
-template int EvalSimple<0>::eval(const Board * B, int alpha, int beta);
-template int EvalSimple<1>::eval(const Board * B, int alpha, int beta);
-
 template int EvalAdvanced<0>::eval(const Board * B, int alpha, int beta);
 template int EvalAdvanced<1>::eval(const Board * B, int alpha, int beta);
 
@@ -972,5 +1027,10 @@ template Duo EvalAdvanced<0>::eval_passer<Black>(const Board * B, SQ sq);
 template Duo EvalAdvanced<1>::eval_passer<Black>(const Board * B, SQ sq);
 template Duo EvalAdvanced<0>::eval_passer<White>(const Board * B, SQ sq);
 template Duo EvalAdvanced<1>::eval_passer<White>(const Board * B, SQ sq);
+
+template Duo EvalAdvanced<0>::eval_threats<Black>(const Board * B);
+template Duo EvalAdvanced<1>::eval_threats<Black>(const Board * B);
+template Duo EvalAdvanced<0>::eval_threats<White>(const Board * B);
+template Duo EvalAdvanced<1>::eval_threats<White>(const Board * B);
 
 }

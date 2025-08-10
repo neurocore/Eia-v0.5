@@ -55,10 +55,16 @@ namespace Pos
 namespace Tune
 {
   const std::string Def = std::string()
-                        + "MatKnight:320 "
-                        + "MatBishop:330 "
-                        + "MatRook:500 "
-                        + "MatQueen:900 "
+                        + "MatPawnOp:82 "
+                        + "MatKnightOp:426 "
+                        + "MatBishopOp:441 "
+                        + "MatRookOp:627 "
+                        + "MatQueenOp:1292 "
+                        + "MatPawnEg:144 "
+                        + "MatKnightEg:475 "
+                        + "MatBishopEg:510 "
+                        + "MatRookEg:803 "
+                        + "MatQueenEg:1623 "
                         + "PawnFile:5 "
                         + "KnightCenterOp:5 "
                         + "KnightCenterEg:5 "
@@ -79,6 +85,7 @@ namespace Tune
                         + "Doubled:10 "
                         + "Isolated:9 "
                         + "Backward:12 "
+                        + "Connected:4 "
                         + "WeaknessPush:40 "
                         + "NMob:64 "
                         + "BMob:64 "
@@ -110,7 +117,15 @@ namespace Tune
                         + "FreePasser:60 "
                         + "Xray:40 "
                         + "PinMul:12 "
-                        + "Tempo:15 ";
+                        + "ThreatPawn:11 "
+                        + "ThreatL_P:55 "
+                        + "ThreatL_L:25 "
+                        + "ThreatL_H:30 "
+                        + "ThreatL_K:43 "
+                        + "ThreatR_L:48 "
+                        + "ThreatR_K:33 "
+                        + "ThreatQ_1:50 "
+                        + "Tempo:20 ";
 };
 
 }

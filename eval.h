@@ -8,10 +8,16 @@ namespace eia {
 
 #define TERM(x,def)          x,
 #define TERMS                \
-  TERM(MatKnight,      320)  \
-  TERM(MatBishop,      330)  \
-  TERM(MatRook,        500)  \
-  TERM(MatQueen,       900)  \
+  TERM(MatPawnOp,       82)  \
+  TERM(MatKnightOp,    426)  \
+  TERM(MatBishopOp,    441)  \
+  TERM(MatRookOp,      627)  \
+  TERM(MatQueenOp,    1292)  \
+  TERM(MatPawnEg,      144)  \
+  TERM(MatKnightEg,    475)  \
+  TERM(MatBishopEg,    510)  \
+  TERM(MatRookEg,      803)  \
+  TERM(MatQueenEg,    1623)  \
   TERM(PawnFile,         5)  \
   TERM(KnightCenterOp,   5)  \
   TERM(KnightCenterEg,   5)  \
@@ -32,6 +38,7 @@ namespace eia {
   TERM(Doubled,         10)  \
   TERM(Isolated,         9)  \
   TERM(Backward,        12)  \
+  TERM(Connected,        4)  \
   TERM(WeaknessPush,    40)  \
   TERM(NMob,            64)  \
   TERM(BMob,            64)  \
@@ -63,6 +70,14 @@ namespace eia {
   TERM(FreePasser,      60)  \
   TERM(Xray,            40)  \
   TERM(PinMul,          12)  \
+  TERM(ThreatPawn,      11)  \
+  TERM(ThreatL_P,       55)  \
+  TERM(ThreatL_L,       25)  \
+  TERM(ThreatL_H,       30)  \
+  TERM(ThreatL_K,       43)  \
+  TERM(ThreatR_L,       48)  \
+  TERM(ThreatR_K,       33)  \
+  TERM(ThreatQ_1,       50)  \
   TERM(Tempo,           20)   
 
 
@@ -94,7 +109,7 @@ struct EvalInfo
   u64 attacked_by2[Color_N];
   u64 attacked[Color_N];
 
-  void clear(const Board * B);
+  void init(const Board * B);
 
   void add_king_attack(Color col, AttWeight weight, u64 att);
   int king_safety(Color col) const;
@@ -124,7 +139,7 @@ protected:
   EvalInfo ei;
   int term[Term_N];
 
-  int mat[12];
+  Duo mat[12];
   Duo pst[12][64];
   int mob[6][30];
   int passer_scale[8];
@@ -191,26 +206,7 @@ private:
   template<Color Col> Duo evaluateK(const Board * B);
 
   template<Color Col> Duo eval_passer(const Board * B, SQ sq);
-};
-
-
-template<bool Expl = false>
-class EvalSimple : public EvalExplained<Expl>
-{
-protected:
-  using EvalExplained<Expl>::ed;
-  using EvalExplained<Expl>::apply;
-
-  using EvalExplained<Expl>::ei;
-  using EvalExplained<Expl>::term;
-  using EvalExplained<Expl>::mat;
-  using EvalExplained<Expl>::pst;
-  using EvalExplained<Expl>::passer_scale;
-  using EvalExplained<Expl>::n_adj;
-  using EvalExplained<Expl>::r_adj;
-
-public:
-  int eval(const Board * B, int alpha, int beta) override;
+  template<Color Col> Duo eval_threats(const Board * B);
 };
 
 
