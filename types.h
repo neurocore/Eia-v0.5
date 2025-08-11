@@ -1,5 +1,6 @@
 #pragma once
 #include <limits>
+#include <vector>
 #include <cstdalign>
 
 namespace eia {
@@ -23,5 +24,7 @@ using MS = u64; // milliseconds
 
 template<typename T>
 using limits = std::numeric_limits<T>;
+
+using Genome = std::vector<bool>;
 
 }

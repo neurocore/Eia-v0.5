@@ -10,7 +10,7 @@ namespace eia {
 // from GreKo 2021.12
 const int Futility_Margin[] = { 0, 50, 350, 550 };
 
-SolverPVS::SolverPVS(Engine * engine, Eval * eval) : Solver(engine), E(eval)
+SolverPVS::SolverPVS(Eval * eval) : E(eval)
 {
   B = new Board;
   H = new Hash::Table(HashTables::Size);
@@ -29,31 +29,48 @@ void SolverPVS::set(const Board & board)
   *B = board;
 }
 
-Move SolverPVS::get_move(MS time)
+Move SolverPVS::get_move(const SearchCfg & cfg)
 {
   timer.start();
-  to_think = time;
+  to_think = cfg.full_time(B->to_move());
+  infinite = cfg.infinite;
   max_ply = 0;
   nodes = 0ull;
+  best_val = 0;
 
+  MoveList ml;
+  B->generate_legal(ml);
   Move best = Move::None;
-  for (int depth = 1; depth < Limits::Plies; ++depth)
+
+  if (ml.count() == 0)
   {
-    int val = pvs<Root>(-Val::Inf, Val::Inf, depth);
+    best_val = !B->state.checkers ? 0
+             : B->to_move() ? -Val::Inf : Val::Inf;
+    best = Move::None;
+  }
+
+  else if (ml.count() == 1) best = ml.get_next();
+
+  else
+
+  for (int depth = 1; depth <= std::min(+Limits::Plies, cfg.depth); ++depth)
+  {
+    int val = best_val = pvs<Root>(-Val::Inf, Val::Inf, depth);
     if (!thinking) break;
 
     best = is_empty(undos[0].best) ? best : undos[0].best;
 
+    if (verbose)
     say<1>("info depth {} seldepth {} score cp {} nodes {} time {} pv {}\n",
         depth, max_ply, val, nodes, timer.getms(), best);
 
     if (val > Val::Mate || val < -Val::Mate) break;
   }
 
-  say<1>("bestmove {}\n", best);
+  if (verbose) say<1>("bestmove {}\n", best);
   
   thinking = false;
-  return best;
+  return is_empty(best) ? ml.get_next() : best;
 }
 
 u64 SolverPVS::perft(int depth)

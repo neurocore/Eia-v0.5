@@ -19,6 +19,7 @@ Board::Board(const Board & board)
   occ[1] = board.occ[1];
   color  = board.color;
   state  = board.state;
+  moves_cnt = board.moves_cnt;
 }
 
 void Board::clear()
@@ -537,6 +538,13 @@ int Board::best_cap_value() const
   }
 
   return val;
+}
+
+bool Board::make(Move move)
+{
+  Undo undos0[2];
+  Undo * undo0 = &undos0[0];
+  return make(move, undo0);
 }
 
 bool Board::make(Move move, Undo *& undo)

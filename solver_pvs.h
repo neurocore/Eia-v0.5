@@ -1,7 +1,5 @@
 #pragma once
-#include "types.h"
-#include "consts.h"
-#include "engine.h"
+#include "movepicker.h"
 #include "board.h"
 #include "timer.h"
 #include "solver.h"
@@ -28,14 +26,24 @@ class SolverPVS : public Solver
   int max_ply;
   MS to_think;
   u64 nodes;
+  int best_val;
 
 public:
-  SolverPVS(Engine * engine, Eval * eval);
+  SolverPVS(Eval * eval);
   ~SolverPVS();
   bool is_solver() { return true; }
   void new_game() { H->clear(); }
   void set(const Board & board) override;
-  Move get_move(MS time) override;
+  Move get_move(const SearchCfg & cfg) override;
+  int  get_best_val() const { return best_val; }
+
+  u64 get_hash() const { return B->state.bhash; }
+  void make(Move move) override
+  {
+    Undo undos0[2];
+    Undo * undo0 = &undos0[0];
+    B->make(move, undo0);
+  }
 
   u64 perft(int depth);
   u64 perft_inner(int depth);

@@ -2,6 +2,7 @@
 #include <format>
 #include "engine.h"
 #include "solver_pvs.h"
+#include "tuning.h"
 
 using namespace std;
 
@@ -9,8 +10,8 @@ namespace eia {
 
 Engine::Engine()
 {
-  S[0] = new SolverPVS(this, new EvalAdvanced);
-  S[1] = new Reader(this);
+  S[0] = new SolverPVS(new Eval);
+  S[1] = new Reader();
   cout.sync_with_stdio(false);
   cin.sync_with_stdio(false);
 }
@@ -140,21 +141,26 @@ bool Engine::parse(string str)
   }
   else if (cmd == "go") [[likely]]
   {
-    SearchParams sp;
+    SearchCfg cfg;
 
     while(true)
     {
       string part = cut(str);
       if (part.empty()) break;
 
-      if      (part == "wtime")    sp.time[1] = parse_int(cut(str), Time::Def);
-      else if (part == "btime")    sp.time[0] = parse_int(cut(str), Time::Def);
-      else if (part == "winc")     sp.inc[1] = parse_int(cut(str), Time::Inc); 
-      else if (part == "binc")     sp.inc[0] = parse_int(cut(str), Time::Inc); 
-      else if (part == "infinite") sp.infinite = true; 
+      if      (part == "wtime")    cfg.time[1] = parse_int(cut(str), Time::Def);
+      else if (part == "btime")    cfg.time[0] = parse_int(cut(str), Time::Def);
+      else if (part == "winc")     cfg.inc[1] = parse_int(cut(str), Time::Inc); 
+      else if (part == "binc")     cfg.inc[0] = parse_int(cut(str), Time::Inc); 
+      else if (part == "depth")    cfg.depth = parse_int(cut(str), Time::Inc); 
+      else if (part == "infinite") cfg.infinite = true; 
       else break;
     }
-    go(sp);
+    go(cfg);
+  }
+  else if (cmd == "tune") [[unlikely]]
+  {
+    tune();
   }
   else if (cmd == "")
   {
@@ -197,17 +203,25 @@ void Engine::plegt()
 
 void Engine::eval()
 {
-  EvalAdvanced<true> E;
+  Eval E;
 
+  E.set_explanations(true);
   int val = E.eval(&B, -Val::Inf, Val::Inf);
+  E.set_explanations(false);
+
   string str = format("Eval: {}\n\n", val);
 
+#ifdef _DEBUG
   auto & details = E.get_details();
   for (const auto & d : details)
   {
     if (d.vals.eg == 0 && d.vals.op == 0) continue;
     str += format("{} {} {} {}\n", d.p, d.sq, d.vals, d.factor);
   }
+#else
+  str += "Use in debug mode to get details\n";
+#endif
+
   print_message(str);
 }
 
@@ -235,22 +249,30 @@ void Engine::set_pos(string fen, std::vector<Move> moves)
 
 bool Engine::do_move(Move mv)
 {
-  Undo * undo = &undos[0];
   Move move = B.recognize(mv);
   if (move == Move::None) return false;
-  return B.make(move, undo);
+
+  /*S[0]->make(move);
+  S[1]->make(move);*/
+  return B.make(move);
 }
 
-void Engine::go(const SearchParams sp)
+void Engine::go(const SearchCfg & cfg)
 {
-  MS time = sp.full_time(B.to_move());
-
   for (auto solver : S)
   {
     solver->set(B);
-    solver->set_analysis(sp.infinite);
-    solver->get_move(time);
+    solver->get_move(cfg);
   }
+}
+
+void Engine::tune()
+{
+  Eval E;
+  const int bits = E.get_total_bits();
+  
+  Tuning T(bits, 100, 10, 2);
+  T.start();
 }
 
 }

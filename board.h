@@ -131,6 +131,7 @@ public:
   template<bool full = true> inline void place(SQ sq, Piece p);
   template<bool full = true> inline void remove(SQ sq);
 
+  bool make(Move move);
   bool make(Move move, Undo *& undo);
   void unmake(Move move, Undo *& undo);
 
