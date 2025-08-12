@@ -54,15 +54,15 @@ void Tuning::start()
     for (int j = 0; j < pop_n; ++j)
     {
       say("{:4d} ", j + 1);
-      int val = score(colony[j]);
+      auto val = score(colony[j]);
       cost.push_back(val);
     }
 
     // 3. Find min/max species
 
     auto it = minmax_element(cost.begin(), cost.end());
-    int min = it.first  - cost.begin();
-    int max = it.second - cost.begin();
+    int min = static_cast<int>(it.first  - cost.begin());
+    int max = static_cast<int>(it.second - cost.begin());
     const Genome & min_gene = colony[min];
     const Genome & max_gene = colony[max];
 

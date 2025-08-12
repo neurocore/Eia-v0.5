@@ -252,8 +252,6 @@ bool Engine::do_move(Move mv)
   Move move = B.recognize(mv);
   if (move == Move::None) return false;
 
-  /*S[0]->make(move);
-  S[1]->make(move);*/
   return B.make(move);
 }
 

@@ -24,7 +24,6 @@ enum Time
 
 enum Limits
 {
-  Moves = 256,
   Plies = 128,
 };
 

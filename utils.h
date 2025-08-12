@@ -36,6 +36,11 @@ INLINE std::string cut(std::string & str, std::string delim = " ")
   return part;
 }
 
+INLINE void dry(std::string & str, char ch = '\n')
+{
+  str.erase(std::remove(str.begin(), str.end(), ch));
+}
+
 inline int parse_int(const std::string_view str, int def = 0)
 {
   int result = def;
