@@ -21,6 +21,7 @@ R compare(T a, T b, R less, R equal, R more)
   return (a < b ? less : (a > b ? more : equal));
 }
 
+// returns -1 if not found
 INLINE ptrdiff_t index_of(std::string_view str, char ch)
 {
   auto it = std::find(str.begin(), str.end(), ch);
@@ -36,9 +37,65 @@ INLINE std::string cut(std::string & str, std::string delim = " ")
   return part;
 }
 
-INLINE void dry(std::string & str, char ch = '\n')
+INLINE void dry(std::string & str, std::string_view chars = "\n")
 {
-  str.erase(std::remove(str.begin(), str.end(), ch));
+  size_t pos = str.length();
+  for (char ch : chars)
+  {
+    while ((pos = str.rfind(ch, pos)) != std::string::npos)
+    {
+      str.erase(pos, 1);
+    }
+  }
+}
+
+INLINE bool cut_start(std::string & str, char & ch)
+{
+  if (str.length() <= 0) return false;
+  ch = str[0];
+  str = str.substr(1);
+  return true;
+}
+
+INLINE bool cut_end(std::string & str, char & ch)
+{
+  if (str.length() <= 0) return false;
+  ch = str[str.length() - 1];
+  str = str.substr(0, str.length() - 1);
+  return true;
+}
+
+static std::vector<std::string> split(const std::string & str, std::string delim = " ")
+{
+  std::vector<std::string> result;
+  if (delim.empty()) return result;
+
+  size_t start = 0, end;
+  while ((end = str.find(delim, start)) != std::string::npos)
+  {
+    if (end != start)
+      result.push_back(str.substr(start, end - start));
+    start = end + delim.size();
+  }
+  result.push_back(str.substr(start));
+  return result;
+}
+
+static void replace_all(std::string & str, const std::string & search, const std::string & replace)
+{
+  size_t pos = 0;
+  while ((pos = str.find(search, pos)) != std::string::npos)
+  {
+    str.replace(pos, search.length(), replace);
+    pos += replace.length();
+  }
+}
+
+inline std::string trim(std::string & str, char ch = ' ')
+{
+  str.erase(str.find_last_not_of(ch) + 1);
+  str.erase(0, str.find_first_not_of(ch));
+  return str;
 }
 
 inline int parse_int(const std::string_view str, int def = 0)

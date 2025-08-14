@@ -1,6 +1,7 @@
 #pragma once
 #include <iostream>
 #include <string>
+#include <vector>
 #include <format>
 #include <array>
 #include "piece.h"
@@ -45,6 +46,8 @@ INLINE Move to_move(SQ from, SQ to, MT mt = Quiet)
 }
 
 enum Move : u16 { None = to_move(A1, A1), Null = to_move(B1, B1) };
+
+using Moves = std::vector<Move>;
 
 static Move to_move(std::string str)
 {

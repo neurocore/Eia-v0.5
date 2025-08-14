@@ -112,6 +112,7 @@ public:
 
   int see(Move move) const;
   Move recognize(Move move);
+  Move parse_san(std::string str);
   bool pseudolegal(Move move) const;
   int best_cap_value() const;
 

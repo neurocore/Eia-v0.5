@@ -9,7 +9,7 @@ namespace eia {
 
 Book::Book() : gen(random_device{}()) {}
 
-void Book::read_pgn(std::string pgn)
+bool Book::read_pgn(std::string pgn)
 {
   entries.clear();
   entries.push_back({Move::None, {}});
@@ -18,8 +18,11 @@ void Book::read_pgn(std::string pgn)
   if (!fin.is_open())
   {
     say("Can't open \"{}\" as pgn book\n", pgn);
-    return;
+    return false;
   }
+
+  // Game lines in pgn have fixed width
+  //  so we need to read it token by token
 
   vector<string> line;
   while(!fin.eof())
@@ -43,6 +46,24 @@ void Book::read_pgn(std::string pgn)
     }
     line.push_back(str);
   }
+  return entries.size() > 1;
+}
+
+bool Book::read_abk(std::string abk)
+{
+  entries.clear();
+  entries.push_back({Move::None, {}});
+
+  ifstream fin(abk);
+  if (!fin.is_open())
+  {
+    say("Can't open \"{}\" as abk book\n", abk);
+    return false;
+  }
+
+  // TODO: read abk
+
+  return true;
 }
 
 void Book::parse_line(vector<string> line)
@@ -105,7 +126,7 @@ Moves Book::get_random_line()
     const size_t cnt = entry.children.size();
     if (cnt <= 0) break;
 
-    distr.param(param_t(0, cnt - 1));
+    distr.param(param_t(0, static_cast<size_t>(cnt - 1)));
     const size_t j = distr(gen);
     pos = entry.children[j];
   }

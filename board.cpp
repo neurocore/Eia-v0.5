@@ -5,6 +5,7 @@
 #include "magics.h"
 #include "timer.h"
 #include "solver.h"
+#include "moves.h"
 
 using namespace std;
 
@@ -394,6 +395,7 @@ int Board::see(Move move) const
 
 Move Board::recognize(Move candidate)
 {
+  Move result = Move::None;
   MoveList ml;
   Undo undos[2];
   Undo * undo = &undos[0];
@@ -403,18 +405,163 @@ Move Board::recognize(Move candidate)
   while (!ml.empty())
   {
     Move move = ml.get_next();
-    bool success = make(move, undo);
-    if (success) unmake(move, undo);
+    if (!make(move, undo)) continue;
+    unmake(move, undo);
 
-    if (success && similar(move, candidate))
+    if (similar(move, candidate))
     {
-      return move;
+      if (!is_empty(result)) // Ambiguity
+        return Move::None;
+      result = move;
     }
   }
+  return result;
+}
+
+Move Board::parse_san(string str)
+{
+  string old = str;
+  char ch;
+  Piece p;
+  PieceType pt, promote = PieceType_N;
+  u64 fr_mask = Full; // allowed
+  u64 to_mask = Full; // squares
+
+  auto is_file = [](char ch){ return ch >= 'a' && ch <= 'h'; };
+  auto is_rank = [](char ch){ return ch >= '1' && ch <= '8'; };
+
+  if (str.length() < 2) return Move::None;
+  if (str == "--") return Move::Null;
+
+  // 1. Qualifiers (discard all)
+
+  dry(str, "x+#!?");
+
+  size_t pos = str.rfind("e.p.");
+  if (pos != string::npos)
+    str.erase(pos, 4);
+
+  // 2. Special cases
+
+  if (str == "O-O-O")
+  {
+    p = to_piece(King, color);
+    fr_mask = bit(color ? E1 : E8);
+    to_mask = bit(color ? C1 : C8);
+  }
+  else if (str == "O-O")
+  {
+    p = to_piece(King, color);
+    fr_mask = bit(color ? E1 : E8);
+    to_mask = bit(color ? G1 : G8);
+  }
+  else
+  {
+    // 3. Parsing piece type (if present)
+
+    if (cut_start(str, ch)) pt = to_pt(tolower(ch));
+    pt = pt == PieceType_N ? Pawn : pt;
+    p = to_piece(pt, color);
+
+    // 4. Parsing promotion piece
+
+    if (pt == Pawn)
+    {
+      while ((pos = str.rfind("=", pos)) != string::npos)
+      {
+        if (pos < str.length() - 1)
+        {
+          promote = to_pt(str[pos + 1]);
+        }
+      }
+    }
+
+    // a1a1 -> ss -> s|s
+    // 1a1  -> 1s -> 1|s
+    // a1a  -> s1 -> s|1
+    // aa   -> aa -> a|a
+    // a1   -> s  -> _|s
+
+    // 5. Parsing from-to squares
+
+    struct Token { char ch; SQ sq; u64 mask; };
+    vector<Token> tokens;
+
+    for (int i = 0; i < str.length() - 1; ++i)
+    {
+      if (is_file(str[i])      // fold complete squares
+      &&  is_rank(str[i + 1])) // since they are integral
+      {
+        SQ sq = to_sq(str.substr(i, 2));
+        tokens.push_back({ 's', sq });
+        i++;
+      }
+      else tokens.push_back({ str[i], SQ_N });
+    }
+
+    if (tokens.size() == 1)
+      tokens.insert(tokens.begin(), 1, { '_', SQ_N });
+
+    if (tokens.size() != 2) return Move::None;
+
+    // 6. Build square masks
+
+    for (auto & token : tokens)
+    {
+      if      (token.sq < SQ_N)   token.mask = bit(token.sq);
+      else if (is_file(token.ch)) token.mask = file_bb[token.ch - 'a'];
+      else if (is_rank(token.ch)) token.mask = rank_bb[token.ch - '1'];
+      else                        token.mask = Full;
+    }
+
+    fr_mask = tokens[0].mask;
+    to_mask = tokens[1].mask;
+  }
+
+  // Searching in legal moves
+
+  MoveList ml;
+  Undo undos[2];
+  Undo * undo = &undos[0];
+
+  generate_all(ml);
+
+  Moves moves;
+
+  while (!ml.empty())
+  {
+    Move move = ml.get_next();
+    if (!make(move, undo)) continue;
+    unmake(move, undo);
+
+    const SQ from = get_from(move);
+    const SQ to = get_to(move);
+
+    if (bit(from) & fr_mask   // Square from allowed
+    &&  bit(to) & to_mask    // Square to allowed
+    &&  square[from] == p) // Moving piece equal
+    {
+      if (pt != Pawn || promoted(move) == promote)
+        moves.push_back(move);
+    }
+  }
+
+  if (moves.size() == 0) return Move::None;
+  if (moves.size() == 1) return moves[0];
+
+#ifdef _DEBUG
+  string msg;
+  for (auto move : moves)
+    msg += format("{}, ", move);
+
+  print();
+  say("Ambigious {}, candidates are {}\n", old, msg);
+  assert(false);
+#endif
+
   return Move::None;
 }
 
-// TODO: test on every generated move
 bool Board::pseudolegal(Move move) const
 {
   if (is_empty(move)) return false;

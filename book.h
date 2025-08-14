@@ -6,8 +6,6 @@
 
 namespace eia {
 
-using Moves = std::vector<Move>;
-
 // Tree structure in one monotonic
 //  memory block, it's simple and
 //  clean and good for caching
@@ -27,7 +25,8 @@ class Book
 
 public:
   Book();
-  void read_pgn(std::string pgn);
+  bool read_pgn(std::string pgn);
+  bool read_abk(std::string abk);
   Moves get_random_line();
   void print_some(int depth, int ply = 0, size_t pos = 0) const;
 

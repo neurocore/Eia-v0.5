@@ -30,6 +30,13 @@ INLINE Piece to_piece(const char c)
   return static_cast<Piece>(i);
 }
 
+INLINE PieceType to_pt(const char c)
+{
+  auto i = index_of("pnbrqk", c);
+  if (i < 0) return PieceType_N;
+  return static_cast<PieceType>(i);
+}
+
 INLINE Piece to_piece(PieceType pt, Color c) { return static_cast<Piece>(2 * pt + c); }
 INLINE Color col(Piece p)    { return static_cast<Color>(p & 1); }
 INLINE Piece opp(Piece p)    { return static_cast<Piece>(p ^ 1); }
