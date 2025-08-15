@@ -39,14 +39,7 @@ void Engine::print_info(string str)
 
 void Engine::start()
 {
-  //logf("%v", options);
-
-  /*B.set("r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1");
-  B.print();
-  B.pseudolegal(Move(0x178E));*/
-
   new_game();
-  //log(B);
 
   bool success = true;
   while (success)
@@ -243,7 +236,6 @@ void Engine::set_pos(string fen, std::vector<Move> moves)
       break;
     }
   }
-
   B.print();
 }
 
@@ -252,7 +244,10 @@ bool Engine::do_move(Move mv)
   Move move = B.recognize(mv);
   if (move == Move::None) return false;
 
-  return B.make(move);
+  bool success = B.make(move);
+  B.revert_states();
+
+  return success;
 }
 
 void Engine::go(const SearchCfg & cfg)

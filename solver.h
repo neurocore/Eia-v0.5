@@ -8,7 +8,6 @@ class Engine;
 
 struct Undo
 {
-  State state;
   // Duo pst;
   Move curr, best;
   Move killer[2];

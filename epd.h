@@ -17,10 +17,7 @@ struct Problem
   std::string comment[10];
   MoveScores best;
   Move avoid;
-
   int perft[10] = {0, };
-  int fifty = 0, depth = 0, nodes = 0;
-  int secs = 0, eval = 0;
 };
 
 class Epd

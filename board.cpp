@@ -31,7 +31,16 @@ void Board::clear()
   color = White;
   occ[0] = occ[1] = Empty;
   state = State();
-  //threefold.clear();
+  state_ptr = &states[0];
+
+  moves_cnt = 0;
+  for (int i = 0; i < 8192; ++i)
+    threefold[i] = 0ull;
+}
+
+void Board::revert_states()
+{
+  state_ptr = &states[0];
 }
 
 int Board::phase() const
@@ -322,8 +331,6 @@ INLINE void Board::generate_all(MoveList & ml) const
 
 void Board::generate_legal(MoveList & ml)
 {
-  Undo undos[2];
-  Undo * undo = &undos[0];
   MoveList pseudo;
 
   generate_all(pseudo);
@@ -332,9 +339,9 @@ void Board::generate_legal(MoveList & ml)
   {
     Move move = pseudo.get_next();
 
-    if (make(move, undo))
+    if (make(move))
     {
-      unmake(move, undo);
+      unmake(move);
       ml.add(move);
     }
   }
@@ -397,16 +404,14 @@ Move Board::recognize(Move candidate)
 {
   Move result = Move::None;
   MoveList ml;
-  Undo undos[2];
-  Undo * undo = &undos[0];
 
   generate_all(ml);
 
   while (!ml.empty())
   {
     Move move = ml.get_next();
-    if (!make(move, undo)) continue;
-    unmake(move, undo);
+    if (!make(move)) continue;
+    unmake(move);
 
     if (similar(move, candidate))
     {
@@ -521,8 +526,6 @@ Move Board::parse_san(string str)
   // Searching in legal moves
 
   MoveList ml;
-  Undo undos[2];
-  Undo * undo = &undos[0];
 
   generate_all(ml);
 
@@ -531,8 +534,8 @@ Move Board::parse_san(string str)
   while (!ml.empty())
   {
     Move move = ml.get_next();
-    if (!make(move, undo)) continue;
-    unmake(move, undo);
+    if (!make(move)) continue;
+    unmake(move);
 
     const SQ from = get_from(move);
     const SQ to = get_to(move);
@@ -689,13 +692,6 @@ int Board::best_cap_value() const
 
 bool Board::make(Move move)
 {
-  Undo undos0[2];
-  Undo * undo0 = &undos0[0];
-  return make(move, undo0);
-}
-
-bool Board::make(Move move, Undo *& undo)
-{
   assert(!is_empty(move));
 
   const SQ from = get_from(move);
@@ -703,7 +699,7 @@ bool Board::make(Move move, Undo *& undo)
   const MT mt   = get_mt(move);
   const Piece p = square[from];
 
-  (undo++)->state = state;
+  *(state_ptr++) = state;
 
   state.castling &= uncastle[from] & uncastle[to];
   state.cap = square[to];
@@ -805,18 +801,17 @@ bool Board::make(Move move, Undo *& undo)
 
   if (in_check(1))
   {
-    unmake(move, undo);
+    unmake(move);
     return false;
   }
 
   state.checkers = king_attackers();
   state.threats = opp_attacks();
 
-  undo->curr = move;
   return true;
 }
 
-void Board::unmake(Move move, Undo *& undo)
+void Board::unmake(Move move)
 {
   assert(!is_empty(move));
 
@@ -889,13 +884,12 @@ void Board::unmake(Move move, Undo *& undo)
     }
   }
 
-  state = (--undo)->state;
+  state = *(--state_ptr);
 }
 
-void Board::make_null(Undo *& undo)
+void Board::make_null()
 {
-  undo->state = state;
-  undo++;
+  *(state_ptr++) = state;
 
   color = ~color;
   state.ep = SQ_N;
@@ -903,13 +897,12 @@ void Board::make_null(Undo *& undo)
   threefold[moves_cnt++] = hash();
 }
 
-void Board::unmake_null(Undo *& undo)
+void Board::unmake_null()
 {
   color = ~color;
     
-  undo--;
   moves_cnt--;
-  state = undo->state;
+  state = *(--state_ptr);
 }
 
 }

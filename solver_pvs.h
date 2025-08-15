@@ -15,7 +15,6 @@ enum NodeType { PV, NonPV, Root };
 class SolverPVS : public Solver
 {
   Undo undos[Limits::Plies];
-  Undo * undo;
   Board * B;
   Eval * E;
   Table * H;
@@ -40,9 +39,8 @@ public:
   u64 get_hash() const { return B->state.bhash; }
   void make(Move move) override
   {
-    Undo undos0[2];
-    Undo * undo0 = &undos0[0];
-    B->make(move, undo0);
+    B->revert_states();
+    B->make(move);
   }
 
   u64 perft(int depth);
@@ -52,7 +50,7 @@ public:
   int plegt();
 
   bool abort() const;
-  int ply() const { return static_cast<int>(undo - undos); }
+  int ply() const { return B->ply(); }
 
   template<bool QS>
   void set_movepicker(MovePicker<QS> & mp, Move hash);
@@ -71,21 +69,22 @@ public:
 template<bool QS>
 void SolverPVS::set_movepicker(MovePicker<QS> & mp, Move hash)
 {
+  const Undo & undo = undos[ply()];
   const bool hash_correct = B->pseudolegal(hash);
 
   mp.ml.clear();
 
   mp.B = B;
   mp.H = &history;
-  mp.killer[0] = undo->killer[0];
-  mp.killer[1] = undo->killer[1];
+  mp.killer[0] = undo.killer[0];
+  mp.killer[1] = undo.killer[1];
 
   mp.hash_mv = hash_correct ? hash : Move::None;
   mp.stage = hash_correct ? Stage::Hash : Stage::GenCaps;
 
   if (!ply()) return;
 
-  const Move prev = (undo - 1)->curr;
+  const Move prev = undos[ply() - 1].curr;
   mp.counter = is_empty(prev) ? Move::None
              : counter[~B->color][get_from(prev)][get_to(prev)];
 }

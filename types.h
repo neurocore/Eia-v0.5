@@ -9,6 +9,16 @@ namespace eia {
 #define INLINE inline constexpr
 #define ALIGN64 alignas(64)
 
+#ifdef __GNUC__
+#define PACKED__ 
+#define __PACKED __attribute__((__packed__))
+#endif
+
+#ifdef _MSC_VER
+#define PACKED__ __pragma(pack(push, 1))
+#define __PACKED __pragma(pack(pop))
+#endif
+
 using i8  = char;
 using i16 = short;
 using i32 = int;

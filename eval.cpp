@@ -33,6 +33,11 @@ const int weakness_push_table[] =
 // 3: Liquid_v0_1   14,0/30 0010=01=0= 0111000010 ·········· =001110111  196,75
 // 4: Monarch(v1.7) 9,0/30  000000=100 0010110001 =110001000 ··········  148,25
 
+// 20s+.2s (h2h-100)
+//    Engine       Score
+// 1: Eia-v0.5_new 58,5/100
+// 2: Eia_v0_3     41,5/100
+
 // All tests were done with control 10s+.1s (h2h-30)
 // 
 // + xrays & pins (with king)  +92 elo

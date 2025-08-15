@@ -40,14 +40,23 @@ struct Board
   u64 threefold[8192];
   int moves_cnt;
 
+  State states[128];
+  State * state_ptr;
+
 public:
   Board() { clear(); }  
   Board(const Board & board);
 
   void clear();
+  void revert_states();
   int phase() const;
   bool is_draw() const;
   bool is_repetition() const;
+
+  inline int ply() const
+  {
+    return static_cast<int>(state_ptr - states);
+  }
 
   inline u64 hash() const
   {
@@ -133,11 +142,10 @@ public:
   template<bool full = true> inline void remove(SQ sq);
 
   bool make(Move move);
-  bool make(Move move, Undo *& undo);
-  void unmake(Move move, Undo *& undo);
+  void unmake(Move move);
 
-  void make_null(Undo *& undo);
-  void unmake_null(Undo *& undo);
+  void make_null();
+  void unmake_null();
 
   INLINE void generate_all(MoveList & ml) const;
   void generate_legal(MoveList & ml);

@@ -55,26 +55,6 @@ Problem Epd::parse_problem(std::string str)
       {
         problem.id = trim(op, '"');
       }
-      else if (code == "acd")
-      {
-        problem.depth = parse_int(op, 0);
-      }
-      else if (code == "acn")
-      {
-        problem.nodes = parse_int(op, 0);
-      }
-      else if (code == "acs")
-      {
-        problem.secs = parse_int(op, 0);
-      }
-      else if (code == "ce")
-      {
-        problem.eval = parse_int(op, 0);
-      }
-      else if (code == "hmvc")
-      {
-        problem.fifty = parse_int(op, 0);
-      }
       else if (code.length() == 2
            &&  code[0] == 'c'
            &&  isdigit(code[1]))

@@ -1,4 +1,5 @@
 #include <cassert>
+#include <sstream>
 #include <fstream>
 #include "book.h"
 #include "board.h"
@@ -39,9 +40,9 @@ bool Book::read_pgn(std::string pgn)
 
       if (num == "1") // Start of the line
       {
-         if (!line.empty())
-           parse_line(line);
-         line.clear();
+        if (!line.empty())
+          parse_line(line);
+        line.clear();
       }
     }
     line.push_back(str);
@@ -54,21 +55,33 @@ bool Book::read_abk(std::string abk)
   entries.clear();
   entries.push_back({Move::None, {}});
 
-  ifstream fin(abk);
+  ifstream fin(abk, ios::binary);
   if (!fin.is_open())
   {
     say("Can't open \"{}\" as abk book\n", abk);
     return false;
   }
 
-  // TODO: read abk
+  // Why 900? This year the Vikings discovered Greenland
+  fin.seekg(900 * sizeof(ABK_Entry), std::ios::beg);
+
+  abk_list.clear();
+  ABK_Entry temp;
+  while (fin.read(reinterpret_cast<char*>(&temp), sizeof(ABK_Entry)))
+  {
+    abk_list.push_back(temp);
+  }
+
+  // Parse abk list to our tree structure
+
+  B.set();
+  traverse_abk(0, 0);
 
   return true;
 }
 
 void Book::parse_line(vector<string> line)
 {
-  static Board B;
   B.set();
 
   size_t pos = 0;
@@ -87,6 +100,36 @@ void Book::parse_line(vector<string> line)
 
     pos = add_move(pos, move);
     B.make(mv);
+  }
+}
+
+void Book::traverse_abk(size_t el, size_t pos)
+{
+  for (;;)
+  {
+    SQ from = static_cast<SQ>(abk_list[el].from);
+    SQ   to = static_cast<SQ>(abk_list[el].to);
+
+    // TODO: read & apply promotee!
+
+    Move mv = to_move(from, to);
+    Move move = B.recognize(mv);
+
+    if (move != Move::None)
+    {
+      size_t j = add_move(pos, move);
+      entries[pos].children.push_back(j);
+
+      B.make(move);
+
+      size_t par = abk_list[el].next_move;
+      if (par) traverse_abk(par, j);
+
+      B.unmake(move);
+    }
+
+    el = abk_list[el].next_sibling;
+    if (!el) break;
   }
 }
 
@@ -126,7 +169,7 @@ Moves Book::get_random_line()
     const size_t cnt = entry.children.size();
     if (cnt <= 0) break;
 
-    distr.param(param_t(0, static_cast<size_t>(cnt - 1)));
+    distr.param(param_t(0, static_cast<int>(cnt - 1)));
     const size_t j = distr(gen);
     pos = entry.children[j];
   }

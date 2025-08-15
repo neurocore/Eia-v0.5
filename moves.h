@@ -59,7 +59,7 @@ static Move to_move(std::string str)
 
   if (str.length() > 4)
   {
-    auto type = pt(to_piece(str[5]));
+    auto type = pt(to_piece(str[4]));
     mt = static_cast<MT>(NProm - 1 + type);
   }
   return to_move(from, to, mt);
@@ -130,7 +130,7 @@ INLINE bool similar(Move correct, Move candidate)
   const MT mt = get_mt(correct);
   if (!is_prom(mt)) return true;
 
-  return promoted(correct) != promoted(candidate);
+  return promoted(correct) == promoted(candidate);
 }
 
 enum CastlingType : u8

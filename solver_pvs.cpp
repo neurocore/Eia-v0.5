@@ -14,7 +14,6 @@ SolverPVS::SolverPVS(Eval * eval) : E(eval)
 {
   B = new Board;
   H = new Hash::Table(HashTables::Size);
-  undo = &undos[0];
 }
 
 SolverPVS::~SolverPVS()
@@ -37,6 +36,8 @@ Move SolverPVS::get_move(const SearchCfg & cfg)
   max_ply = 0;
   nodes = 0ull;
   best_val = 0;
+
+  B->revert_states();
 
   MoveList ml;
   B->generate_legal(ml);
@@ -97,7 +98,7 @@ u64 SolverPVS::perft(int depth)
   Move move;
   while (!is_empty(move = mp.get_next()))
   {
-    if (!B->make(move, undo)) continue;
+    if (!B->make(move)) continue;
 
     say("{}", move);
 
@@ -106,7 +107,7 @@ u64 SolverPVS::perft(int depth)
 
     say(" - {}\n", cnt);
 
-    B->unmake(move, undo);
+    B->unmake(move);
   }
 
   i64 time = timer.getms();
@@ -139,11 +140,11 @@ u64 SolverPVS::perft_inner(int depth)
   Move move;
   while (!is_empty(move = mp.get_next()))
   {
-    if (!B->make(move, undo)) continue;
+    if (!B->make(move)) continue;
 
     count += depth > 1 ? perft_inner(depth - 1) : 1;
 
-    B->unmake(move, undo);
+    B->unmake(move);
   }
   return count;
 }
@@ -220,9 +221,11 @@ bool SolverPVS::abort() const
 
 void SolverPVS::update_moves_stats(int depth)
 {
+  Undo & undo = undos[ply()];
+
   // History table
 
-  const Move move = undo->curr;
+  const Move move = undo.curr;
   const SQ from = get_from(move);
   const SQ to = get_to(move);
 
@@ -235,16 +238,16 @@ void SolverPVS::update_moves_stats(int depth)
 
   if (ply() > 0)
   {
-    Move prev = (undo - 1)->curr;
+    Move prev = undos[ply() - 1].curr;
     counter[~B->color][get_from(prev)][get_to(prev)] = move;
   }
 
   // Killers
 
-  if (undo->killer[0] != move)
+  if (undo.killer[0] != move)
   {
-    undo->killer[1] = undo->killer[0];
-    undo->killer[0] = move;
+    undo.killer[1] = undo.killer[0];
+    undo.killer[0] = move;
   }
 }
 
@@ -256,7 +259,8 @@ int SolverPVS::pvs(int alpha, int beta, int depth, bool is_null)
   const bool in_check = !!B->state.checkers;
   Type hash_type = Type::Upper;
   int val = ply() - Val::Inf;
-  undo->best = Move::None;
+  Undo & undo = undos[ply()];
+  undo.best = Move::None;
   nodes++;
 
   if (!in_check && depth <= 0) return qs(alpha, beta);
@@ -329,9 +333,9 @@ int SolverPVS::pvs(int alpha, int beta, int depth, bool is_null)
     {
       int R = 3 + depth / 4;
 
-      B->make_null(undo);
+      B->make_null();
       int v = -pvs<NonPV>(-beta, -beta + 1, depth - R, true);
-      B->unmake_null(undo);
+      B->unmake_null();
 
       if (v >= beta)
       {
@@ -370,9 +374,9 @@ int SolverPVS::pvs(int alpha, int beta, int depth, bool is_null)
   Move move;
   while (!is_empty(move = mp.get_next()))
   {
-    if (!B->make(move, undo)) continue;
+    if (!B->make(move)) continue;
 
-    undo->curr = move;
+    undo.curr = move;
     legal++;
     int new_depth = depth - 1;
     int reduction = 0;
@@ -403,7 +407,7 @@ int SolverPVS::pvs(int alpha, int beta, int depth, bool is_null)
         val = -pvs<PV>(-beta, -alpha, new_depth, is_null);
     }
 
-    B->unmake(move, undo);
+    B->unmake(move);
 
     if (abort()) return alpha;
 
@@ -411,7 +415,7 @@ int SolverPVS::pvs(int alpha, int beta, int depth, bool is_null)
     {
       alpha = val;
       hash_type = Type::Exact;
-      undo->best = move;
+      undo.best = move;
 
       if (val >= beta)
       {
@@ -433,7 +437,7 @@ int SolverPVS::pvs(int alpha, int beta, int depth, bool is_null)
 
   if (!abort())
   {
-    Move best = hash_type == Upper ? Move::None : undo->best;
+    Move best = hash_type == Upper ? Move::None : undo.best;
     H->store(B->hash(), ply(), best, alpha, depth, hash_type);
   }
 
@@ -444,6 +448,7 @@ int SolverPVS::qs(int alpha, int beta)
 {
   const bool in_check = !!B->state.checkers;
   max_ply = std::max(max_ply, ply());
+  Undo & undo = undos[ply()];
 
   if (ply() >= Limits::Plies) return E->eval(B, alpha, beta);
   if (B->is_draw()) return 0; // contempt();
@@ -484,7 +489,7 @@ int SolverPVS::qs(int alpha, int beta)
   Move move;
   while (!is_empty(move = mp.get_next()))
   {
-    if (!B->make(move, undo)) continue;
+    if (!B->make(move)) continue;
 
     // SEE pruning (+70 elo 10s+.1 h2h-30)
     if (!in_check
@@ -492,11 +497,11 @@ int SolverPVS::qs(int alpha, int beta)
     &&  B->see(move) < 0) continue; 
 
     nodes++;
-    undo->curr = move;
+    undo.curr = move;
 
     int val = -qs(-beta, -alpha);
 
-    B->unmake(move, undo);
+    B->unmake(move);
 
     if (abort()) return alpha;
 
