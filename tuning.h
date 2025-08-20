@@ -3,6 +3,7 @@
 #include <random>
 #include "solver_pvs.h"
 #include "eval.h"
+#include "book.h"
 
 using ProbVec = std::vector<double>;
 
@@ -10,6 +11,8 @@ namespace eia {
 
 class Tuning
 {
+  Book book;
+  Moves opening;
   SolverPVS * S[2];
   Eval * E[2];
   ProbVec prob;

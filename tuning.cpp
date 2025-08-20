@@ -27,6 +27,9 @@ Tuning::~Tuning()
 
 void Tuning::start()
 {
+  book.clear();
+  BookReader(&book).read_pgn(".\\datasets\\Perfect_2011.pgn");
+
   vector<Genome> colony;
   vector<double> cost;
 
@@ -51,20 +54,61 @@ void Tuning::start()
 
     // 2. Score population
 
+    double average = 0.0;
+
     for (int j = 0; j < pop_n; ++j)
     {
       say("{:4d} ", j + 1);
       auto val = score(colony[j]);
       cost.push_back(val);
+      average += val;
     }
 
-    // 3. Find min/max species
+    average /= pop_n ? pop_n : 1;
+    say("\nAverage score: {}\n", average);
 
-    auto it = minmax_element(cost.begin(), cost.end());
-    int min = static_cast<int>(it.first  - cost.begin());
-    int max = static_cast<int>(it.second - cost.begin());
-    const Genome & min_gene = colony[min];
+    // 3. Find max/min species
+
+    auto it = std::max_element(cost.begin(), cost.end());
+    const int max = static_cast<int>(it - cost.begin());
     const Genome & max_gene = colony[max];
+
+    auto stats = iqr_stats(cost, 1.0);
+
+    say("Max gene score: {}\n", cost[max]);
+    say("Median: {}\n", stats.M);
+    say("IQR: {}\n", stats.iqr);
+    say("Lowest: {}\n", stats.lowest);
+    say("Outliers: ");
+
+    int outliers = 0;
+    ProbVec neg_mean;
+    neg_mean.resize(bits);
+    
+    for (int k = 0; k < bits; ++k)
+      neg_mean[k] = 0.0;
+
+    for (int j = 0; j < pop_n; ++j)
+    {
+      if (cost[j] < stats.lowest)
+      {
+        outliers++;
+        say("{} ", cost[j]);
+
+        for (int k = 0; k < bits; ++k)
+        {
+          neg_mean[k] += colony[j][k];
+        }
+      }
+    }
+
+    if (outliers)
+      for (int k = 0; k < bits; ++k)
+        neg_mean[k] /= outliers;
+    else
+      say("--");
+
+    say("\n\n");
 
     // 4. Compare with previous best
 
@@ -72,6 +116,15 @@ void Tuning::start()
     {
       best_cost = cost[max];
       best = colony[max];
+
+      Eval E;
+      E.set(best);
+      E.init();
+      say("best -- {}\n\n", E.to_string());
+    }
+    else
+    {
+      say("no improvement\n\n");
     }
 
     // 5. Update prob vec with min/max
@@ -81,11 +134,16 @@ void Tuning::start()
       return from * (1 - rate) + to * rate;
     };
 
-    for (int k = 0; k < bits; k++)
+    for (int k = 0; k < bits; k++) // with negative learning
     {
-      double rate = lrate + nrate * (min_gene[k] != max_gene[k]);
-      prob[k] = shift(prob[k], max_gene[k], rate);
+      prob[k] = shift(prob[k], max_gene[k], lrate);
+
+      if (outliers)
+        prob[k] = shift(prob[k], 1 - neg_mean[k], nrate);
+
+      say("{:.4f} ", prob[k]);
     }
+    say("\n\n");
 
     // 6. Mutate prob vec
 
@@ -96,13 +154,6 @@ void Tuning::start()
         prob[k] = shift(prob[k], rand_bool(), mut_shift);
       }
     }
-
-    // 7. Output
-
-    Eval E;
-    E.set(best);
-    E.init();
-    say("\nbest: {}\n", E.to_string());
   }
 }
 
@@ -141,7 +192,6 @@ double Tuning::score(const Genome & genome)
   return total;
 }
 
-// TODO: add random openings to make score more informative
 // Returns -1 for black win, +1 for white win, 0 for draw
 int Tuning::play_game(const Genome & genome, int side)
 {
@@ -159,6 +209,22 @@ int Tuning::play_game(const Genome & genome, int side)
   S[0]->new_game();
   S[1]->new_game();
 
+  // Playing random opening (symmetrical)
+
+  if (!side || opening.empty()) 
+    opening = book.get_random_line();
+
+  for (Move move : opening)
+  {
+    B.make(move);
+    B.revert_states();
+    S[0]->make(move);
+    S[1]->make(move);
+    side = 1 - side;
+  }
+
+  // Actual playing a game
+
   for (int stm = side;; stm = 1 - stm)
   {
     assert(B.state.bhash == S[stm]->get_hash());
@@ -171,14 +237,18 @@ int Tuning::play_game(const Genome & genome, int side)
     if (val == -Val::Inf) return -1;
     if (val ==  Val::Inf) return  1;
 
+    //B.print();
+
     vals[stm].push_back(val);
     B.make(move);
+    B.revert_states();
     S[0]->make(move);
     S[1]->make(move);
 
     // Finishing game by draw
 
-    if (B.is_draw()) return 0;
+    if (B.is_draw()) return 0; // seems like 3-fold not working?
+    if (vals[0].size() > 256) return 0;
 
     // Finishing game by mate
 
@@ -198,7 +268,7 @@ int Tuning::play_game(const Genome & genome, int side)
       }
     }
 
-    // Finishing game by adjucation
+    // Finishing game by adjucation (color bug)
 
     /*if (vals[0].size() > adj_cnt
     &&  vals[1].size() > adj_cnt)

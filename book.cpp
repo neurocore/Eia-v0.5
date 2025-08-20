@@ -10,10 +10,10 @@ namespace eia {
 
 Book::Book() : gen(random_device{}()) {}
 
-bool Book::read_pgn(std::string pgn)
+bool BookReader::read_pgn(std::string pgn)
 {
-  entries.clear();
-  entries.push_back({Move::None, {}});
+  book->entries.clear();
+  book->entries.push_back({Move::None, {}});
 
   ifstream fin(pgn);
   if (!fin.is_open())
@@ -47,13 +47,13 @@ bool Book::read_pgn(std::string pgn)
     }
     line.push_back(str);
   }
-  return entries.size() > 1;
+  return book->entries.size() > 1;
 }
 
-bool Book::read_abk(std::string abk)
+bool BookReader::read_abk(std::string abk)
 {
-  entries.clear();
-  entries.push_back({Move::None, {}});
+  book->entries.clear();
+  book->entries.push_back({Move::None, {}});
 
   ifstream fin(abk, ios::binary);
   if (!fin.is_open())
@@ -80,7 +80,7 @@ bool Book::read_abk(std::string abk)
   return true;
 }
 
-void Book::parse_line(vector<string> line)
+void BookReader::parse_line(vector<string> line)
 {
   B.set();
 
@@ -103,7 +103,7 @@ void Book::parse_line(vector<string> line)
   }
 }
 
-void Book::traverse_abk(size_t el, size_t pos)
+void BookReader::traverse_abk(size_t el, size_t pos)
 {
   for (;;)
   {
@@ -118,7 +118,7 @@ void Book::traverse_abk(size_t el, size_t pos)
     if (move != Move::None)
     {
       size_t j = add_move(pos, move);
-      entries[pos].children.push_back(j);
+      book->entries[pos].children.push_back(j);
 
       B.make(move);
 
@@ -133,27 +133,27 @@ void Book::traverse_abk(size_t el, size_t pos)
   }
 }
 
-size_t Book::add_move(size_t pos, Move move)
+size_t BookReader::add_move(size_t pos, Move move)
 {
-  Entry & parent = entries[pos];
+  Book::Entry & parent = book->entries[pos];
 
   for (size_t j : parent.children)
   {
-    if (entries[j].move == move)
+    if (book->entries[j].move == move)
       return j;
   }
 
   pos = get_next_pos();
   parent.children.push_back(pos);
-  entries.push_back({move, to_string(move), {}});
+  book->entries.push_back({move, to_string(move), {}});
 
   assert(pos == entries.size() - 1);
   return pos;
 }
 
-inline size_t Book::get_next_pos() const
+inline size_t BookReader::get_next_pos() const
 {
-  return entries.size();
+  return book->entries.size();
 }
 
 Moves Book::get_random_line()

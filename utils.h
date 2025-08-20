@@ -1,8 +1,10 @@
 #pragma once
 #include <windows.h>
 #include <conio.h>
+#include <cmath>
 #include <string_view>
 #include <string>
+#include <vector>
 #include <iostream>
 #include <charconv>
 #include <algorithm>
@@ -103,6 +105,43 @@ inline int parse_int(const std::string_view str, int def = 0)
   int result = def;
   std::from_chars(str.data(), str.data() + str.size(), result);
   return result;
+}
+
+template<typename T>
+T median(const std::vector<T> & vec, size_t start, size_t end)
+{
+  const size_t size = end - start;
+  const double mid = start + (size - 1.0) / 2;
+  return (vec[+floor(mid)] + vec[+ceil(mid)]) / 2;
+}
+
+template<typename T>
+T median(const std::vector<T> & vec)
+{
+  return median(vec, (size_t)0, vec.size());
+}
+
+struct IQR_Stats
+{
+  double M, Q1, Q3;
+  double iqr, lowest;
+};
+
+template<typename T>
+IQR_Stats iqr_stats(std::vector<T> vec, double k = 1.5)
+{
+  IQR_Stats stats;
+  const size_t sz = vec.size();
+  sort(vec.begin(), vec.end());
+
+  stats.M  = median(vec);
+  stats.Q1 = median(vec, 0, floor(sz / 2.0));
+  stats.Q3 = median(vec, ceil(sz / 2.2), sz);
+
+  stats.iqr = stats.Q3 - stats.Q1;
+  stats.lowest = stats.Q1 - k * stats.iqr;
+
+  return stats;
 }
 
 class InputHandler

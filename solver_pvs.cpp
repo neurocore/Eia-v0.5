@@ -256,6 +256,9 @@ int SolverPVS::pvs(int alpha, int beta, int depth, bool is_null)
 {
   using namespace Hash;
   if constexpr (NT == Root) thinking = true;
+
+  if (ply() >= Limits::Plies) return E->eval(B, alpha, beta);
+
   const bool in_check = !!B->state.checkers;
   Type hash_type = Type::Upper;
   int val = ply() - Val::Inf;
@@ -448,10 +451,11 @@ int SolverPVS::qs(int alpha, int beta)
 {
   const bool in_check = !!B->state.checkers;
   max_ply = std::max(max_ply, ply());
-  Undo & undo = undos[ply()];
 
   if (ply() >= Limits::Plies) return E->eval(B, alpha, beta);
   if (B->is_draw()) return 0; // contempt();
+
+  Undo & undo = undos[ply()];
 
   // 1. Retrieving hash eval
 

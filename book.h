@@ -26,6 +26,7 @@ struct ABK_Entry
   int next_sibling;
 };__PACKED
 
+
 class Book
 {
   struct Entry
@@ -41,21 +42,34 @@ class Book
 
 public:
   Book();
-  bool read_pgn(std::string pgn);
-  bool read_abk(std::string abk);
+  void clear() { entries.clear(); }
   Moves get_random_line();
   void print_some(int depth, int ply = 0, size_t pos = 0) const;
 
+private:
+  using Distr = std::uniform_int_distribution<int>;
+  using param_t = Distr::param_type;
+  std::mt19937 gen;
+  Distr distr;
+
+  friend class BookReader;
+};
+
+
+class BookReader
+{
+  Book * book;
+
+public:
+  BookReader(Book * book) : book(book) {}
+  bool read_pgn(std::string pgn);
+  bool read_abk(std::string abk);
+  
 private:
   void parse_line(std::vector<std::string> line);
   void traverse_abk(size_t abk, size_t pos);
   size_t add_move(size_t pos, Move move);
   inline size_t get_next_pos() const;
-
-  using Distr = std::uniform_int_distribution<int>;
-  using param_t = Distr::param_type;
-  std::mt19937 gen;
-  Distr distr;
 
   Board B;
   std::vector<ABK_Entry> abk_list;

@@ -264,7 +264,7 @@ void Engine::tune()
   Eval E;
   const int bits = E.get_total_bits();
   
-  Tuning T(bits, 100, 10, 2);
+  Tuning T(bits, 1000, 10, 10);
   T.start();
 }
 
