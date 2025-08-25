@@ -56,6 +56,9 @@ int Eval::eval(const Board * B, int alpha, int beta)
   ei.init(B);
   Duo duo{};
 
+  // +70 elo (20s+.2s h2h-30)
+  if (B->is_simply_mated()) return -Val::Inf;
+
 #ifdef _DEBUG
   ed.clear();
 #endif

@@ -52,6 +52,7 @@ public:
   int phase() const;
   bool is_draw() const;
   bool is_repetition() const;
+  bool is_simply_mated() const;
 
   inline int ply() const
   {

@@ -95,6 +95,36 @@ bool Board::is_repetition() const
   return false;
 }
 
+bool Board::is_simply_mated() const
+{
+  if (!state.checkers) return false;
+
+  const u64 o = occ[color] | state.threats;
+  const SQ  ksq = bitscan(piece[BK ^ color]); 
+  const u64 katt = atts[BK][ksq];
+  const u64 kmov = (o & katt) ^ katt;
+
+  if (!kmov) // no evasion
+  {
+    // 1. Double check
+
+    if (several(state.checkers)) return true;
+
+    // 2. Non-sliding checker
+
+    const u64 non_sliders = piece[BP ^ color]
+                          | piece[BN ^ color];
+
+    if (state.checkers & non_sliders) return true;
+
+    // 3. Contact check of slider
+
+    if (state.checkers & katt) return true;
+  }
+
+  return false;
+}
+
 u64 Board::calc_hash() const
 {
   u64 key = 0ull;
