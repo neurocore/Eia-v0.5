@@ -178,6 +178,13 @@ INLINE void say(std::format_string<Args...> fmt, Args&&... args)
 }
 
 template<typename... Args>
+INLINE void con(std::format_string<Args...> fmt, Args&&... args)
+{
+  if (Input.is_console())
+    std::cout << std::format(fmt, std::forward<Args>(args)...);
+}
+
+template<typename... Args>
 INLINE void log(std::format_string<Args...> fmt, Args&&... args)
 {
 #ifdef _DEBUG

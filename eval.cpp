@@ -781,14 +781,31 @@ void Eval::set(string str)
 
 #undef TERM
 
-void Eval::set(Eval * eval)
+string Eval::to_raw() const
+{
+  string str;
+  for (int i = 0; i < Term_N; i++)
+    str += format("{} ", term[i]);
+  return str;
+}
+
+void Eval::set_raw(string str)
 {
   for (int i = 0; i < Term_N; i++)
-    term[i] = eval->term[i];
+  {
+    string part = cut(str);
+    term[i] = parse_int(part, term[i]);
+  }
+}
+
+void Eval::set(const Eval & eval)
+{
+  for (int i = 0; i < Term_N; i++)
+    term[i] = eval.term[i];
   init();
 }
 
-void Eval::set(Genome genome)
+void Eval::set(const Genome & genome)
 {
   int j = 0;
   for (int i = 0; i < Term_N; i++)

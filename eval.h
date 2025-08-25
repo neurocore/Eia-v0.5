@@ -164,8 +164,11 @@ public:
 
   std::string to_string() const;
   void set(std::string str);
-  void set(Eval * eval);
-  void set(Genome genome);
+  void set(const Eval & eval);
+  void set(const Genome & genome);
+
+  std::string to_raw() const;
+  void set_raw(std::string str);
 
 private:
   template<Color Col> Duo evalxrays(const Board * B);

@@ -6,11 +6,8 @@ using namespace std;
 
 namespace eia {
 
-Tuning::Tuning(int bits, int iters, int pop_n, int games)
-  : bits(bits), iters(iters), pop_n(pop_n), games(games)
-  , gen(random_device{}()), distr(0, 1)
+Tuner::Tuner(TunerCfg cfg) : cfg(cfg)
 {
-  prob.resize(bits);
   E[0] = new Eval;
   E[1] = new Eval;
   S[0] = new SolverPVS(E[0]);
@@ -19,16 +16,161 @@ Tuning::Tuning(int bits, int iters, int pop_n, int games)
   S[1]->set_verbosity(false);
 }
 
-Tuning::~Tuning()
+Tuner::~Tuner()
 {
   delete S[1];
   delete S[0];
 }
 
-void Tuning::start()
+void Tuner::init(std::string book_pgn)
 {
   book.clear();
-  BookReader(&book).read_pgn(".\\datasets\\Perfect_2011.pgn");
+  BookReader(&book).read_pgn(book_pgn);
+}
+
+double Tuner::score(const Eval & eval)
+{
+  int played = 0;
+  double total = 0.0;
+
+  E[0]->set(eval);
+  E[0]->init();
+
+  for (int i = 0; i < cfg.games; ++i)
+  {
+    const int side = i & 1;
+    int result = play_game(side);
+
+#ifdef _DEBUG
+    if (verbose) { say("\n"); B.print(); }
+#endif
+
+    if (side) result = -result;
+    total += result;
+
+    if (cfg.verbose) say("{}", "-=+"[result + 1]);
+  }
+
+  total /= played ? played : 1;
+
+  return total;
+}
+
+// Returns -1 for black win, +1 for white win, 0 for draw
+int Tuner::play_game(int side)
+{
+  const auto s_cfg = SearchCfg{.depth = cfg.depth};
+  vector<int> vals[2];
+
+  B.set();
+  S[0]->set(B);
+  S[1]->set(B);
+
+  S[0]->new_game();
+  S[1]->new_game();
+
+  // Playing random opening (symmetrical)
+
+  if (!side || opening.empty()) 
+    opening = book.get_random_line();
+
+  for (Move move : opening)
+  {
+    B.make(move);
+    B.revert_states();
+    S[0]->make(move);
+    S[1]->make(move);
+    side = 1 - side;
+  }
+
+  // Actual playing a game
+
+  for (int stm = side;; stm = 1 - stm)
+  {
+    assert(B.state.bhash == S[stm]->get_hash());
+
+    Move move = S[stm]->get_move(s_cfg);
+    int val = S[stm]->get_best_val();
+
+    // Direct mate on board
+
+    if (val == -Val::Inf) return -1;
+    if (val ==  Val::Inf) return  1;
+
+    //B.print();
+
+    vals[stm].push_back(val);
+    B.make(move);
+    B.revert_states();
+    S[0]->make(move);
+    S[1]->make(move);
+
+    // Finishing game by draw
+
+    if (B.is_draw()) return 0; // seems like 3-fold not working?
+    if (vals[0].size() > 256) return 0;
+
+    // Finishing game by mate
+
+    if (vals[0].size() > 0
+    &&  vals[1].size() > 0)
+    {
+      int last0 = vals[0][vals[0].size() - 1];
+      int last1 = vals[1][vals[1].size() - 1];
+
+      if (last0 < -Val::Mate && last1 < -Val::Mate)
+      {
+        return -1;
+      }
+      if (last0 >  Val::Mate && last1 >  Val::Mate)
+      {
+        return  1;
+      }
+    }
+
+    // Finishing game by adjucation (color bug)
+
+    /*if (vals[0].size() > adj_cnt
+    &&  vals[1].size() > adj_cnt)
+    {
+      bool adj_w = true;
+      bool adj_b = true;
+
+      for (int k = 1; k <= adj_cnt; ++k)
+      {
+        int last0 = vals[0][vals[0].size() - k];
+        int last1 = vals[1][vals[1].size() - k];
+
+        if (last0 <  adj_val || last1 <  adj_val) adj_w = false;
+        if (last0 > -adj_val || last1 > -adj_val) adj_b = false;
+      }
+
+      if (adj_w)
+      {
+        return  1;
+      }
+      if (adj_b)
+      {
+        return -1;
+      }
+    }*/
+  }
+  return 0;
+}
+
+
+/////////////////////////////////////
+
+PBIL::PBIL(std::unique_ptr<Tuner> tuner, int bits, int iters, int pop_n)
+  : tuner(std::move(tuner)), bits(bits), iters(iters), pop_n(pop_n)
+  , gen(random_device{}()), distr(0, 1)
+{
+  prob.resize(bits);
+}
+
+void PBIL::start()
+{
+  tuner->init();
 
   vector<Genome> colony;
   vector<double> cost;
@@ -39,7 +181,7 @@ void Tuning::start()
     prob[k] = .5;
 
   Genome best;
-  double best_cost = -100 * games;
+  double best_cost = -100 * tuner->cfg.games;
 
   // 1. Generate few species
 
@@ -60,6 +202,7 @@ void Tuning::start()
     {
       say("{:4d} ", j + 1);
       auto val = score(colony[j]);
+      say(" - {}\n", val);
       cost.push_back(val);
       average += val;
     }
@@ -157,145 +300,18 @@ void Tuning::start()
   }
 }
 
-Genome Tuning::gen_genome()
+Genome PBIL::gen_genome()
 {
   Genome genome;
   for (auto v : prob) genome.push_back(rand() < v);
   return genome;
 }
 
-double Tuning::score(const Genome & genome)
+double PBIL::score(const Genome & genome)
 {
-  int played = 0;
-  double total = 0.0;
-
-  for (int i = 0; i < games; ++i)
-  {
-    const int side = i & 1;
-    int result = play_game(genome, side);
-
-#ifdef _DEBUG
-    say("\n");
-    B.print();
-#endif
-
-    if (side) result = -result;
-    total += result;
-
-    say("{}", "-=+"[result + 1]);
-  }
-
-  if (played) total /= played;
-
-  say(" - {}\n", total);
-
-  return total;
-}
-
-// Returns -1 for black win, +1 for white win, 0 for draw
-int Tuning::play_game(const Genome & genome, int side)
-{
-  vector<int> vals[2];
-  SearchCfg cfg;
-  cfg.depth = depth;
-
-  E[0]->set(genome);
-  E[0]->init();
-
-  B.set();
-  S[0]->set(B);
-  S[1]->set(B);
-
-  S[0]->new_game();
-  S[1]->new_game();
-
-  // Playing random opening (symmetrical)
-
-  if (!side || opening.empty()) 
-    opening = book.get_random_line();
-
-  for (Move move : opening)
-  {
-    B.make(move);
-    B.revert_states();
-    S[0]->make(move);
-    S[1]->make(move);
-    side = 1 - side;
-  }
-
-  // Actual playing a game
-
-  for (int stm = side;; stm = 1 - stm)
-  {
-    assert(B.state.bhash == S[stm]->get_hash());
-
-    Move move = S[stm]->get_move(cfg);
-    int val = S[stm]->get_best_val();
-
-    // Direct mate on board
-
-    if (val == -Val::Inf) return -1;
-    if (val ==  Val::Inf) return  1;
-
-    //B.print();
-
-    vals[stm].push_back(val);
-    B.make(move);
-    B.revert_states();
-    S[0]->make(move);
-    S[1]->make(move);
-
-    // Finishing game by draw
-
-    if (B.is_draw()) return 0; // seems like 3-fold not working?
-    if (vals[0].size() > 256) return 0;
-
-    // Finishing game by mate
-
-    if (vals[0].size() > 0
-    &&  vals[1].size() > 0)
-    {
-      int last0 = vals[0][vals[0].size() - 1];
-      int last1 = vals[1][vals[1].size() - 1];
-
-      if (last0 < -Val::Mate && last1 < -Val::Mate)
-      {
-        return -1;
-      }
-      if (last0 >  Val::Mate && last1 >  Val::Mate)
-      {
-        return  1;
-      }
-    }
-
-    // Finishing game by adjucation (color bug)
-
-    /*if (vals[0].size() > adj_cnt
-    &&  vals[1].size() > adj_cnt)
-    {
-      bool adj_w = true;
-      bool adj_b = true;
-
-      for (int k = 1; k <= adj_cnt; ++k)
-      {
-        int last0 = vals[0][vals[0].size() - k];
-        int last1 = vals[1][vals[1].size() - k];
-
-        if (last0 <  adj_val || last1 <  adj_val) adj_w = false;
-        if (last0 > -adj_val || last1 > -adj_val) adj_b = false;
-      }
-
-      if (adj_w)
-      {
-        return  1;
-      }
-      if (adj_b)
-      {
-        return -1;
-      }
-    }*/
-  }
-  return 0;
+  Eval eval;
+  eval.set(genome);
+  return tuner->score(eval);
 }
 
 }

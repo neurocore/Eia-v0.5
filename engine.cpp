@@ -1,5 +1,6 @@
 #include <iostream>
 #include <format>
+#include <memory>
 #include "engine.h"
 #include "solver_pvs.h"
 #include "tuning.h"
@@ -22,18 +23,11 @@ Engine::~Engine()
   delete S[0];
 }
 
-void Engine::print_message(string str)
-{
-  cout << str << endl;
-  cout.flush();
-}
-
 void Engine::print_info(string str)
 {
   if (options.flag_debug)
   {
-    cout << "info string" << str << endl;
-    cout.flush();
+    say<1>("info string {}", str);
   }
 }
 
@@ -60,15 +54,12 @@ bool Engine::parse(string str)
 
   if (cmd == "uci")
   {
-    print_message(format
-    (
-      "id name {} v{}\nid author {}\n{}uciok",
-      Name, Vers, Auth, options
-    ));
+    say<1>("id name {} v{}\nid author {}\n{}uciok",
+            Name, Vers, Auth, options);
   }
   else if (cmd == "isready") [[likely]]
   {
-    print_message("readyok");
+    say<1>("readyok");
   }
   else if (cmd == "quit")
   {
@@ -109,7 +100,7 @@ bool Engine::parse(string str)
   }
   else if (cmd == "register") [[unlikely]]
   {
-    print_message("registration ok");
+    say<1>("registration ok");
   }
   else if (cmd == "position") [[likely]]
   {
@@ -151,13 +142,17 @@ bool Engine::parse(string str)
     }
     go(cfg);
   }
-  else if (cmd == "tune") [[unlikely]]
+  else if (cmd == "pbil") [[unlikely]]
+  {
+    pbil();
+  }
+  else if (cmd == "tune")
   {
     tune();
   }
-  else if (cmd == "")
+  else
   {
-
+    say<1>("Unknown command \"{}\"\n", cmd);
   }
 
   return true;
@@ -215,7 +210,7 @@ void Engine::eval()
   str += "Use in debug mode to get details\n";
 #endif
 
-  print_message(str);
+  say<1>("{}", str);
 }
 
 void Engine::set_debug(bool val)
@@ -232,7 +227,7 @@ void Engine::set_pos(string fen, std::vector<Move> moves)
   {
     if (!do_move(move))
     {
-      print_message(format("can't perform move \"{}\"", move));
+      say<1>("can't perform move \"{}\"", move);
       break;
     }
   }
@@ -259,13 +254,71 @@ void Engine::go(const SearchCfg & cfg)
   }
 }
 
+void Engine::pbil()
+{
+  const int bits = Eval{}.get_total_bits();
+
+  TunerCfg cfg{.verbose = false, .games = 6, .depth = 3};
+  auto tuner = make_unique<Tuner>(cfg);
+  PBIL optimizator(std::move(tuner), bits, 1000, 10);
+  optimizator.start();
+}
+
 void Engine::tune()
 {
-  Eval E;
-  const int bits = E.get_total_bits();
-  
-  Tuning T(bits, 1000, 10, 10);
-  T.start();
+  say<1>("-- Tune mode\n");
+
+  Eval eval;
+  TunerCfg cfg{.verbose = false};
+  Tuner tuner(cfg);
+  tuner.init();
+
+  bool success = true;
+  while (success)
+  {
+    std::string str;
+    getline(cin, str);
+
+    if (str.length() > 0)
+    {
+      string cmd = cut(str);
+
+      if (cmd == "get")
+      {
+        string op = cut(str);
+
+        if      (op == "games") say<1>("{}\n", tuner.cfg.games);
+        else if (op == "depth") say<1>("{}\n", tuner.cfg.depth);
+        else if (op == "eval")  say<1>("{}\n", eval.to_raw());
+        else say<1>("Wrong operator \"{}\" in \"get\"\n", op);
+      }
+      else if (cmd == "set")
+      {
+        string op = cut(str);
+
+        if      (op == "games") tuner.cfg.games = parse_int(str, 10);
+        else if (op == "depth") tuner.cfg.depth = parse_int(str, 3);
+        else if (op == "eval")  eval.set_raw(str);
+        else say<1>("Wrong operator \"{}\" in \"set\"\n", op);
+      }
+      else if (cmd == "score")
+      {
+        auto score = tuner.score(eval);
+        say<1>("{}\n", score);
+      }
+      else if (cmd == "exit")
+      {
+        success = false;
+      }
+      else
+      {
+        say<1>("Wrong command \"{}\" in tune mode \n", cmd);
+        say<1>("Use \"exit\" to leave to main mode\n");
+      }
+    }
+  }
+
+  say<1>("-- Main mode\n");
 }
 
 }

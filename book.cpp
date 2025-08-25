@@ -161,6 +161,8 @@ Moves Book::get_random_line()
   Moves moves;
   size_t pos = 0;
 
+  if (entries.empty()) return moves;
+
   for (int i = 0; i < 1000; ++i)
   {
     const Entry & entry = entries[pos];

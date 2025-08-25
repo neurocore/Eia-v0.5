@@ -14,7 +14,6 @@ class Engine
 public:
   Engine();
   ~Engine();
-  void print_message(std::string str);
   void print_info(std::string str);
 
   void start();
@@ -31,6 +30,7 @@ public:
   void set_pos(std::string fen, std::vector<Move> moves);
   bool do_move(Move mv);
   void go(const SearchCfg & cfg);
+  void pbil();
   void tune();
 };
 
