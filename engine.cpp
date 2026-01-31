@@ -27,7 +27,7 @@ void Engine::print_info(string str)
 {
   if (options.flag_debug)
   {
-    say<1>("info string {}", str);
+    say<1>("info string {}\n", str);
   }
 }
 
@@ -54,12 +54,12 @@ bool Engine::parse(string str)
 
   if (cmd == "uci")
   {
-    say<1>("id name {} v{}\nid author {}\n{}uciok",
+    say<1>("id name {} v{}\nid author {}\n{}uciok\n",
             Name, Vers, Auth, options);
   }
   else if (cmd == "isready") [[likely]]
   {
-    say<1>("readyok");
+    say<1>("readyok\n");
   }
   else if (cmd == "quit")
   {
@@ -100,7 +100,7 @@ bool Engine::parse(string str)
   }
   else if (cmd == "register") [[unlikely]]
   {
-    say<1>("registration ok");
+    say<1>("registration ok\n");
   }
   else if (cmd == "position") [[likely]]
   {

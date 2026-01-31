@@ -14,6 +14,7 @@ enum NodeType { PV, NonPV, Root };
 
 class SolverPVS : public Solver
 {
+  int LMR[64][256];
   Undo undos[Limits::Plies];
   Board * B;
   Eval * E;
@@ -30,6 +31,7 @@ class SolverPVS : public Solver
 public:
   SolverPVS(Eval * eval);
   ~SolverPVS();
+  void init();
   bool is_solver() { return true; }
   void new_game() { H->clear(); }
   void set(const Board & board) override;

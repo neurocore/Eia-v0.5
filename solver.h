@@ -9,6 +9,7 @@ class Engine;
 struct Undo
 {
   // Duo pst;
+  int eval;
   Move curr, best;
   Move killer[2];
 };

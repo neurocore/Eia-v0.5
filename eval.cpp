@@ -348,7 +348,7 @@ Duo Eval::evaluateN(const Board * B)
 
     vals += APPLY(pst[p][sq], "PST");
 
-    int v = mob[Knight][popcnt(att)];
+    int v = mob[Knight][popcnt(att)]; // & ~B->occ[Col] ??
     vals += APPLY(Duo(v, 3 * v / 2), "Mobility");
 
     // adjustments
@@ -393,7 +393,7 @@ Duo Eval::evaluateB(const Board * B)
 
     vals += APPLY(pst[p][sq], "PST");
 
-    int v = mob[Bishop][popcnt(att)];
+    int v = mob[Bishop][popcnt(att)]; // & ~B->occ[Col] ?
     vals += APPLY(Duo(v, 3 * v / 2), "Mobility");
 
     // rammed bishop
@@ -444,7 +444,7 @@ Duo Eval::evaluateR(const Board * B)
 
     vals += APPLY(pst[p][sq], "PST");
 
-    int v = mob[Rook][popcnt(att)];
+    int v = mob[Rook][popcnt(att)]; // & ~B->occ[Col] ?
     vals += APPLY(Duo(v, 3 * v / 2), "Mobility");
 
     // adjustments
@@ -504,7 +504,7 @@ Duo Eval::evaluateQ(const Board * B)
 
     vals += APPLY(pst[p][sq], "PST");
 
-    int m = mob[Queen][popcnt(att)];
+    int m = mob[Queen][popcnt(att)]; // & ~B->occ[Col] ?
     vals += APPLY(Duo(m, 3 * m / 2), "Mobility");
 
     // queen on open/semi-files
@@ -1077,5 +1077,5 @@ template Duo Eval::eval_passer<Black>(const Board * B, SQ sq);
 template Duo Eval::eval_passer<White>(const Board * B, SQ sq);
 
 template Duo Eval::eval_threats<Black>(const Board * B);
-template Duo Eval::eval_threats<Black>(const Board * B);
+template Duo Eval::eval_threats<White>(const Board * B);
 }

@@ -14,6 +14,7 @@ SolverPVS::SolverPVS(Eval * eval) : E(eval)
 {
   B = new Board;
   H = new Hash::Table(HashTables::Size);
+  init();
 }
 
 SolverPVS::~SolverPVS()
@@ -21,6 +22,21 @@ SolverPVS::~SolverPVS()
   delete H;
   delete E;
   delete B;
+}
+
+void SolverPVS::init()
+{
+  // from Ethereal
+
+  for (int depth = 1; depth < 64; depth++)
+  {
+    for (int moves = 1; moves < 256; moves++)
+    {
+       double ldll = std::log(depth) * std::log(moves);
+       double r = 0.7844 + ldll / 2.4696;
+       LMR[depth][moves] = static_cast<int>(r);
+    }
+  }
 }
 
 void SolverPVS::set(const Board & board)
@@ -275,7 +291,7 @@ int SolverPVS::pvs(int alpha, int beta, int depth, bool is_null)
 
   int legal = 0;
 
-  // 0. Mate pruning
+  // 0. Mate pruning ??
 
   //if (ply > 0)
   //{
@@ -304,8 +320,12 @@ int SolverPVS::pvs(int alpha, int beta, int depth, bool is_null)
     }
   }
 
-  int static_eval = tt_hit ? entry.val
-                  : (NT == NonPV ? E->eval(B, alpha, beta) : 0);
+  int eval = tt_hit ? entry.val
+           : (NT == NonPV ? E->eval(B, alpha, beta) : 0);
+
+  undo.eval = eval;
+  const bool improving = !in_check && ply() > 2
+                      && eval > undos[ply() - 2].eval;
 
   if constexpr (NT == NonPV) // +70 elo (1+1 h2h-16)
   {
@@ -316,9 +336,9 @@ int SolverPVS::pvs(int alpha, int beta, int depth, bool is_null)
     &&  depth >= 1
     &&  depth <= 3)
     {
-      if (static_eval <= alpha - Futility_Margin[depth])
+      if (eval <= alpha - Futility_Margin[depth])
         return qs(alpha, beta);
-      if (static_eval >= beta + Futility_Margin[depth])
+      if (eval >= beta + Futility_Margin[depth])
         return beta;
     }
   }
@@ -330,7 +350,7 @@ int SolverPVS::pvs(int alpha, int beta, int depth, bool is_null)
     if (!in_check
     &&  !is_null
     &&  B->has_pieces(B->color)
-    &&  static_eval >= beta
+    &&  eval >= beta
     &&  beta > -Val::Mate
     &&  depth >= 2)
     {
@@ -381,30 +401,60 @@ int SolverPVS::pvs(int alpha, int beta, int depth, bool is_null)
 
     undo.curr = move;
     legal++;
-    int new_depth = depth - 1;
-    int reduction = 0;
+    bool gives_check = B->in_check();
+    bool is_tactical = is_attack(move);
+    int reduce = 0, extend = 0;
 
-    // LMR
+    // Check extension | +50 elo (20s+.2 h2h-20)
+    
+    if (in_check) extend++;
 
-    if constexpr (NT == NonPV)
+    // Pawn push extension | -100 elo (20s+.2 h2h-20)
+
+    //if (is_prom(move))
+    //{
+    //  extend++;
+    //}
+    //else if (is_pawn(move))
+    //{
+    //  const SQ to = get_to(move);
+
+    //  // move is done
+    //  if ((~B->color && rank(to) == 6)
+    //  ||  ( B->color && rank(to) == 1))
+    //  {
+    //    extend++;
+    //  }
+    //}
+    
+    // LMR | +70 elo (20s+.2 h2h-20)
+
+    if (!is_null
+    &&  !in_check
+    &&  depth >= 3
+    &&  extend <= 0
+    &&  !is_tactical)
     {
-      if (!is_null
-      &&  !in_check
-      &&  depth >= 4
-      &&  !B->in_check()
-      &&  !is_attack(move))
-      {
-        // from Fruit Reloaded
-        reduction = static_cast<int>(sqrt(depth - 1) + sqrt(legal - 1));
-      }
+      // From Ethereal
+      reduce += LMR[std::min(depth, 63)][std::min(legal, 255)];
+
+      // Non-PV nodes and not imporing reduced
+      reduce += (NT == NonPV) + !improving;
+
+      // Prevent reducing killers and countermove
+      reduce -= (mp.stage < Stage::GenQuiets);
     }
+
+    // Don't extend or drop into QS
+    reduce = std::min(depth - 1, std::max(reduce, 1));
+    int new_depth = depth - 1 + extend;
 
     if (legal == 1)
       val = -pvs<PV>(-beta, -alpha, new_depth, is_null);
     else
     {
-      val = -pvs<NonPV>(-alpha - 1, -alpha, new_depth - reduction, is_null);
-      if (val > alpha && reduction > 0)
+      val = -pvs<NonPV>(-alpha - 1, -alpha, new_depth - reduce, is_null);
+      if (val > alpha && reduce > 0)
         val = -pvs<NonPV>(-alpha - 1, -alpha, new_depth, is_null);
       if (val > alpha && val < beta)
         val = -pvs<PV>(-beta, -alpha, new_depth, is_null);

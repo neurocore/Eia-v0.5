@@ -619,13 +619,13 @@ bool Board::pseudolegal(Move move) const
 
   if (mt == Quiet) // quiet move
   {
-    const u64 att = atts[p][from] & (is_king(p) ? ~o : mask);
+    const u64 att = atts[p][from] & (is_king(p) ? ~o : mask); // WARN: is it right? too strict
     if (!(att & bit(to))) return false; // piece can move that way
   }
 
   if (cap) // simple capture move
   {
-    const u64 att = atts[p][from] & (is_king(p) ? occ[~color] : mask);
+    const u64 att = atts[p][from] & (is_king(p) ? occ[~color] : mask); // WARN: is it right? too strict
     if (!(att & bit(to))) return false; // piece can move that way
   }
 
