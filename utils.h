@@ -17,6 +17,11 @@ template<typename T> INLINE int sgn(T val)
   return (T(0) < val) - (val < T(0));
 }
 
+template<typename T> INLINE T abs(T val)
+{
+  return val < T(0) ? -val : val;
+}
+
 template<typename T, typename R>
 R compare(T a, T b, R less, R equal, R more)
 {
@@ -100,9 +105,16 @@ inline std::string trim(std::string & str, char ch = ' ')
   return str;
 }
 
-inline int parse_int(const std::string_view str, int def = 0)
+inline int parse_int(const std::string_view str, int def = 0, int base = 10)
 {
-  int result = def;
+  i64 result = def; // it can't correctly read hex int (8 chars)
+  std::from_chars(str.data(), str.data() + str.size(), result, base);
+  return static_cast<int>(result);
+}
+
+inline double parse_double(const std::string_view str, double def = 0.)
+{
+  double result = def;
   std::from_chars(str.data(), str.data() + str.size(), result);
   return result;
 }

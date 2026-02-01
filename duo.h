@@ -3,21 +3,22 @@
 #include <format>
 #include <string>
 #include "types.h"
+#include "value.h"
 #include "consts.h"
 
 namespace eia {
 
 struct Duo
 {
-  int op, eg;
+  Val op, eg;
 
-  constexpr Duo(int op = 0, int eg = 0) : op(op), eg(eg) {}
-  static constexpr Duo both(int x)  { return Duo(x, x); }
-  static constexpr Duo as_op(int x) { return Duo(x, 0); }
-  static constexpr Duo as_eg(int x) { return Duo(0, x); }
+  constexpr Duo(Val op = 0_cp, Val eg = 0_cp) : op(op), eg(eg) {}
+  static constexpr Duo both(Val x)  { return Duo(x, x); }
+  static constexpr Duo as_op(Val x) { return Duo(x, 0_cp); }
+  static constexpr Duo as_eg(Val x) { return Duo(0_cp, x); }
 
-  INLINE void clear() { op = eg = 0; }
-  INLINE int tapered(int phase) const
+  INLINE void clear() { op = eg = 0_cp; }
+  INLINE Val tapered(int phase) const
   {
     return ((op * (Phase::Total - phase)) + eg * phase) / Phase::Total;
   }

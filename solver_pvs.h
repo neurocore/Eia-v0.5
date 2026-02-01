@@ -26,7 +26,7 @@ class SolverPVS : public Solver
   int max_ply;
   MS to_think;
   u64 nodes;
-  int best_val;
+  Val best_val;
 
 public:
   SolverPVS(Eval * eval);
@@ -53,15 +53,15 @@ public:
 
   bool abort() const;
   int ply() const { return B->ply(); }
+  Val contempt() const { return 0_cp; }
 
   template<bool QS>
   void set_movepicker(MovePicker<QS> & mp, Move hash);
   void update_moves_stats(int depth);
 
   template<NodeType NT>
-  int pvs(int alpha, int beta, int depth, bool is_null = false);
-
-  int qs(int alpha, int beta);
+  Val pvs(Val alpha, Val beta, int depth, bool is_null = false);
+  Val qs(Val alpha, Val beta);
 
   template<bool QS>
   friend struct MovePicker;
@@ -93,11 +93,11 @@ void SolverPVS::set_movepicker(MovePicker<QS> & mp, Move hash)
 
 
 // explicit instantiate for use in cpp leads to better compile time
-template int SolverPVS::pvs<PV>(int alpha, int beta, int depth, bool is_null);
-template int SolverPVS::pvs<NonPV>(int alpha, int beta, int depth, bool is_null);
-template int SolverPVS::pvs<Root>(int alpha, int beta, int depth, bool is_null);
+template Val SolverPVS::pvs<PV>(Val alpha, Val beta, int depth, bool is_null);
+template Val SolverPVS::pvs<NonPV>(Val alpha, Val beta, int depth, bool is_null);
+template Val SolverPVS::pvs<Root>(Val alpha, Val beta, int depth, bool is_null);
 
-//template int SolverPVS::qs<0>(int alpha, int beta, int max_checks_depth);
-//template int SolverPVS::qs<1>(int alpha, int beta, int max_checks_depth);
+//template Val SolverPVS::qs<0>(Val alpha, Val beta, int max_checks_depth);
+//template Val SolverPVS::qs<1>(Val alpha, Val beta, int max_checks_depth);
 
 }

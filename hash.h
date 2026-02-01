@@ -19,14 +19,14 @@ struct Entry // 8
 
 inline int val_from(int val, int height)
 {
-  return val >=  Val::Mate ? val - height
-       : val <= -Val::Mate ? val + height : val;
+  return val >=  dry(Val::Mate) ? val - height
+       : val <= -dry(Val::Mate) ? val + height : val;
 }
 
 inline int val_to(int val, int height)
 {
-  return val >=  Val::Mate ? val + height
-       : val <= -Val::Mate ? val - height : val;
+  return val >=  dry(Val::Mate) ? val + height
+       : val <= -dry(Val::Mate) ? val - height : val;
 }
 
 inline u16 key_high(u64 key)
@@ -40,7 +40,6 @@ const Entry entry0 { Empty, Move::None, 0u, 0u, 0 };
 class Table
 {
   int size;
-  u32 read, write;
   Entry * table;
 
 public:
@@ -51,8 +50,6 @@ public:
   {
     for (int i = 0; i < size; ++i)
       table[i] = entry0;
-
-    read = write = 0u;
   }
 
   void init(int size_mb)
@@ -83,15 +80,13 @@ public:
 
     if (e.key16 != key_high(key)) return false;
 
-    read++;
-
     Entry result = e;
     result.val = val_from(result.val, height);
     entry = result; 
     return true;
   }
 
-  void store(u64 key, int height, Move move, int val, int depth, Type type)
+  void store(u64 key, int height, Move move, Val val, int depth, Type type)
   {
     Entry & entry = table[key & (size - 1)];
 
@@ -99,14 +94,22 @@ public:
     &&  key_high(key) == entry.key16
     &&  depth < entry.depth - 2) return;
 
-    write++;
-
     entry = Entry
     {
       key_high(key), move,
       (u8)depth, (u8)type,
-      (i16)val_to(val, height)
+      (i16)val_to(dry(val), height)
     };
+  }
+
+  int hashfull() const
+  {
+    int used = 0; // good estimate
+    
+    for (int i = 0; i < 1000; i++)
+      used += !!table[i].type;
+    
+    return used;
   }
 };
 

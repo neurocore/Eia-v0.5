@@ -65,7 +65,7 @@ INLINE SQ & operator -- (SQ & a) { a = static_cast<SQ>(a - 1); return a; }
 
 INLINE int k_dist(SQ a, SQ b) // Chebyshev or king distance
 {
-  return std::max(abs(rank(a) - rank(b)), abs(file(a) - file(b)));
+  return (std::max)(abs(rank(a) - rank(b)), abs(file(a) - file(b)));
 }
 
 }

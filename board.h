@@ -2,6 +2,7 @@
 #include <string>
 #include <cassert>
 #include "consts.h"
+//#include "value.h"
 #include "movelist.h"
 #include "tables.h"
 #include "magics.h"

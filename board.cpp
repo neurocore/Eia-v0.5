@@ -50,7 +50,7 @@ int Board::phase() const
             - Phase::Rook  * popcnt(rooks())
             - Phase::Light * popcnt(lights());
 
-  return std::max(phase, 0);
+  return (std::max)(phase, 0);
 }
 
 bool Board::is_draw() const
@@ -426,7 +426,7 @@ int Board::see(Move move) const
   }
   while (from_bb);
 
-  while (--d) gain[d - 1] = -max(-gain[d - 1], gain[d]);
+  while (--d) gain[d - 1] = -(std::max)(-gain[d - 1], gain[d]);
   return gain[0];
 }
 

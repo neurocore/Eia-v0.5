@@ -147,7 +147,7 @@ size_t BookReader::add_move(size_t pos, Move move)
   parent.children.push_back(pos);
   book->entries.push_back({move, to_string(move), {}});
 
-  assert(pos == entries.size() - 1);
+  assert(pos == book->entries.size() - 1);
   return pos;
 }
 

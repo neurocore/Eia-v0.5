@@ -8,7 +8,7 @@ using namespace std;
 namespace eia {
 
 // from GreKo 2021.12
-const int Futility_Margin[] = { 0, 50, 350, 550 };
+const Val Futility_Margin[] = { 0_cp, 50_cp, 350_cp, 550_cp };
 
 SolverPVS::SolverPVS(Eval * eval) : E(eval)
 {
@@ -51,7 +51,7 @@ Move SolverPVS::get_move(const SearchCfg & cfg)
   infinite = cfg.infinite;
   max_ply = 0;
   nodes = 0ull;
-  best_val = 0;
+  best_val = 0_cp;
 
   B->revert_states();
 
@@ -61,7 +61,7 @@ Move SolverPVS::get_move(const SearchCfg & cfg)
 
   if (ml.count() == 0)
   {
-    best_val = !B->state.checkers ? 0
+    best_val = !B->state.checkers ? 0_cp
              : B->to_move() ? -Val::Inf : Val::Inf;
     best = Move::None;
   }
@@ -70,15 +70,15 @@ Move SolverPVS::get_move(const SearchCfg & cfg)
 
   else
 
-  for (int depth = 1; depth <= std::min(+Limits::Plies, cfg.depth); ++depth)
+  for (int depth = 1; depth <= (std::min)(+Limits::Plies, cfg.depth); ++depth)
   {
-    int val = best_val = pvs<Root>(-Val::Inf, Val::Inf, depth);
+    Val val = best_val = pvs<Root>(-Val::Inf, Val::Inf, depth);
     if (!thinking) break;
 
     best = is_empty(undos[0].best) ? best : undos[0].best;
 
     if (verbose)
-    say<1>("info depth {} seldepth {} score cp {} nodes {} time {} pv {}\n",
+    say<1>("info depth {} seldepth {} score {:o} nodes {} time {} pv {}\n",
         depth, max_ply, val, nodes, timer.getms(), best);
 
     if (val > Val::Mate || val < -Val::Mate) break;
@@ -268,7 +268,7 @@ void SolverPVS::update_moves_stats(int depth)
 }
 
 template<NodeType NT>
-int SolverPVS::pvs(int alpha, int beta, int depth, bool is_null)
+Val SolverPVS::pvs(Val alpha, Val beta, int depth, bool is_null)
 {
   using namespace Hash;
   if constexpr (NT == Root) thinking = true;
@@ -277,7 +277,7 @@ int SolverPVS::pvs(int alpha, int beta, int depth, bool is_null)
 
   const bool in_check = !!B->state.checkers;
   Type hash_type = Type::Upper;
-  int val = ply() - Val::Inf;
+  Val val = ply() - Val::Inf;
   Undo & undo = undos[ply()];
   undo.best = Move::None;
   nodes++;
@@ -286,10 +286,8 @@ int SolverPVS::pvs(int alpha, int beta, int depth, bool is_null)
 
   if constexpr (NT != Root) // +70 (1+1 h2h-10)
   {
-    if (B->is_draw()) return 0; // contempt();
+    if (B->is_draw()) return contempt();
   }
-
-  int legal = 0;
 
   // 0. Mate pruning ??
 
@@ -305,6 +303,7 @@ int SolverPVS::pvs(int alpha, int beta, int depth, bool is_null)
   Entry entry;
   const bool tt_hit = H->probe(B->hash(), ply(), entry);
   Move hash_move = tt_hit ? entry.move : Move::None;
+  Val hash_val = tt_hit ? cp(entry.val) : 0_cp;
 
   if constexpr (NT == NonPV) // +100 elo (1+1 h2h-10)
   {
@@ -312,16 +311,16 @@ int SolverPVS::pvs(int alpha, int beta, int depth, bool is_null)
     &&  entry.depth >= depth)
     {
       if (entry.type == Type::Exact
-      || (entry.type == Type::Lower && entry.val >= beta)
-      || (entry.type == Type::Upper && entry.val <= alpha))
+      || (entry.type == Type::Lower && hash_val >= beta)
+      || (entry.type == Type::Upper && hash_val <= alpha))
       {
-        return entry.val;
+        return hash_val;
       }
     }
   }
 
-  int eval = tt_hit ? entry.val
-           : (NT == NonPV ? E->eval(B, alpha, beta) : 0);
+  Val eval = tt_hit ? hash_val
+           : (NT == NonPV ? E->eval(B, alpha, beta) : 0_cp);
 
   undo.eval = eval;
   const bool improving = !in_check && ply() > 2
@@ -357,7 +356,7 @@ int SolverPVS::pvs(int alpha, int beta, int depth, bool is_null)
       int R = 3 + depth / 4;
 
       B->make_null();
-      int v = -pvs<NonPV>(-beta, -beta + 1, depth - R, true);
+      Val v = -pvs<NonPV>(-beta, -beta + 1, depth - R, true);
       B->unmake_null();
 
       if (v >= beta)
@@ -378,7 +377,7 @@ int SolverPVS::pvs(int alpha, int beta, int depth, bool is_null)
     {
       int new_depth = depth - 2;
 
-      int v = pvs<PV>(alpha, beta, new_depth, is_null);
+      Val v = pvs<PV>(alpha, beta, new_depth, is_null);
       if (v <= alpha)
         v = pvs<PV>(-Val::Inf, beta, new_depth, is_null);
 
@@ -391,6 +390,7 @@ int SolverPVS::pvs(int alpha, int beta, int depth, bool is_null)
 
   // Looking all legal moves
 
+  int legal = 0;
   MovePickerPVS mp;
   set_movepicker(mp, hash_move);
 
@@ -409,7 +409,7 @@ int SolverPVS::pvs(int alpha, int beta, int depth, bool is_null)
     
     if (in_check) extend++;
 
-    // Pawn push extension | -100 elo (20s+.2 h2h-20)
+    // Pawn push extension | -100 elo (20s+.2 h2h-20) ??
 
     //if (is_prom(move))
     //{
@@ -446,7 +446,7 @@ int SolverPVS::pvs(int alpha, int beta, int depth, bool is_null)
     }
 
     // Don't extend or drop into QS
-    reduce = std::min(depth - 1, std::max(reduce, 1));
+    reduce = std::min(depth - 1, (std::max)(reduce, 1));
     int new_depth = depth - 1 + extend;
 
     if (legal == 1)
@@ -485,7 +485,7 @@ int SolverPVS::pvs(int alpha, int beta, int depth, bool is_null)
 
   if (!legal)
   {
-    return in_check ? val : 0; // contempt();
+    return in_check ? val : contempt();
   }
 
   if (!abort())
@@ -497,13 +497,13 @@ int SolverPVS::pvs(int alpha, int beta, int depth, bool is_null)
   return alpha;
 }
 
-int SolverPVS::qs(int alpha, int beta)
+Val SolverPVS::qs(Val alpha, Val beta)
 {
   const bool in_check = !!B->state.checkers;
-  max_ply = std::max(max_ply, ply());
+  max_ply = (std::max)(max_ply, ply());
 
   if (ply() >= Limits::Plies) return E->eval(B, alpha, beta);
-  if (B->is_draw()) return 0; // contempt();
+  if (B->is_draw()) return contempt();
 
   Undo & undo = undos[ply()];
 
@@ -511,20 +511,22 @@ int SolverPVS::qs(int alpha, int beta)
 
   Entry entry;
   const bool tt_hit = H->probe(B->hash(), ply(), entry);
+  Move hash_move = tt_hit ? entry.move : Move::None;
+  Val hash_val = tt_hit ? cp(entry.val) : 0_cp;
 
-  if (tt_hit) // +0 elo (1+1 h2h-10) - not storing
+  if (tt_hit)
   {
     if (entry.type == Type::Exact
-    || (entry.type == Type::Lower && entry.val >= beta)
-    || (entry.type == Type::Upper && entry.val <= alpha))
+    || (entry.type == Type::Lower && hash_val >= beta)
+    || (entry.type == Type::Upper && hash_val <= alpha))
     {
-      return entry.val;
+      return hash_val;
     }
   }
 
   // 2. Calculating stand pat
 
-  int stand_pat = E->eval(B, alpha, beta);
+  Val stand_pat = E->eval(B, alpha, beta);
   //H->store(B->hash(), ply(), Move::None, stand_pat, 0, Type::None);
 
   if (stand_pat >= beta) return beta;
@@ -532,7 +534,7 @@ int SolverPVS::qs(int alpha, int beta)
 
   // 3. Delta pruning (+123 elo 10s+.1 h2h-30)
 
-  if (std::max(143, B->best_cap_value()) < alpha - stand_pat)
+  if ((std::max)(143, B->best_cap_value()) < dry(alpha - stand_pat))
   {
     return stand_pat;
   }
@@ -553,7 +555,7 @@ int SolverPVS::qs(int alpha, int beta)
     nodes++;
     undo.curr = move;
 
-    int val = -qs(-beta, -alpha);
+    Val val = -qs(-beta, -alpha);
 
     B->unmake(move);
 

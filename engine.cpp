@@ -142,10 +142,6 @@ bool Engine::parse(string str)
     }
     go(cfg);
   }
-  else if (cmd == "pbil") [[unlikely]]
-  {
-    pbil();
-  }
   else if (cmd == "tune")
   {
     tune();
@@ -194,7 +190,7 @@ void Engine::eval()
   Eval E;
 
   E.set_explanations(true);
-  int val = E.eval(&B, -Val::Inf, Val::Inf);
+  Val val = E.eval(&B, -Val::Inf, Val::Inf);
   E.set_explanations(false);
 
   string str = format("Eval: {}\n\n", val);
@@ -252,16 +248,6 @@ void Engine::go(const SearchCfg & cfg)
     solver->set(B);
     solver->get_move(cfg);
   }
-}
-
-void Engine::pbil()
-{
-  const int bits = Eval{}.get_total_bits();
-
-  TunerCfg cfg{.verbose = false, .games = 6, .depth = 3};
-  auto tuner = make_unique<Tuner>(cfg);
-  PBIL optimizator(std::move(tuner), bits, 1000, 10);
-  optimizator.start();
 }
 
 void Engine::tune()
