@@ -255,7 +255,7 @@ Duo Eval::eval_passer(const Board * B, SQ sq)
   int prank = Col ? rank(sq) : 7 - rank(sq);
   prank += prank == 1; // double pawn move
   prank += B->color == Col; // tempo
-  const int scale = dry(passer_scale[prank]);
+  const int scale = passer_scale[prank];
 
   // TODO: decrease scale factor for edge passers
 
@@ -1060,16 +1060,18 @@ void Eval::init()
   // Passers ///////////////////////////////////////////////////////
 
   auto unzero = [](double x) { return x > 0 ? x : .001; };
-  auto pscore = [](double m, double k, int rank) -> Val
+  auto pscore = [](double m, double k, int rank)
   {
     auto nexp = [](double k, int x) { return 1 / (1 + exp(6 - k * x)); };
-    return static_cast<Val>(m * nexp(k, rank) / nexp(k, 6));
+    return static_cast<int>(m * nexp(k, rank) / nexp(k, 6));
   };
 
   for (int rank = 0; rank < 8; rank++)
   {
-    const double k = unzero(term[PasserK]) / 32.0;
+    const double k = unzero(dry_double(term[PasserK])) / 32.0;
     passer_scale[rank] = pscore(256, k, rank);
+
+    //cout << std::format("{}\n", passer_scale[rank]);
   }
 }
 

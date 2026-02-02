@@ -79,7 +79,7 @@ Move SolverPVS::get_move(const SearchCfg & cfg)
 
     if (verbose)
     say<1>("info depth {} seldepth {} score {:o} nodes {} time {} pv {}\n",
-        depth, max_ply, val, nodes, timer.getms(), best);
+            depth, max_ply, val, nodes, timer.getms(), best);
 
     if (val > Val::Mate || val < -Val::Mate) break;
   }
@@ -277,7 +277,7 @@ Val SolverPVS::pvs(Val alpha, Val beta, int depth, bool is_null)
 
   const bool in_check = !!B->state.checkers;
   Type hash_type = Type::Upper;
-  Val val = ply() - Val::Inf;
+  Val val = cp(ply()) - Val::Inf;
   Undo & undo = undos[ply()];
   undo.best = Move::None;
   nodes++;

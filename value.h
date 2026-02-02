@@ -14,7 +14,7 @@ namespace eia {
     Mate  = 32000 * CP,
   };
 
-  static INLINE Val operator ""_cp(u64 val) { return static_cast<Val>(val * CP); }
+  static INLINE Val operator ""_cp(u64 val) { return static_cast<Val>(+val * +CP); }
   static INLINE Val operator ""_cp(long double val) { return static_cast<Val>(+CP * static_cast<double>(val)); }
   static INLINE Val cp(int v)    { return static_cast<Val>(+CP * v); }
   static INLINE Val cp(double v) { return static_cast<Val>(+CP * v); }

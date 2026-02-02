@@ -152,7 +152,7 @@ class Eval
   Duo mat[12];
   Duo pst[12][64];
   Val mob[6][30];
-  Val passer_scale[8];
+  int passer_scale[8];
   Val n_adj[9];
   Val r_adj[9];
 

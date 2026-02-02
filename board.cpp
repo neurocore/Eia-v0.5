@@ -100,7 +100,7 @@ bool Board::is_simply_mated() const
   if (!state.checkers) return false;
 
   const u64 o = occ[color] | state.threats;
-  const SQ  ksq = bitscan(piece[BK ^ color]); 
+  const SQ  ksq = bitscan(piece[BK ^ color]);
   const u64 katt = atts[BK][ksq];
   const u64 kmov = (o & katt) ^ katt;
 
@@ -110,18 +110,17 @@ bool Board::is_simply_mated() const
 
     if (several(state.checkers)) return true;
 
-    // 2. Non-sliding checker
+    // 2. Trivial cases
 
-    const u64 non_sliders = piece[BP ^ color]
-                          | piece[BN ^ color];
+    const u64 unblockable = katt | piece[WP ^ color]  // Non-slider or
+                                 | piece[WN ^ color]; // contact check
 
-    if (state.checkers & non_sliders) return true;
-
-    // 3. Contact check of slider
-
-    if (state.checkers & katt) return true;
+    if (state.checkers & unblockable)
+    {
+      const SQ checker = bitscan(state.checkers); // Verify it can't
+      return !is_attacked(checker, occupied());   //  be captured
+    }
   }
-
   return false;
 }
 
