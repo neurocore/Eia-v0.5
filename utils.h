@@ -2,6 +2,7 @@
 #include <windows.h>
 #include <conio.h>
 #include <cmath>
+#include <cassert>
 #include <string_view>
 #include <string>
 #include <vector>
@@ -20,6 +21,12 @@ template<typename T> INLINE int sgn(T val)
 template<typename T> INLINE T abs(T val)
 {
   return val < T(0) ? -val : val;
+}
+
+inline double sigmoid(double x, double k) // [0; 1]
+{
+  assert(k != 0);
+  return 1 / (1 + pow(10., -k * x / 400));
 }
 
 template<typename T, typename R>
@@ -199,9 +206,7 @@ INLINE void con(std::format_string<Args...> fmt, Args&&... args)
 template<typename... Args>
 INLINE void log(std::format_string<Args...> fmt, Args&&... args)
 {
-#ifdef _DEBUG
-  //std::cout << std::format(fmt, std::forward<Args>(args)...);
-#endif
+  std::cerr << std::format(fmt, std::forward<Args>(args)...);
 }
 
 }

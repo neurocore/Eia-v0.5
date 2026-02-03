@@ -26,6 +26,7 @@ class Epd
 
 public:
   bool read(std::string file);
+  const std::vector<Problem> & get_problems() { return problems; }
 
 private:
   Problem parse_problem(std::string str);

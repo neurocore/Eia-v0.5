@@ -142,9 +142,14 @@ bool Engine::parse(string str)
     }
     go(cfg);
   }
-  else if (cmd == "tune")
+  else if (cmd == "tune") [[likely]]
   {
     tune();
+  }
+  else if (cmd == "spsa") [[likely]]
+  {
+    string file = cut(str);
+    spsa(file);
   }
   else
   {
@@ -256,7 +261,7 @@ void Engine::tune()
 
   Eval eval;
   TunerCfg cfg{.verbose = false};
-  Tuner tuner(cfg);
+  TunerDynamic tuner(cfg);
   tuner.init();
 
   bool success = true;
@@ -305,6 +310,50 @@ void Engine::tune()
   }
 
   say<1>("-- Main mode\n");
+}
+
+void Engine::spsa(std::string file)
+{
+  say<1>("-- SPSA tuning\n");
+
+  auto parts = split(file, ".");
+  if (parts.size() < 2)
+  {
+    log("Allowed only 'csv' and 'epd' extensions\n");
+    return;
+  }
+
+  std::string ext = parts[parts.size() - 1];
+  auto tuner = make_unique<TunerStatic>();
+  if (ext == "csv")
+  {
+    log("Reading csv...\n");
+    if (!tuner->open_csv(file))
+    {
+      log("Error in reading file\n");
+      return;
+    }
+  }
+  else if (ext == "epd")
+  {
+    log("Reading epd...\n");
+    if (!tuner->open_epd(file))
+    {
+      log("Error in reading file\n");
+      return;
+    }
+  }
+
+  if (tuner->size() < 1)
+  {
+    log("There is no any position in dataset\n");
+    return;
+  }
+
+  log("Positions: {}\n\n", tuner->size());
+
+  SPSA optimizator(std::move(tuner), 5'000'000, 1, 1, 100);
+  optimizator.start();
 }
 
 }

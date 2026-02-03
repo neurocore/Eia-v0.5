@@ -6,7 +6,7 @@
 
 namespace eia {
 
-const std::string active_tune = "";
+const std::string active_tune = Tunes::SPSA4;
 
 #define TERM(x,def,min,max)                      x,
 #define TERMS                                    \
