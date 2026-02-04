@@ -293,9 +293,9 @@ Val SolverPVS::pvs(Val alpha, Val beta, int depth, bool is_null)
 
   //if (ply > 0)
   //{
-  //  alpha = max(-Val.Inf + ply, alpha);
-  //  beta = min(Val.Inf - (ply + 1), beta);
-  //  if (alpha >= beta) return alpha;
+  //  Val r_alpha = max(-Val.Inf + cp(ply), alpha);
+  //  Val r_beta = min(Val.Inf - cp(ply + 1), beta);
+  //  if (r_alpha >= r_beta) return r_alpha;
   //}
 
   // 1. Retrieving hash move
@@ -342,6 +342,19 @@ Val SolverPVS::pvs(Val alpha, Val beta, int depth, bool is_null)
     }
   }
 
+  //if constexpr (NT == NonPV) // 
+  //{
+  //  // 2.1. Reversed Futility Pruning
+
+  //  if (!in_check
+  //  &&  !is_null
+  //  &&  depth <= 6)
+  //  {
+  //    if (eval - 65 * std::max(0, (depth - improving)) >= beta)
+  //      return eval;
+  //  }
+  //}
+
   if constexpr (NT == NonPV) // +100 elo (10s+.1 h2h-20)
   {
     // 3. Null Move Pruning
@@ -366,27 +379,21 @@ Val SolverPVS::pvs(Val alpha, Val beta, int depth, bool is_null)
     }
   }
 
-  /*
+  // 4. Internal Iterative Deepening (Ethereal approach)
 
-  // 4. Internal Iterative Deepening
+  //if constexpr (NT != Root) // +20 elo (20s+.2 h2h-20)
+  //{
+  //  // predicted
+  //  const bool cutnode = NT == NonPV && eval >= beta;
+  //  const bool is_pv = NT == PV;
 
-  if constexpr (NT == PV) // -50 elo (10s+.1 h2h-20)
-  {
-    if (depth >= 3
-    &&  hash_move == Move::None)
-    {
-      int new_depth = depth - 2;
-
-      Val v = pvs<PV>(alpha, beta, new_depth, is_null);
-      if (v <= alpha)
-        v = pvs<PV>(-Val::Inf, beta, new_depth, is_null);
-
-      if (!is_empty(undo->best))
-        if (B->pseudolegal(undo->best))
-          hash_move = undo->best;
-    }
-  }
-  */
+  //  if (depth >= 7
+  //  && (is_pv || cutnode)
+  //  && (!tt_hit || entry.depth + 4 < depth))
+  //  {
+  //    depth--;
+  //  }
+  //}
 
   // Looking all legal moves
 
