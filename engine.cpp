@@ -352,7 +352,7 @@ void Engine::spsa(std::string file)
 
   log("Positions: {}\n\n", tuner->size());
 
-  SPSA optimizator(std::move(tuner), 5'000'000, 1, 1, 100);
+  SPSA optimizator(std::move(tuner), 5'000'000, 1, .1, 100);
   optimizator.start();
 }
 
