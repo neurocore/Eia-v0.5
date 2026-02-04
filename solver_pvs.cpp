@@ -284,12 +284,12 @@ Val SolverPVS::pvs(Val alpha, Val beta, int depth, bool is_null)
 
   if (!in_check && depth <= 0) return qs(alpha, beta);
 
-  if constexpr (NT != Root) // +70 (1+1 h2h-10)
+  if constexpr (NT != Root) // +70 elo (1+1 h2h-10)
   {
     if (B->is_draw()) return contempt();
   }
 
-  // 0. Mate pruning ??
+  // 0. Mate pruning ?? -35 elo (20s+.2 h2h-20)
 
   //if (ply > 0)
   //{
