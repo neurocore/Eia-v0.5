@@ -168,7 +168,7 @@ Vals TunerStatic::score(Tune v1, Tune v2)
   static Eval E1, E2;
   E1.set(v1);
   E2.set(v2);
-  double s1 = score(E1);
+  double s1 = score(E1, false);
   double s2 = score(E2);
   return make_pair(s1, s2);
 }
@@ -202,20 +202,21 @@ int TunerStatic::open_epd(string file, int result_cn)
     if (!p.valid) continue;
 
     const string & result = p.comment[result_cn];
-    int r = result.starts_with("1-0")
-          - result.starts_with("0-1");
+    const int r = result.starts_with("1-0")
+                - result.starts_with("0-1");
 
     poss.push_back({ p.fen, r });
   }
   return 1;
 }
 
-double TunerStatic::score(Eval & E)
+double TunerStatic::score(Eval & E, bool shift_batch)
 {
   const int total = poss.size();
-  const int batch = (std::min)(10'000, total);
+  const int batch = (std::min)(batch_sz, total);
   int debug = 0;
   double loss = 0.0;
+  Tune result, predicted;
 
   for (int i = 0; i < batch; i++)
   {
@@ -223,19 +224,52 @@ double TunerStatic::score(Eval & E)
     B.set(pos.fen);
     Val val = E.eval(&B, -Val::Inf, Val::Inf);
 
-    double v = dry_double(val);
-    double r = B.color ? pos.result : -pos.result;
-    double result = (r + 1) / 2.0; // [0; 1]
-    double diff = sigmoid(v, 1.1) - result;
-    loss += diff * diff;
+    const double r = B.color ? pos.result : -pos.result;
+    const double v = dry_double(val);
+    result.push_back((r + 1) / 2.0); // [0; 1]
+    predicted.push_back(sigmoid(v, 1.0));
 
     if (debug --> 0)
     {
-      log("val = {}, result = {}, diff = {}\n", val, result, diff);
+      log("val = {}, result = {}\n", val, result[i]);
     }
   }
-  index += batch;
-  return sqrt(loss / batch);
+
+  if (shift_batch) index = (index + batch) % total;
+
+  return loss_type == MSE
+    ? mse(result, predicted)
+    : bce(result, predicted);
+}
+
+double TunerStatic::mse(Tune result, Tune predicted)
+{
+  const int total = static_cast<int>(result.size());
+  if (!total) return 0.0;
+
+  double loss = 0.0;
+  for (size_t i = 0; i < total; i++)
+  {
+    const double diff = result[i] - predicted[i];
+    loss += diff * diff;
+  }
+  return sqrt(loss / total);
+}
+
+double TunerStatic::bce(Tune result, Tune predicted)
+{
+  const double eps = 1e-15;
+  const int total = static_cast<int>(result.size());
+  if (!total) return 0.0;
+
+  double loss = 0.0;
+  for (size_t i = 0; i < total; i++)
+  {
+    double q = std::clamp(predicted[i], eps, 1. - eps);
+    loss -=       result[i]  * std::log(q)
+          + (1. - result[i]) * std::log(1. - q);
+  }
+  return loss / total;
 }
 
 double TunerStatic::score(string str)
@@ -277,14 +311,15 @@ void SPSA::start()
   // 0. Init starting point
 
   Tune u(N), u1(N), u2(N), delta(N);
-  for (int i = 0; i < N; i++)
-    u[i] = .5;
+  u = {0.6058, 0.7852, 0.8905, 0.5898, 0.6128, 0.6331, 0.5901, 0.4536, 0.5590, 0.6006, 0.4148, 0.2902, 0.4321, 0.3822, 0.4549, 0.5222, 0.3036, 0.2387, 0.5225, 0.3274, 0.5335, 0.2418, 0.4741, 0.4154, 0.4973, 0.5253, 0.4267, 0.3686, 0.4243, 0.1076, 0.2202, 0.4242, 0.3251, 0.4145, 0.2511, 0.3772, 0.2399, 0.3510, 0.2658, 0.0960, 0.6507, 0.4936, 0.4857, 0.5010, 0.2972, 0.4809, 0.4710, 0.4693, 0.4655, 0.5274, 0.5262, 0.4366, 0.1928, -0.1749, 0.5383, 0.5175, 0.5569, 0.6471, 0.4894, 0.4940, 0.3757, 0.2641, 0.5125, 0.4722, 0.4379, 0.4975, 0.4865, 0.5114, 0.2865, 0.4149, 0.5282, 0.4859, 0.5496, 0.4716, 0.6366};
+  /*for (int i = 0; i < N; i++)
+    u[i] = .5;*/
 
   // 1. Iterate
 
   for (int k = 0; k < iters; k++)
   {
-    bool report = (k % 200) == 0;
+    bool report = (k % 10) == 0;
     double ak = a / pow(k + 1 + A0, alpha);
     double ck = c / pow(k + 1, gamma);
 

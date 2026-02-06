@@ -31,13 +31,24 @@ struct PosResult
   int result;
 };
 
+enum Loss
+{
+  MSE, // Mean Squared Error - classical loss function
+  BCE  // Binary Cross-Entropy - may be more expressed
+};
+
 class TunerStatic : public Tuner
 {
   Board B;
   vector<PosResult> poss;
-  int index = 0;
+  int batch_sz, index = 0;
+  Loss loss_type;
 
 public:
+  TunerStatic(Loss loss_type = MSE, int batch_size = 10'000)
+    : loss_type(loss_type), batch_sz(batch_size)
+  {}
+
   Vals score(Tune v1, Tune v2) override;
   Bounds get_bounds() const override { return Eval{}.bounds(); }
   string to_string(Tune v) override { return Eval(v).to_string(); }
@@ -49,7 +60,9 @@ public:
   double score(string str);
 
 private:
-  double score(Eval & E);
+  double score(Eval & E, bool shift_batch = true);
+  double mse(Tune result, Tune predicted);
+  double bce(Tune result, Tune predicted);
 };
 
 

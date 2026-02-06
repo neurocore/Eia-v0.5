@@ -206,7 +206,7 @@ INLINE void con(std::format_string<Args...> fmt, Args&&... args)
 template<typename... Args>
 INLINE void log(std::format_string<Args...> fmt, Args&&... args)
 {
-  //std::cerr << std::format(fmt, std::forward<Args>(args)...);
+  std::cerr << std::format(fmt, std::forward<Args>(args)...);
 }
 
 }
