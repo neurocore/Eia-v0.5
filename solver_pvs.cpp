@@ -10,6 +10,9 @@ namespace eia {
 // from GreKo 2021.12
 const Val Futility_Margin[] = { 0_cp, 50_cp, 350_cp, 550_cp };
 
+// from Ethereal
+const int LMP_Depth = 8;
+
 SolverPVS::SolverPVS(Eval * eval) : E(eval)
 {
   B = new Board;
@@ -36,6 +39,12 @@ void SolverPVS::init()
        double r = 0.7844 + ldll / 2.4696;
        LMR[depth][moves] = static_cast<int>(r);
     }
+  }
+
+  for (int depth = 1; depth <= 10; depth++)
+  {
+    LMP_Counts[0][depth] = 2.0767 + 0.3743 * depth * depth;
+    LMP_Counts[1][depth] = 3.8733 + 0.7124 * depth * depth;
   }
 }
 
@@ -398,11 +407,12 @@ Val SolverPVS::pvs(Val alpha, Val beta, int depth, bool is_null)
   // Looking all legal moves
 
   int legal = 0;
+  bool do_quiets = true;
   MovePickerPVS mp;
   set_movepicker(mp, hash_move);
 
   Move move;
-  while (!is_empty(move = mp.get_next()))
+  while (!is_empty(move = mp.get_next(do_quiets)))
   {
     if (!B->make(move)) continue;
 
@@ -411,6 +421,17 @@ Val SolverPVS::pvs(Val alpha, Val beta, int depth, bool is_null)
     bool gives_check = B->in_check();
     bool is_tactical = is_attack(move);
     int reduce = 0, extend = 0;
+
+    // Late Move Pruning | +0 elo (20s+.2 h2h-20)
+    // 
+    //  losing opportunities, sometimes vital
+
+    /*if (val > -Val::Mate
+    &&  depth <= LMP_Depth
+    &&  legal >= LMP_Counts[improving][depth])
+    {
+      do_quiets = false;
+    }*/
 
     // Check extension | +50 elo (20s+.2 h2h-20)
     
@@ -533,17 +554,17 @@ Val SolverPVS::qs(Val alpha, Val beta)
 
   // 2. Calculating stand pat
 
-  Val stand_pat = E->eval(B, alpha, beta);
-  //H->store(B->hash(), ply(), Move::None, stand_pat, 0, Type::None);
+  Val eval = E->eval(B, alpha, beta);
+  //H->store(B->hash(), ply(), Move::None, eval, 0, Type::None);
 
-  if (stand_pat >= beta) return beta;
-  if (stand_pat > alpha) alpha = stand_pat;
+  if (eval >= beta) return beta;
+  if (eval > alpha) alpha = eval;
 
   // 3. Delta pruning (+123 elo 10s+.1 h2h-30)
 
-  if ((std::max)(143, B->best_cap_value()) < dry(alpha - stand_pat))
+  if ((std::max)(143, B->best_cap_value()) < dry(alpha - eval))
   {
-    return stand_pat;
+    return eval;
   }
 
   MovePickerQS mp;

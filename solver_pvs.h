@@ -15,6 +15,7 @@ enum NodeType { PV, NonPV, Root };
 class SolverPVS : public Solver
 {
   int LMR[64][256];
+  int LMP_Counts[2][11];
   Undo undos[Limits::Plies];
   Board * B;
   Eval * E;

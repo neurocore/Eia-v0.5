@@ -22,7 +22,7 @@ struct MovePicker
   MoveList ml;
   Move hash_mv, killer[2], counter;
 
-  Move get_next();
+  Move get_next(bool do_quiets = false);
 };
 
 using MovePickerPVS = MovePicker<false>;
@@ -30,13 +30,12 @@ using MovePickerQS = MovePicker<true>;
 
 
 template<bool QS>
-Move MovePicker<QS>::get_next()
+Move MovePicker<QS>::get_next(bool do_quiets)
 {
   switch (stage)
   {
     case Stage::Hash:
 
-      log("Stage::Hash\n");
       stage = Stage::GenCaps;
       if (!is_empty(hash_mv)) return hash_mv;
 
@@ -44,7 +43,6 @@ Move MovePicker<QS>::get_next()
 
     case Stage::GenCaps:
 
-      log("Stage::GenCaps\n");
       stage = Stage::GoodCaps;
       if (B->color) B->generate_attacks<White, QS>(ml);
       else          B->generate_attacks<Black, QS>(ml);
@@ -56,7 +54,6 @@ Move MovePicker<QS>::get_next()
 
     case Stage::GoodCaps:
 
-      log("Stage::GoodCaps\n");
       if (!ml.empty())
       {
         Move mv = ml.get_best(O_EqCap);
@@ -67,35 +64,44 @@ Move MovePicker<QS>::get_next()
       if constexpr (QS)
       {
         stage = Stage::BadCaps;
-        return get_next();
+        return get_next(do_quiets);
       }
-      stage = Stage::Killer1;
+      
+      if (do_quiets)
+      {
+        stage = Stage::Killer1;
+      }
+      else
+      {
+        stage = Stage::BadCaps;
+        return get_next(do_quiets);
+      }
 
       [[fallthrough]];
 
     case Stage::Killer1:
 
-      log("Stage::Killer1\n");
       stage = Stage::Killer2;
-      if (killer[0] != hash_mv
+      if (do_quiets
+      &&  killer[0] != hash_mv
       &&  B->pseudolegal(killer[0])) return killer[0];
 
       [[fallthrough]];
 
     case Stage::Killer2:
 
-      log("Stage::Killer2\n");
       stage = Stage::CounterMove;
-      if (killer[1] != hash_mv
+      if (do_quiets
+      &&  killer[1] != hash_mv
       &&  B->pseudolegal(killer[1])) return killer[1];
 
       [[fallthrough]];
 
     case Stage::CounterMove:
 
-      log("Stage::CounterMove\n");
       stage = Stage::GenQuiets;
-      if (counter != hash_mv
+      if (do_quiets
+      &&  counter != hash_mv
       &&  counter != killer[0]
       &&  counter != killer[1]
       &&  B->pseudolegal(counter)) return counter;
@@ -104,24 +110,26 @@ Move MovePicker<QS>::get_next()
 
     case Stage::GenQuiets:
 
-      log("Stage::GenQuiets\n");
       stage = Stage::Quiets;
 
-      if (B->color) B->generate_quiets<White>(ml);
-      else          B->generate_quiets<Black>(ml);
+      if (do_quiets)
+      {
+        if (B->color) B->generate_quiets<White>(ml);
+        else          B->generate_quiets<Black>(ml);
       
-      ml.remove_move(hash_mv);
-      ml.remove_move(killer[0]);
-      ml.remove_move(killer[1]);
-      ml.remove_move(counter);
-      ml.value_quiets(B, *H);
+        ml.remove_move(hash_mv);
+        ml.remove_move(killer[0]);
+        ml.remove_move(killer[1]);
+        ml.remove_move(counter);
+        ml.value_quiets(B, *H);
+      }
 
       [[fallthrough]];
 
     case Stage::Quiets:
 
-      log("Stage::Quiets\n");
-      if (!ml.empty())
+      if (do_quiets
+      && !ml.empty())
       {
         Move mv = ml.get_best(O_Quiet);
         if (!is_empty(mv)) return mv;
@@ -133,7 +141,6 @@ Move MovePicker<QS>::get_next()
 
     case Stage::BadCaps:
 
-      log("Stage::BadCaps\n");
       if (!ml.empty())
       {
         Move mv = ml.get_best();
@@ -143,7 +150,6 @@ Move MovePicker<QS>::get_next()
 
     default:
 
-      log("Stage::Done\n");
       return Move::None;
   };
   

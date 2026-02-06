@@ -350,7 +350,7 @@ Duo Eval::evaluateN(const Board * B)
 
     vals += APPLY(pst[p][sq], "PST");
 
-    Val v = mob[Knight][popcnt(att & ~B->occ[Col])];
+    Val v = mob[Knight][popcnt(att)];
     vals += APPLY(Duo(v, 3 * v / 2), "Mobility");
 
     // adjustments
@@ -395,7 +395,7 @@ Duo Eval::evaluateB(const Board * B)
 
     vals += APPLY(pst[p][sq], "PST");
 
-    Val v = mob[Bishop][popcnt(att & ~B->occ[Col])];
+    Val v = mob[Bishop][popcnt(att)];
     vals += APPLY(Duo(v, 3 * v / 2), "Mobility");
 
     // rammed bishop
@@ -446,7 +446,7 @@ Duo Eval::evaluateR(const Board * B)
 
     vals += APPLY(pst[p][sq], "PST");
 
-    Val v = mob[Rook][popcnt(att & ~B->occ[Col])];
+    Val v = mob[Rook][popcnt(att)];
     vals += APPLY(Duo(v, 3 * v / 2), "Mobility");
 
     // adjustments
@@ -506,7 +506,7 @@ Duo Eval::evaluateQ(const Board * B)
 
     vals += APPLY(pst[p][sq], "PST");
 
-    Val m = mob[Queen][popcnt(att & ~B->occ[Col])];
+    Val m = mob[Queen][popcnt(att)];
     vals += APPLY(Duo(m, 3 * m / 2), "Mobility");
 
     // queen on open/semi-files
