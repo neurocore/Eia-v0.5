@@ -87,8 +87,8 @@ Move SolverPVS::get_move(const SearchCfg & cfg)
     best = is_empty(undos[0].best) ? best : undos[0].best;
 
     if (verbose)
-    say<1>("info depth {} seldepth {} score {:o} nodes {} time {} pv {}\n",
-            depth, max_ply, val, nodes, timer.getms(), best);
+    say<1>("info depth {} seldepth {} score {:o} nodes {} time {} pv {} hashfull {}\n",
+            depth, max_ply, val, nodes, timer.getms(), best, H->hashfull());
 
     if (val > Val::Mate || val < -Val::Mate) break;
   }

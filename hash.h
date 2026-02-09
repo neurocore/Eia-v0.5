@@ -1,11 +1,15 @@
 #pragma once
 #include "consts.h"
 #include "moves.h"
+#include "value.h"
 #include "bitboard.h"
 
 namespace eia::Hash {
 
 // This hash model partly borrowed from Ethereal
+//
+//  - no bucket system, no aging
+//  - replacement is simply 'always'
 
 enum Type { None, Lower, Upper, Exact };
 
@@ -112,5 +116,37 @@ public:
     return used;
   }
 };
+
+
+// Pawn hash table with kings positions
+
+struct PK_Entry
+{
+  u64 key, passers;
+  Val weak[2];
+  Duo vals;
+};
+
+constexpr int PK_HASH_BITS = 16;
+constexpr int PK_HASH_MASK = (1 << PK_HASH_BITS) - 1;
+
+static PK_Entry pk_table[PK_HASH_MASK]; // 2 mb
+
+inline PK_Entry const * pk_probe(u64 key)
+{
+  PK_Entry const * entry = &pk_table[key & PK_HASH_MASK];
+  return entry->key == key ? entry : nullptr;
+}
+
+inline void pk_store(u64 key, Duo vals, Val weak[2], u64 passers = 0ull)
+{
+  pk_table[key & PK_HASH_MASK] =
+  {
+    .key = key,
+    .passers = passers,
+    .weak = { weak[0], weak[1] },
+    .vals = vals
+  };
+}
 
 }

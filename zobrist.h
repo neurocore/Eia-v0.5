@@ -9,4 +9,6 @@ extern u64 castle[Castling_N];
 extern u64 ep[SQ_N + 1];
 extern u64 turn;
 
+extern u64 pk_key[Piece_N][SQ_N];
+
 }

@@ -3,6 +3,7 @@
 #include "eval.h"
 #include "board.h"
 #include "value.h"
+#include "hash.h"
 
 using namespace std;
 
@@ -83,7 +84,24 @@ Val Eval::eval(const Board * B, Val alpha, Val beta)
 
   // collecting ei here
   duo += evalxrays<White>(B) - evalxrays<Black>(B);
-  duo += evaluateP<White>(B) - evaluateP<Black>(B);
+
+  // Pawn-king hash table | +35 elo (20s+.2 h2h-20)
+
+  Duo pvals;
+  auto pk = Hash::pk_probe(B->state.pkhash);
+  if (true || pk == nullptr)
+  {
+    pvals = evaluateP<White>(B) - evaluateP<Black>(B);
+    Hash::pk_store(B->state.pkhash, pvals, ei.eg_weak);
+  }
+  else
+  {
+    pvals = pk->vals;
+    ei.eg_weak[0] = pk->weak[0];
+    ei.eg_weak[1] = pk->weak[1];
+  }
+
+  duo += pvals;
   duo += evaluateN<White>(B) - evaluateN<Black>(B);
   duo += evaluateB<White>(B) - evaluateB<Black>(B);
   duo += evaluateR<White>(B) - evaluateR<Black>(B);
@@ -225,6 +243,40 @@ Duo Eval::evaluateP(const Board * B)
       vals += APPLY(v, "Passers");
     }
   }
+
+  // pawn shield
+
+  Duo shield;
+  u64 king  = B->piece[BK ^ Col];
+  u64 pawns = B->piece[BP ^ Col];
+  u64 row1 = pawns & (Col ? Rank2 : Rank7);
+  u64 row2 = pawns & (Col ? Rank3 : Rank6);
+
+  if (king & KWing)
+  {
+    if      (row1 & FileF) shield += Duo::as_op(term[Shield1]);
+    else if (row2 & FileF) shield += Duo::as_op(term[Shield2]);
+
+    if      (row1 & FileG) shield += Duo::as_op(term[Shield1]);
+    else if (row2 & FileG) shield += Duo::as_op(term[Shield2]);
+
+    if      (row1 & FileH) shield += Duo::as_op(term[Shield1]);
+    else if (row2 & FileH) shield += Duo::as_op(term[Shield2]);
+  }
+  else
+  {
+    if      (row1 & FileA) shield += Duo::as_op(term[Shield1]);
+    else if (row2 & FileA) shield += Duo::as_op(term[Shield2]);
+
+    if      (row1 & FileB) shield += Duo::as_op(term[Shield1]);
+    else if (row2 & FileB) shield += Duo::as_op(term[Shield2]);
+
+    if      (row1 & FileC) shield += Duo::as_op(term[Shield1]);
+    else if (row2 & FileC) shield += Duo::as_op(term[Shield2]);
+  }
+
+  vals += APPLY(shield, "Shield");
+
   return vals;
 }
 
@@ -564,38 +616,6 @@ Duo Eval::evaluateK(const Board * B)
 
     const Val push = ei.weakness(~Col, dry(term[WeaknessPush]));
     vals += APPLY(Duo::as_eg(push), "Weakness push");
-
-    // pawn shield
-
-    Duo shield;
-    u64 pawns = B->piece[BP ^ Col];
-    u64 row1 = pawns & (Col ? Rank2 : Rank7);
-    u64 row2 = pawns & (Col ? Rank3 : Rank6);
-
-    if (file(sq) > 4)
-    {
-      if      (row1 & FileF) shield += Duo::as_op(term[Shield1]);
-      else if (row2 & FileF) shield += Duo::as_op(term[Shield2]);
-
-      if      (row1 & FileG) shield += Duo::as_op(term[Shield1]);
-      else if (row2 & FileG) shield += Duo::as_op(term[Shield2]);
-
-      if      (row1 & FileH) shield += Duo::as_op(term[Shield1]);
-      else if (row2 & FileH) shield += Duo::as_op(term[Shield2]);
-    }
-    else
-    {
-      if      (row1 & FileA) shield += Duo::as_op(term[Shield1]);
-      else if (row2 & FileA) shield += Duo::as_op(term[Shield2]);
-
-      if      (row1 & FileB) shield += Duo::as_op(term[Shield1]);
-      else if (row2 & FileB) shield += Duo::as_op(term[Shield2]);
-
-      if      (row1 & FileC) shield += Duo::as_op(term[Shield1]);
-      else if (row2 & FileC) shield += Duo::as_op(term[Shield2]);
-    }
-
-    vals += APPLY(shield, "Shield");
   }
   return vals;
 }

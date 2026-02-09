@@ -30,6 +30,9 @@ const u64 Rank6 = 0x0000ff0000000000ull;
 const u64 Rank7 = 0x00ff000000000000ull;
 const u64 Rank8 = 0xff00000000000000ull;
 
+const u64 QWing = FileA | FileB | FileC | FileD;
+const u64 KWing = FileE | FileF | FileG | FileH;
+
 const u64 Debruijn = 0x03f79d71b4cb0a89ull;
 
 INLINE u64 bit(SQ sq) { return Bit << static_cast<int>(sq); }

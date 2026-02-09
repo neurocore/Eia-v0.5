@@ -2,7 +2,6 @@
 #include <string>
 #include <cassert>
 #include "consts.h"
-//#include "value.h"
 #include "movelist.h"
 #include "tables.h"
 #include "magics.h"
@@ -23,6 +22,7 @@ struct State
   Castling castling = Castling::NO;
   int fifty = 0;
   u64 bhash = Empty;
+  u64 pkhash = Empty;
 
   u64 checkers = Empty;
   u64 threats = Empty;
@@ -335,6 +335,7 @@ void Board::place(SQ sq, Piece p)
     // state.mkey += matkey[p];
 
     state.bhash ^= Zobrist::key[p][sq];
+    state.pkhash ^= Zobrist::pk_key[p][sq];
   }
 }
 
@@ -354,6 +355,7 @@ void Board::remove(SQ sq)
     // state.mkey -= matkey[p];
 
     state.bhash ^= Zobrist::key[p][sq];
+    state.pkhash ^= Zobrist::pk_key[p][sq];
   }
 }
 
