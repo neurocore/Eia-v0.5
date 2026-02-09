@@ -16,7 +16,7 @@ using std::vector;
 class Tuner
 {
 public:
-  virtual Vals score(Tune v1, Tune v2) = 0;
+  virtual double score(Tune v1, Tune v2) = 0;
   virtual Bounds get_bounds() const = 0;
   virtual double max_score() const = 0;
   virtual string to_string(Tune v) = 0;
@@ -49,7 +49,7 @@ public:
     : loss_type(loss_type), batch_sz(batch_size)
   {}
 
-  Vals score(Tune v1, Tune v2) override;
+  double score(Tune v1, Tune v2) override;
   Bounds get_bounds() const override { return Eval{}.bounds(); }
   string to_string(Tune v) override { return Eval(v).to_string(); }
   double max_score() const override { return 100.0 * size(); }
@@ -77,7 +77,7 @@ struct TunerCfg
   int adj_val = 800;
 };
 
-class TunerDynamic
+class TunerDynamic : public Tuner
 {
   Board B;
   Book book;
@@ -86,6 +86,11 @@ class TunerDynamic
   Eval * E[2];
 
 public:
+  double score(Tune v1, Tune v2) override;
+  Bounds get_bounds() const override { return Eval{}.bounds(); }
+  string to_string(Tune v) override { return Eval(v).to_string(); }
+  double max_score() const override { return 100.0 * cfg.games; }
+
   TunerCfg cfg;
   TunerDynamic(TunerCfg cfg = TunerCfg());
   ~TunerDynamic();

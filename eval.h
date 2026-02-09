@@ -10,7 +10,6 @@ const std::string active_tune = "";
 
 #define TERM(x,def,min,max)                      x,
 #define TERMS                                    \
-  TERM(MatPawnOp,       82_cp,  40_cp,  160_cp)  \
   TERM(MatKnightOp,    426_cp, 300_cp,  600_cp)  \
   TERM(MatBishopOp,    441_cp, 300_cp,  600_cp)  \
   TERM(MatRookOp,      627_cp, 500_cp, 1000_cp)  \
@@ -86,6 +85,7 @@ const std::string active_tune = "";
   TERM(ThreatQ_1,       50_cp,   0_cp,  128_cp)  \
   TERM(Tempo,           20_cp,   0_cp,   64_cp)   
 
+  //TERM(MatPawnOp,       82_cp,  40_cp,  160_cp) // anchor
 
 enum Term
 {
@@ -170,6 +170,7 @@ public:
   void set(std::string str);
   void set(const Eval & eval);
   void set(const Tune & tune);
+  Tune to_tune() const;
 
   std::string to_raw() const;
   void set_raw(std::string str, std::string delim = ",");

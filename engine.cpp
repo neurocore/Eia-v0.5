@@ -146,10 +146,14 @@ bool Engine::parse(string str)
   {
     tune();
   }
-  else if (cmd == "spsa") [[likely]]
+  else if (cmd == "pbil") [[likely]]
   {
     string file = cut(str);
-    spsa(file);
+    pbil(file);
+  }
+  else if (cmd == "spsa") [[likely]]
+  {
+    spsa();
   }
   else
   {
@@ -312,9 +316,14 @@ void Engine::tune()
   say<1>("-- Main mode\n");
 }
 
-void Engine::spsa(std::string file)
+// Population-Based Incremental Learning (PBIL) for
+//  statically generated dataset of pairs fen-result
+// Used for fast exploration of perspective points
+//  in multidimensional space of solutions
+
+void Engine::pbil(std::string file)
 {
-  say<1>("-- SPSA tuning\n");
+  say<1>("-- PBIL tuning\n");
 
   auto parts = split(file, ".");
   if (parts.size() < 2)
@@ -324,7 +333,9 @@ void Engine::spsa(std::string file)
   }
 
   std::string ext = parts[parts.size() - 1];
+
   auto tuner = make_unique<TunerStatic>(MSE, 100'000);
+
   if (ext == "csv")
   {
     log("Reading csv...\n");
@@ -352,7 +363,22 @@ void Engine::spsa(std::string file)
 
   log("Positions: {}\n\n", tuner->size());
 
-  SPSA optimizator(std::move(tuner), 5'000'000, 1, 1, 100);
+  // TODO: write and use PBIL!
+
+  SPSA optimizator(std::move(tuner), 5'000'000, .1, .1, 100);
+  optimizator.start();
+}
+
+// Simultaneous Perturbation Stochastic Approximation (SPSA)
+// Used for fine tuning of good solutions on self-play games
+
+void Engine::spsa()
+{
+  say<1>("-- SPSA tuning\n");
+
+  auto tuner = make_unique<TunerDynamic>(TunerCfg{ .games = 10 });
+  
+  SPSA optimizator(std::move(tuner), 5'000'000, .1, .1, 100);
   optimizator.start();
 }
 

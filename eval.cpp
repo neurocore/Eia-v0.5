@@ -845,6 +845,18 @@ void Eval::set(const Tune & tune)
   init();
 }
 
+Tune Eval::to_tune() const
+{
+  Tune tune;
+  for (int i = 0; i < Term_N; i++)
+  {
+    double range = dry_double(term_max[i] - term_min[i]);
+    double val = dry_double(term[i] - term_min[i]) / range;
+    tune.push_back(val);
+  }
+  return tune;
+}
+
 void Eval::init()
 {
   // Piece adjustments /////////////////////////////////////////////
@@ -857,7 +869,7 @@ void Eval::init()
 
   // Material //////////////////////////////////////////////////////
 
-  mat[WP] = Duo(term[MatPawnOp],   term[MatPawnEg]);
+  mat[WP] = Duo(82_cp,             term[MatPawnEg]);
   mat[WN] = Duo(term[MatKnightOp], term[MatKnightEg]);
   mat[WB] = Duo(term[MatBishopOp], term[MatBishopEg]);
   mat[WR] = Duo(term[MatRookOp],   term[MatRookEg]);
