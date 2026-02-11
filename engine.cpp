@@ -146,14 +146,18 @@ bool Engine::parse(string str)
   {
     tune();
   }
-  else if (cmd == "pbil") [[likely]]
+  /*else if (cmd == "pbil") [[likely]]
   {
     string file = cut(str);
     pbil(file);
-  }
+  }*/
   else if (cmd == "spsa") [[likely]]
   {
-    spsa();
+    string file = cut(str);
+    if (file.empty())
+      spsa();
+    else
+      spsa(file);
   }
   else
   {
@@ -199,7 +203,7 @@ void Engine::eval()
   Eval E;
 
   E.set_explanations(true);
-  Val val = E.eval(&B, -Val::Inf, Val::Inf);
+  Val val = E.eval(&B, -Val::Inf, Val::Inf, false);
   E.set_explanations(false);
 
   string str = format("Eval: {}\n\n", val);
@@ -316,14 +320,12 @@ void Engine::tune()
   say<1>("-- Main mode\n");
 }
 
-// Population-Based Incremental Learning (PBIL) for
-//  statically generated dataset of pairs fen-result
-// Used for fast exploration of perspective points
-//  in multidimensional space of solutions
+// Simultaneous Perturbation Stochastic Approximation (SPSA)
+// For statically generated dataset of pairs fen-result
 
-void Engine::pbil(std::string file)
+void Engine::spsa(std::string file)
 {
-  say<1>("-- PBIL tuning\n");
+  say<1>("-- SPSA tuning\n");
 
   auto parts = split(file, ".");
   if (parts.size() < 2)
@@ -354,6 +356,15 @@ void Engine::pbil(std::string file)
       return;
     }
   }
+  else if (ext == "book")
+  {
+    log("Reading book...\n");
+    if (!tuner->open_book(file))
+    {
+      log("Error in reading file\n");
+      return;
+    }
+  }
 
   if (tuner->size() < 1)
   {
@@ -365,7 +376,7 @@ void Engine::pbil(std::string file)
 
   // TODO: write and use PBIL!
 
-  SPSA optimizator(std::move(tuner), 5'000'000, .1, .1, 100);
+  SPSA optimizator(std::move(tuner), 5'000'000, 1, .1, 100);
   optimizator.start();
 }
 

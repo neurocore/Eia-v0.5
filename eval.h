@@ -6,7 +6,7 @@
 
 namespace eia {
 
-const std::string active_tune = "";
+const std::string active_tune = Tunes::SPSA_Eth4;
 
 #define TERM(x,def,min,max)                      x,
 #define TERMS                                    \
@@ -162,7 +162,7 @@ public:
   void init();
   void set_explanations(bool on);
 
-  Val eval(const Board * B, Val alpha, Val beta);
+  Val eval(const Board * B, Val alpha, Val beta, bool use_phash = true);
 
   std::string to_string() const;
   std::string prettify() const;

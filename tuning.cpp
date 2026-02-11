@@ -30,7 +30,7 @@ int TunerStatic::open_csv(string file)
     getline(f_csv, line);
     string fen = cut(line, ";");
     string eval = cut(line, ";");
-    int result = parse_int(line);
+    int result = parse_int(line); // eval?
 
     poss.push_back({ fen, result });
   }
@@ -56,6 +56,27 @@ int TunerStatic::open_epd(string file, int result_cn)
   return 1;
 }
 
+int TunerStatic::open_book(string file)
+{
+  ifstream f_book(file);
+  if (!f_book.is_open()) return 0;
+
+  string line;
+  while (f_book)
+  {
+    getline(f_book, line);
+    string fen = cut(line, "[");
+    string eval = cut(line, "]");
+    int result = eval.starts_with("1.0")
+               - eval.starts_with("0.0");
+
+    if (fen.empty()) continue;
+
+    poss.push_back({ fen, result });
+  }
+  return 1;
+}
+
 double TunerStatic::score(Eval & E, bool shift_batch)
 {
   const int total = poss.size();
@@ -68,7 +89,7 @@ double TunerStatic::score(Eval & E, bool shift_batch)
   {
     const auto & pos = poss[(index + i) % total];
     B.set(pos.fen);
-    Val val = E.eval(&B, -Val::Inf, Val::Inf);
+    Val val = E.eval(&B, -Val::Inf, Val::Inf, false);
 
     const double r = B.color ? pos.result : -pos.result;
     const double v = dry_double(val);

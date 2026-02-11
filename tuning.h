@@ -57,6 +57,7 @@ public:
   size_t size() const { return poss.size(); }
   int open_csv(string file);
   int open_epd(string file, int result_cn = 9);
+  int open_book(string file);
   double score(string str);
 
 private:

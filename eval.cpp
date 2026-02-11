@@ -54,7 +54,7 @@ const Val weakness_push_table[] =
 // = bishop rammed pawns       -70 elo (need to tune?)
 // = soft mobility             -80 elo
 
-Val Eval::eval(const Board * B, Val alpha, Val beta)
+Val Eval::eval(const Board * B, Val alpha, Val beta, bool use_phash)
 {
   ei.init(B);
   Duo duo{};
@@ -88,30 +88,38 @@ Val Eval::eval(const Board * B, Val alpha, Val beta)
   // Pawn-king hash table | +20 elo (20s+.2 h2h-20)
 
   Duo pvals;
-  auto pk = Hash::pk_probe(B->state.pkhash);
-  if (pk == nullptr)
+
+  //if (use_phash)
+  //{
+  //  auto pk = Hash::pk_probe(B->state.pkhash);
+  //  if (pk == nullptr)
+  //  {
+  //    pvals = evaluateP<White>(B) - evaluateP<Black>(B);
+
+  //    /*if (pk != nullptr)
+  //    {
+  //      if (pvals != pk->vals
+  //      ||  ei.eg_weak[0] != pk->weak[0]
+  //      ||  ei.eg_weak[1] != pk->weak[1])
+  //      {
+  //        B->print();
+  //        log("Expected: val {} weaks {} {}\n", pvals, ei.eg_weak[0], ei.eg_weak[1]);
+  //        log("Hashed:   val {} weaks {} {}\n", pk->vals, pk->weak[0], pk->weak[1]);
+  //        __debugbreak();
+  //      }
+  //    }*/
+  //    Hash::pk_store(B->state.pkhash, pvals, ei.eg_weak);
+  //  }
+  //  else
+  //  {
+  //    pvals = pk->vals;
+  //    ei.eg_weak[0] = pk->weak[0];
+  //    ei.eg_weak[1] = pk->weak[1];
+  //  }
+  //}
+  //else
   {
     pvals = evaluateP<White>(B) - evaluateP<Black>(B);
-
-    /*if (pk != nullptr)
-    {
-      if (pvals != pk->vals
-      ||  ei.eg_weak[0] != pk->weak[0]
-      ||  ei.eg_weak[1] != pk->weak[1])
-      {
-        B->print();
-        log("Expected: val {} weaks {} {}\n", pvals, ei.eg_weak[0], ei.eg_weak[1]);
-        log("Hashed:   val {} weaks {} {}\n", pk->vals, pk->weak[0], pk->weak[1]);
-        __debugbreak();
-      }
-    }*/
-    Hash::pk_store(B->state.pkhash, pvals, ei.eg_weak);
-  }
-  else
-  {
-    pvals = pk->vals;
-    ei.eg_weak[0] = pk->weak[0];
-    ei.eg_weak[1] = pk->weak[1];
   }
 
   duo += pvals;
@@ -288,7 +296,7 @@ Duo Eval::evaluateP(const Board * B)
     else if (row2 & FileC) shield += Duo::as_op(term[Shield2]);
   }
 
-  vals += APPLY(shield, "Shield");
+  vals += A(shield, p, bitscan(king), "Shield");
 
   return vals;
 }
@@ -735,7 +743,10 @@ void EvalInfo::add_king_attack(Color col, AttWeight weight, u64 att)
 
 Val EvalInfo::king_safety(Color col) const
 {
-  return king_att_count[col] > 2 ? safety_table[king_att_weight[col]] : 0_cp;
+  // TODO: fix bug, probably from pk_hash table
+  //if (king_att_weight[col] > 100) cout << king_att_weight[col] << endl;
+  int weight = (std::min)(king_att_weight[col], 99);
+  return king_att_count[col] > 2 ? safety_table[weight] : 0_cp;
 }
 
 Val EvalInfo::king_safety() const
