@@ -8,22 +8,97 @@
 
 namespace eia {
 
+using std::unique_ptr;
 using std::string;
 using std::vector;
 
-// Abstract Tuner (estimates tunes)
+
+// --------------------------------------------------------------------
+//  Estimators
+// --------------------------------------------------------------------
+
+class Loss
+{
+public:
+  virtual ~Loss() = default;
+  virtual double f(double target, double predict) const = 0;
+  virtual double df(double target, double predict) const = 0;
+  virtual string name() const = 0;
+};
+
+
+// Mean Squared Error - classical loss function
+
+class MSE : public Loss
+{
+  const double k = std::log(10.) / 400;
+
+public:
+  double f(double y, double s) const override
+  {
+    const double diff = y - s;
+    return diff * diff;
+  }
+
+  double df(double y, double s) const override
+  {
+    const double df_ds = -2 * (y - s);    // ((y - s)^2)' = -2(y - s)
+    const double ds_dv = k * s * (1 - s); // s'(kv) = k * s * (1 - s)
+    return df_ds * ds_dv; // chain rule
+  }
+
+  string name() const override { return "MSE"; }
+};
+
+
+// Binary Cross-Entropy - may be more expressed
+
+class BCE : public Loss
+{
+  double eps;
+
+public:
+  explicit BCE(double eps = 1e-15) : eps(eps) {}
+
+  double f(double y, double s) const override
+  {
+    double q = std::clamp(s, eps, 1. - eps);
+    return       -y  * std::log(q)
+          - (1. - y) * std::log(1. - q);
+  }
+
+  double df(double y, double s) const override
+  {
+    double q = std::clamp(s, eps, 1. - eps);
+    return (q - y) / (q * (1. - q));
+  }
+
+  string name() const override { return "BCE"; }
+};
+
+
+// --------------------------------------------------------------------
+//  Tuners
+// --------------------------------------------------------------------
+
+struct Score
+{
+  double loss;
+  Tune grad;
+};
 
 class Tuner
 {
 public:
-  virtual double score(Tune v1, Tune v2) = 0;
+  virtual ~Tuner() {}
+  virtual Score  score(Tune v) = 0;
+  virtual void   next_iter() = 0;
   virtual Bounds get_bounds() const = 0;
-  virtual double max_score() const = 0;
   virtual string to_string(Tune v) = 0;
 };
 
 
-// This tuner fits tune to position-result dataset
+// Static tuner - fits tune to position-result dataset
 
 struct PosResult
 {
@@ -31,77 +106,36 @@ struct PosResult
   int result;
 };
 
-enum Loss
-{
-  MSE, // Mean Squared Error - classical loss function
-  BCE  // Binary Cross-Entropy - may be more expressed
-};
-
 class TunerStatic : public Tuner
 {
   Board B;
+  unique_ptr<Loss> L;
   vector<PosResult> poss;
   int batch_sz, index = 0;
-  Loss loss_type;
 
 public:
-  TunerStatic(Loss loss_type = MSE, int batch_size = 10'000)
-    : loss_type(loss_type), batch_sz(batch_size)
+  TunerStatic(unique_ptr<Loss> loss_fn, int batch_size = 10'000)
+    : L(move(loss_fn)), batch_sz(batch_size)
   {}
 
-  double score(Tune v1, Tune v2) override;
+  Score  score(Tune v) override;
+  void   next_iter() override { index = (index + batch_sz) % poss.size(); }
   Bounds get_bounds() const override { return Eval{}.bounds(); }
   string to_string(Tune v) override { return Eval(v).to_string(); }
-  double max_score() const override { return 100.0 * size(); }
 
   size_t size() const { return poss.size(); }
-  int open_csv(string file);
-  int open_epd(string file, int result_cn = 9);
-  int open_book(string file);
-  double score(string str);
+  bool open(string file);
 
 private:
-  double score(Eval & E, bool shift_batch = true);
-  double mse(Tune result, Tune predicted);
-  double bce(Tune result, Tune predicted);
+  bool open_csv(string file);
+  bool open_epd(string file);
+  bool open_book(string file);
 };
 
 
-// This tuner plays matches to score tune
-
-struct TunerCfg
-{
-  bool verbose = true;
-  int games = 20;
-  int depth = 3;
-  int adj_cnt = 4;
-  int adj_val = 800;
-};
-
-class TunerDynamic : public Tuner
-{
-  Board B;
-  Book book;
-  Moves opening;
-  SolverPVS * S[2];
-  Eval * E[2];
-
-public:
-  double score(Tune v1, Tune v2) override;
-  Bounds get_bounds() const override { return Eval{}.bounds(); }
-  string to_string(Tune v) override { return Eval(v).to_string(); }
-  double max_score() const override { return 100.0 * cfg.games; }
-
-  TunerCfg cfg;
-  TunerDynamic(TunerCfg cfg = TunerCfg());
-  ~TunerDynamic();
-  void init(std::string book_pgn = Tunes::Book);
-  double score(const Eval & eval);
-
-private:
-  int play_game(int side);
-};
-
+// --------------------------------------------------------------------
+//  Optimizers
+// --------------------------------------------------------------------
 
 // Simultaneous Perturbation Stochastic Approximation (SPSA)
 
@@ -110,12 +144,12 @@ class SPSA
   const double alpha = .602; // power of learning rate
   const double gamma = .101; // power of perturbation
 
-  std::unique_ptr<Tuner> tuner;
+  unique_ptr<Tuner> tuner;
   double a, c, A0;
   int iters;
 
 public:
-  SPSA(std::unique_ptr<Tuner> tuner,
+  SPSA(unique_ptr<Tuner> tuner,
        int    max_iters = 1000,
        double lrate_init = .1,
        double perturb_init = .1,
@@ -129,6 +163,27 @@ private:
 
   std::uniform_real_distribution<double> distr;
   std::mt19937 gen;
+};
+
+
+// Adaptive Moment Estimation optimizer (Adam)
+
+class Adam
+{
+  unique_ptr<Tuner> tuner;
+  double alpha, beta1, beta2, eps;
+  int iters, t;
+
+public:
+  Adam(unique_ptr<Tuner> tuner,
+       int max_iters = 100'000,
+       double alpha = 0.001,
+       double beta1 = 0.9,
+       double beta2 = 0.999,
+       double eps   = 1e-8,
+       int t = 0);
+
+  void start();
 };
 
 }

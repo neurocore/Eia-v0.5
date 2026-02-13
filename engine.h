@@ -30,9 +30,8 @@ public:
   void set_pos(std::string fen, std::vector<Move> moves);
   bool do_move(Move mv);
   void go(const SearchCfg & cfg);
-  void tune();
   void spsa(std::string file);
-  void spsa();
+  void adam(std::string file);
 };
 
 }

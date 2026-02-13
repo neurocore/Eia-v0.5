@@ -9,20 +9,93 @@ using namespace std;
 
 namespace eia {
 
-double TunerStatic::score(Tune v1, Tune v2)
+Score TunerStatic::score(Tune v)
 {
-  static Eval E1, E2;
-  E1.set(v1);
-  E2.set(v2);
-  double s1 = score(E1, false);
-  double s2 = score(E2);
-  return s1 - s2;
+  static Eval E;
+  E.set(v);
+
+  const int total = poss.size();
+  double loss = 0.0;
+  double grad = 0.0;
+  int debug = 0;
+
+  for (int i = 0; i < batch_sz; i++)
+  {
+    const auto & pos = poss[(index + i) % total];
+    B.set(pos.fen);
+    Val val = E.eval(&B, -Val::Inf, Val::Inf, false);
+
+    const double r = B.color ? pos.result : -pos.result;
+    const double y = (r + 1) / 2.0;
+    const double s = sigmoid(dry_double(val), 1.0);
+
+    loss += L->f(y, s);
+    grad += L->df(y, s);
+
+    if (debug --> 0)
+    {
+      log("val = {}, result = {}\n", val, y);
+    }
+  }
+
+  loss /= batch_sz;
+  grad /= batch_sz;
+
+  return Score(loss, grad * v);
 }
 
-int TunerStatic::open_csv(string file)
+bool TunerStatic::open(string file)
+{
+  auto parts = split(file, ".");
+  if (parts.size() < 2)
+  {
+    log("Allowed only 'csv' and 'epd' extensions\n");
+    return false;
+  }
+
+  std::string ext = parts[parts.size() - 1];
+
+  if (ext == "csv")
+  {
+    log("Reading csv...\n");
+    if (!open_csv(file))
+    {
+      log("Error in reading file\n");
+      return false;
+    }
+  }
+  else if (ext == "epd")
+  {
+    log("Reading epd...\n");
+    if (!open_epd(file))
+    {
+      log("Error in reading file\n");
+      return false;
+    }
+  }
+  else if (ext == "book")
+  {
+    log("Reading book...\n");
+    if (!open_book(file))
+    {
+      log("Error in reading file\n");
+      return false;
+    }
+  }
+
+  if (size() < 1)
+  {
+    log("There is no any position in dataset\n");
+    return false;
+  }
+
+  return true;
+}
+
+bool TunerStatic::open_csv(string file)
 {
   ifstream f_csv(file);
-  if (!f_csv.is_open()) return 0;
+  if (!f_csv.is_open()) return false;
 
   string line;
   while (f_csv)
@@ -34,32 +107,32 @@ int TunerStatic::open_csv(string file)
 
     poss.push_back({ fen, result });
   }
-  return 1;
+  return true;
 }
 
-int TunerStatic::open_epd(string file, int result_cn)
+bool TunerStatic::open_epd(string file)
 {
   Epd epd;
-  if (!epd.read(file)) return 0;
+  if (!epd.read(file)) return false;
 
   const auto & problems = epd.get_problems();
   for (const auto & p : problems)
   {
     if (!p.valid) continue;
 
-    const string & result = p.comment[result_cn];
+    const string & result = p.comment[9];
     const int r = result.starts_with("1-0")
                 - result.starts_with("0-1");
 
     poss.push_back({ p.fen, r });
   }
-  return 1;
+  return true;
 }
 
-int TunerStatic::open_book(string file)
+bool TunerStatic::open_book(string file)
 {
   ifstream f_book(file);
-  if (!f_book.is_open()) return 0;
+  if (!f_book.is_open()) return false;
 
   string line;
   while (f_book)
@@ -74,260 +147,7 @@ int TunerStatic::open_book(string file)
 
     poss.push_back({ fen, result });
   }
-  return 1;
-}
-
-double TunerStatic::score(Eval & E, bool shift_batch)
-{
-  const int total = poss.size();
-  const int batch = (std::min)(batch_sz, total);
-  int debug = 0;
-  double loss = 0.0;
-  Tune result, predicted;
-
-  for (int i = 0; i < batch; i++)
-  {
-    const auto & pos = poss[(index + i) % total];
-    B.set(pos.fen);
-    Val val = E.eval(&B, -Val::Inf, Val::Inf, false);
-
-    const double r = B.color ? pos.result : -pos.result;
-    const double v = dry_double(val);
-    result.push_back((r + 1) / 2.0); // [0; 1]
-    predicted.push_back(sigmoid(v, 1.0));
-
-    if (debug --> 0)
-    {
-      log("val = {}, result = {}\n", val, result[i]);
-    }
-  }
-
-  if (shift_batch) index = (index + batch) % total;
-
-  return loss_type == MSE
-    ? mse(result, predicted)
-    : bce(result, predicted);
-}
-
-double TunerStatic::mse(Tune result, Tune predicted)
-{
-  const int total = static_cast<int>(result.size());
-  if (!total) return 0.0;
-
-  double loss = 0.0;
-  for (size_t i = 0; i < total; i++)
-  {
-    const double diff = result[i] - predicted[i];
-    loss += diff * diff;
-  }
-  return sqrt(loss / total);
-}
-
-double TunerStatic::bce(Tune result, Tune predicted)
-{
-  const double eps = 1e-15;
-  const int total = static_cast<int>(result.size());
-  if (!total) return 0.0;
-
-  double loss = 0.0;
-  for (size_t i = 0; i < total; i++)
-  {
-    double q = std::clamp(predicted[i], eps, 1. - eps);
-    loss -=       result[i]  * std::log(q)
-          + (1. - result[i]) * std::log(1. - q);
-  }
-  return loss / total;
-}
-
-double TunerStatic::score(string str)
-{
-  log("{}\n", str);
-  Eval E;
-  E.set_raw(str);
-  return score(E);
-}
-
-/////////////////////////////////////
-
-TunerDynamic::TunerDynamic(TunerCfg cfg) : cfg(cfg)
-{
-  E[0] = new Eval;
-  E[1] = new Eval;
-  S[0] = new SolverPVS(E[0]);
-  S[1] = new SolverPVS(E[1]);
-  S[0]->set_verbosity(false);
-  S[1]->set_verbosity(false);
-}
-
-TunerDynamic::~TunerDynamic()
-{
-  delete S[1];
-  delete S[0];
-}
-
-void TunerDynamic::init(std::string book_pgn)
-{
-  book.clear();
-  BookReader(&book).read_pgn(book_pgn);
-}
-
-double TunerDynamic::score(Tune v1, Tune v2)
-{
-  E[0]->set(v1);
-  E[1]->set(v2);
-
-  int played = 0;
-  double total = 0.0;
-
-  for (int i = 0; i < cfg.games; ++i)
-  {
-    const int side = i & 1;
-    int result = play_game(side);
-
-#ifdef _DEBUG
-    /*if (verbose)*/ { say("\n"); B.print(); }
-#endif
-
-    if (side) result = -result;
-    total += result;
-
-    if (cfg.verbose) say("{}", "-=+"[result + 1]);
-    played++;
-  }
-
-  total /= played ? played : 1;
-
-  return -2 * total; // tend to minimize, so invert
-}
-
-double TunerDynamic::score(const Eval & eval)
-{
-  int played = 0;
-  double total = 0.0;
-
-  E[0]->set(eval);
-  E[0]->init();
-
-  for (int i = 0; i < cfg.games; ++i)
-  {
-    const int side = i & 1;
-    int result = play_game(side);
-
-#ifdef _DEBUG
-    /*if (verbose)*/ { say("\n"); B.print(); }
-#endif
-
-    if (side) result = -result;
-    total += result;
-
-    if (cfg.verbose) say("{}", "-=+"[result + 1]);
-  }
-
-  total /= played ? played : 1;
-
-  return total;
-}
-
-// Returns -1 for black win, +1 for white win, 0 for draw
-int TunerDynamic::play_game(int side)
-{
-  const auto s_cfg = SearchCfg{.depth = cfg.depth};
-  vector<int> vals[2];
-
-  B.set();
-  S[0]->set(B);
-  S[1]->set(B);
-
-  S[0]->new_game();
-  S[1]->new_game();
-
-  // Playing random opening (symmetrical)
-
-  if (!side || opening.empty()) 
-    opening = book.get_random_line();
-
-  for (Move move : opening)
-  {
-    B.make(move);
-    B.revert_states();
-    S[0]->make(move);
-    S[1]->make(move);
-    side = 1 - side;
-  }
-
-  // Actual playing a game
-
-  for (int stm = side;; stm = 1 - stm)
-  {
-    assert(B.state.bhash == S[stm]->get_hash());
-
-    Move move = S[stm]->get_move(s_cfg);
-    int val = S[stm]->get_best_val();
-
-    // Direct mate on board
-
-    if (val == -Val::Inf) return -1;
-    if (val ==  Val::Inf) return  1;
-
-    //B.print();
-
-    vals[stm].push_back(val);
-    B.make(move);
-    B.revert_states();
-    S[0]->make(move);
-    S[1]->make(move);
-
-    // Finishing game by draw
-
-    if (B.is_draw()) return 0; // seems like 3-fold not working?
-    if (vals[0].size() > 256) return 0;
-
-    // Finishing game by mate
-
-    if (vals[0].size() > 0
-    &&  vals[1].size() > 0)
-    {
-      int last0 = vals[0][vals[0].size() - 1];
-      int last1 = vals[1][vals[1].size() - 1];
-
-      if (last0 < -Val::Mate && last1 < -Val::Mate)
-      {
-        return -1;
-      }
-      if (last0 >  Val::Mate && last1 >  Val::Mate)
-      {
-        return  1;
-      }
-    }
-
-    // Finishing game by adjucation (color bug)
-
-    /*if (vals[0].size() > adj_cnt
-    &&  vals[1].size() > adj_cnt)
-    {
-      bool adj_w = true;
-      bool adj_b = true;
-
-      for (int k = 1; k <= adj_cnt; ++k)
-      {
-        int last0 = vals[0][vals[0].size() - k];
-        int last1 = vals[1][vals[1].size() - k];
-
-        if (last0 <  adj_val || last1 <  adj_val) adj_w = false;
-        if (last0 > -adj_val || last1 > -adj_val) adj_b = false;
-      }
-
-      if (adj_w)
-      {
-        return  1;
-      }
-      if (adj_b)
-      {
-        return -1;
-      }
-    }*/
-  }
-  return 0;
+  return true;
 }
 
 /////////////////////////////////////
@@ -339,8 +159,7 @@ SPSA::SPSA(std::unique_ptr<Tuner> tuner,
            double stability_const)
   : tuner(std::move(tuner)), gen(random_device{}()), distr(0, 1)
   , iters(max_iters), a(lrate_init), c(perturb_init), A0(stability_const)
-{
-}
+{}
 
 void print(const Tune & T)
 {
@@ -355,12 +174,11 @@ void SPSA::start()
   auto bounds = tuner->get_bounds();
   size_t N = bounds.size();
 
-  log("-- Starting eval tuning\n\n");
+  log("-- Starting eval tuning (SPSA)\n\n");
   log("Total parameters: {}\n", N);
 
   // 0. Init starting point
 
-  Eval E0{};
   Tune u(N), u1(N), u2(N), delta(N);
   u = Eval{}.to_tune();
   /*for (int i = 0; i < N; i++)
@@ -393,17 +211,77 @@ void SPSA::start()
       u2[i] = u[i] - ck * delta[i];
     }
 
-    double score = tuner->score(u1, u2);
+    Score s1 = tuner->score(u1);
+    Score s2 = tuner->score(u2);
+    tuner->next_iter();
+
+    double score = s1.loss - s2.loss;
     double grad = score / ck / 2;
 
-    //if (report)
+    if (report)
     {
-      log(" | score = {:+.4f}", score);
-      log(" | ak * grad = {:+f}\n", ak * grad);
+      log("J(u + ck * delta) = {:+.4f}\n", s1.loss);
+      log("J(u - ck * delta) = {:+.4f}\n", s2.loss);
+      log("ak * grad = {:+f}\n", ak * grad);
     }
 
     for (int i = 0; i < N; i++)
       u[i] -= ak * grad / delta[i];
+  }
+}
+
+/////////////////////////////////////
+
+Adam::Adam(std::unique_ptr<Tuner> tuner, int max_iters,
+           double alpha, double beta1, double beta2,
+           double eps, int t)
+  : tuner(move(tuner)), iters(max_iters), alpha(alpha)
+  , beta1(beta1), beta2(beta2), eps(eps), t(t)
+{}
+
+void Adam::start()
+{
+  auto bounds = tuner->get_bounds();
+  size_t N = bounds.size();
+
+  log("-- Starting eval tuning (Adam)\n\n");
+  log("Total parameters: {}\n", N);
+
+  // 0. Init starting points
+
+  Tune w(N), m(N), v(N);
+  w = Eval{}.to_tune();
+  m.resize(N, 0.);
+  v.resize(N, 0.);
+
+  // 1. Iterate
+
+  for (int k = 0; k < iters; k++)
+  {
+    t++;
+    bool report = (k % 100) == 0;
+
+    Score s = tuner->score(w);
+    tuner->next_iter();
+
+    if (report)
+    {
+      log("\nIteration #{}\n\n", k);
+      log("w = "); print(w); log("\n");
+      log("{}\n", tuner->to_string(w));
+      log("Loss = {:+.4f}\n", s.loss);
+    }
+
+    for (size_t i = 0; i < N; i++)
+    {
+      m[i] = beta1 * m[i] + (1. - beta1) * s.grad[i];
+      v[i] = beta2 * v[i] + (1. - beta2) * s.grad[i] * s.grad[i];
+
+      double m_hat = m[i] / (1. - std::pow(beta1, t));
+      double v_hat = v[i] / (1. - std::pow(beta2, t));
+
+      w[i] -= alpha * m_hat / (std::sqrt(v_hat) + eps);
+    }
   }
 }
 

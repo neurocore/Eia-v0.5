@@ -142,10 +142,6 @@ bool Engine::parse(string str)
     }
     go(cfg);
   }
-  else if (cmd == "tune") [[likely]]
-  {
-    tune();
-  }
   /*else if (cmd == "pbil") [[likely]]
   {
     string file = cut(str);
@@ -154,10 +150,12 @@ bool Engine::parse(string str)
   else if (cmd == "spsa") [[likely]]
   {
     string file = cut(str);
-    if (file.empty())
-      spsa();
-    else
-      spsa(file);
+    spsa(file);
+  }
+  else if (cmd == "adam") [[likely]]
+  {
+    string file = cut(str);
+    adam(file);
   }
   else
   {
@@ -263,133 +261,39 @@ void Engine::go(const SearchCfg & cfg)
   }
 }
 
-void Engine::tune()
-{
-  say<1>("-- Tune mode\n");
-
-  Eval eval;
-  TunerCfg cfg{.verbose = false};
-  TunerDynamic tuner(cfg);
-  tuner.init();
-
-  bool success = true;
-  while (success)
-  {
-    std::string str;
-    getline(cin, str);
-
-    if (str.length() > 0)
-    {
-      string cmd = cut(str);
-
-      if (cmd == "get")
-      {
-        string op = cut(str);
-
-        if      (op == "games") say<1>("{}\n", tuner.cfg.games);
-        else if (op == "depth") say<1>("{}\n", tuner.cfg.depth);
-        else if (op == "eval")  say<1>("{}\n", eval.to_raw());
-        else say<1>("Wrong operator \"{}\" in \"get\"\n", op);
-      }
-      else if (cmd == "set")
-      {
-        string op = cut(str);
-
-        if      (op == "games") tuner.cfg.games = parse_int(str, 10);
-        else if (op == "depth") tuner.cfg.depth = parse_int(str, 3);
-        else if (op == "eval")  eval.set_raw(str);
-        else say<1>("Wrong operator \"{}\" in \"set\"\n", op);
-      }
-      else if (cmd == "score")
-      {
-        auto score = tuner.score(eval);
-        say<1>("{}\n", score);
-      }
-      else if (cmd == "exit")
-      {
-        success = false;
-      }
-      else
-      {
-        say<1>("Wrong command \"{}\" in tune mode \n", cmd);
-        say<1>("Use \"exit\" to leave to main mode\n");
-      }
-    }
-  }
-
-  say<1>("-- Main mode\n");
-}
-
 // Simultaneous Perturbation Stochastic Approximation (SPSA)
 // For statically generated dataset of pairs fen-result
 
-void Engine::spsa(std::string file)
+void Engine::spsa(string file)
 {
   say<1>("-- SPSA tuning\n");
 
-  auto parts = split(file, ".");
-  if (parts.size() < 2)
-  {
-    log("Allowed only 'csv' and 'epd' extensions\n");
-    return;
-  }
+  auto loss = make_unique<MSE>();
+  auto tuner = make_unique<TunerStatic>(std::move(loss), 100'000);
 
-  std::string ext = parts[parts.size() - 1];
-
-  auto tuner = make_unique<TunerStatic>(MSE, 100'000);
-
-  if (ext == "csv")
-  {
-    log("Reading csv...\n");
-    if (!tuner->open_csv(file))
-    {
-      log("Error in reading file\n");
-      return;
-    }
-  }
-  else if (ext == "epd")
-  {
-    log("Reading epd...\n");
-    if (!tuner->open_epd(file))
-    {
-      log("Error in reading file\n");
-      return;
-    }
-  }
-  else if (ext == "book")
-  {
-    log("Reading book...\n");
-    if (!tuner->open_book(file))
-    {
-      log("Error in reading file\n");
-      return;
-    }
-  }
-
-  if (tuner->size() < 1)
-  {
-    log("There is no any position in dataset\n");
-    return;
-  }
+  tuner->open(file);
 
   log("Positions: {}\n\n", tuner->size());
-
-  // TODO: write and use PBIL!
 
   SPSA optimizator(std::move(tuner), 5'000'000, 1, .1, 100);
   optimizator.start();
 }
 
-// Simultaneous Perturbation Stochastic Approximation (SPSA)
-// Used for fine tuning of good solutions on self-play games
+// Adaptive Moment Estimation optimizer (Adam)
+// May be even efficient due to momentum
 
-void Engine::spsa()
+void Engine::adam(string file)
 {
-  say<1>("-- SPSA tuning\n");
+  say<1>("-- Adam tuning\n");
 
-  auto tuner = make_unique<TunerDynamic>(TunerCfg{ .games = 10 });
+  auto loss = make_unique<MSE>();
+  auto tuner = make_unique<TunerStatic>(std::move(loss), 10'000);
+
+  tuner->open(file);
+
+  log("Positions: {}\n\n", tuner->size());
   
-  SPSA optimizator(std::move(tuner), 5'000'000, .1, .1, 100);
+  Adam optimizator(std::move(tuner), 5'000'000, .01);
   optimizator.start();
 }
 

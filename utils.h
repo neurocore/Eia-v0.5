@@ -126,6 +126,22 @@ inline double parse_double(const std::string_view str, double def = 0.)
   return result;
 }
 
+static Tune operator * (double val, Tune v)
+{
+  Tune r;
+  for (const auto el : v)
+    r.push_back(val * el);
+  return r;
+}
+
+static Tune operator * (Tune v, Tune w)
+{
+  Tune r;
+  for (size_t i = 0; i < v.size(); i++)
+    r.push_back(v[i] * w[i]);
+  return r;
+}
+
 template<typename T>
 T median(const std::vector<T> & vec, size_t start, size_t end)
 {
