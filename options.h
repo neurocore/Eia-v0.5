@@ -87,7 +87,6 @@ public:
 };
 
 
-using Strings = std::vector<std::string>;
 class OptionCombo : public Option
 {
   int val, def;

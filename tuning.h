@@ -94,6 +94,7 @@ public:
   virtual Score  score(Tune v) = 0;
   virtual void   next_iter() = 0;
   virtual Bounds get_bounds() const = 0;
+  virtual Tune   get_init() const = 0;
   virtual string to_string(Tune v) = 0;
 };
 
@@ -121,6 +122,7 @@ public:
   Score  score(Tune v) override;
   void   next_iter() override { index = (index + batch_sz) % poss.size(); }
   Bounds get_bounds() const override { return Eval{}.bounds(); }
+  Tune   get_init() const override { return Eval{}.to_tune(); }
   string to_string(Tune v) override { return Eval(v).to_string(); }
 
   size_t size() const { return poss.size(); }
@@ -166,6 +168,22 @@ private:
 };
 
 
+// Differential Evolution method
+
+class DiffEvo
+{
+  unique_ptr<Tuner> tuner;
+  double cr, f;
+  int num;
+
+public:
+  DiffEvo(unique_ptr<Tuner> tuner,
+          int   num = 10,
+          double cr = .9,
+          double f  = .8);
+};
+
+
 // Adaptive Moment Estimation optimizer (Adam)
 
 class Adam
@@ -187,3 +205,27 @@ public:
 };
 
 }
+
+template<>
+struct std::formatter<eia::Tune> : std::formatter<std::string>
+{
+  auto format(const eia::Tune & v, std::format_context & ctx) const
+  {
+    std::string str;
+
+    if (v.size() > 0)
+    {
+      str = "[";
+      for (const auto el : v)
+        str += to_string(el) + ",";
+      str = str.substr(0, str.size() - 1);
+      str += "]";
+    }
+    else
+    {
+      str = "[]";
+    }
+
+    return std::formatter<std::string>::format(str, ctx);
+  }
+};

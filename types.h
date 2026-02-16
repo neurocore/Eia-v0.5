@@ -35,6 +35,8 @@ using MS = u64; // milliseconds
 template<typename T>
 using limits = std::numeric_limits<T>;
 
+using Strings = std::vector<std::string>;
+
 using Vals = std::pair<double, double>;
 using Tune = std::vector<double>;
 using Bounds = std::vector<Vals>;

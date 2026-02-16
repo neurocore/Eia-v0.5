@@ -7,6 +7,55 @@
 
 using namespace std;
 
+#ifdef PY_BINDINGS
+// Engine implements python3 bindings
+//  for automated evaluation tuning
+//  (such as CMA-ES, PSO or any other)
+//  via interop library 'pybind11'
+// 
+// Note that in this case we building
+//  shared library to use it in python
+//
+// Don't forget to include paths to
+//  pybind11 itself and python.h
+//  and path to python.lib
+//
+// Also, resulting eia_tuner.dll
+//  must be renamed to pyd extension
+//  and should be put in python/dlls
+
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
+
+namespace py = pybind11;
+
+unique_ptr<eia::TunerStatic> g_tuner;
+
+eia::Tune load(string file, int batch_sz)
+{
+  auto loss = make_unique<eia::MSE>();
+  g_tuner = make_unique<eia::TunerStatic>(std::move(loss), batch_sz);
+  g_tuner->open(file);
+
+  eia::log("Positions: {}\n", g_tuner->size());
+
+  return g_tuner->get_init();
+}
+
+double score(eia::Tune v)
+{
+  return g_tuner->score(v).loss;
+}
+
+PYBIND11_MODULE(eia_tuner, m)
+{
+  m.doc() = "pybind11 plugin for Eia v0.5 chess engine eval tuning";
+  m.def("load", &load, "Load dataset with given batch size");
+  m.def("score", &score, "Returns a loss score for tune");
+}
+#endif
+
+
 namespace eia {
 
 Score TunerStatic::score(Tune v)
@@ -161,14 +210,6 @@ SPSA::SPSA(std::unique_ptr<Tuner> tuner,
   , iters(max_iters), a(lrate_init), c(perturb_init), A0(stability_const)
 {}
 
-void print(const Tune & T)
-{
-  log("[");
-  for (int i = 0; i < T.size(); i++)
-    log("{:.4f}, ", T[i]);
-  log("\b\b]");
-}
-
 void SPSA::start()
 {
   auto bounds = tuner->get_bounds();
@@ -180,7 +221,7 @@ void SPSA::start()
   // 0. Init starting point
 
   Tune u(N), u1(N), u2(N), delta(N);
-  u = Eval{}.to_tune();
+  u = tuner->get_init();;
   /*for (int i = 0; i < N; i++)
     u[i] = .5;*/
 
@@ -196,7 +237,7 @@ void SPSA::start()
     {
       log("\nIteration #{}\n\n", k);
       log("ak = {:.4f}, ck = {:.4f}\n", ak, ck);
-      log("u = "); print(u); log("\n");
+      log("u = {}\n", u);
       log("{}\n", tuner->to_string(u));
     }
 
@@ -229,6 +270,14 @@ void SPSA::start()
       u[i] -= ak * grad / delta[i];
   }
 }
+
+/////////////////////////////////////
+
+DiffEvo::DiffEvo(unique_ptr<Tuner> tuner, int num, double cr, double f)
+  : tuner(std::move(tuner)), num(num), cr(cr), f(f)
+{}
+
+
 
 /////////////////////////////////////
 
@@ -267,7 +316,7 @@ void Adam::start()
     if (report)
     {
       log("\nIteration #{}\n\n", k);
-      log("w = "); print(w); log("\n");
+      log("w = {}\n", w);
       log("{}\n", tuner->to_string(w));
       log("Loss = {:+.4f}\n", s.loss);
     }

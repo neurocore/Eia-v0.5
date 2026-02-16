@@ -150,12 +150,20 @@ bool Engine::parse(string str)
   else if (cmd == "spsa") [[likely]]
   {
     string file = cut(str);
-    spsa(file);
+    string batch = cut(str);
+    spsa(file, parse_int(batch, 100'000));
   }
   else if (cmd == "adam") [[likely]]
   {
     string file = cut(str);
-    adam(file);
+    string batch = cut(str);
+    adam(file, parse_int(batch, 100'000));
+  }
+  else if (cmd == "tune") [[likely]]
+  {
+    string file = cut(str);
+    string batch = cut(str);
+    tune(file, parse_int(batch, 100'000));
   }
   else
   {
@@ -264,12 +272,12 @@ void Engine::go(const SearchCfg & cfg)
 // Simultaneous Perturbation Stochastic Approximation (SPSA)
 // For statically generated dataset of pairs fen-result
 
-void Engine::spsa(string file)
+void Engine::spsa(string file, int batch_sz)
 {
   say<1>("-- SPSA tuning\n");
 
   auto loss = make_unique<MSE>();
-  auto tuner = make_unique<TunerStatic>(std::move(loss), 100'000);
+  auto tuner = make_unique<TunerStatic>(std::move(loss), batch_sz);
 
   tuner->open(file);
 
@@ -282,12 +290,12 @@ void Engine::spsa(string file)
 // Adaptive Moment Estimation optimizer (Adam)
 // May be even efficient due to momentum
 
-void Engine::adam(string file)
+void Engine::adam(string file, int batch_sz)
 {
   say<1>("-- Adam tuning\n");
 
   auto loss = make_unique<MSE>();
-  auto tuner = make_unique<TunerStatic>(std::move(loss), 10'000);
+  auto tuner = make_unique<TunerStatic>(std::move(loss), batch_sz);
 
   tuner->open(file);
 
@@ -295,6 +303,61 @@ void Engine::adam(string file)
   
   Adam optimizator(std::move(tuner), 5'000'000, .01);
   optimizator.start();
+}
+
+void Engine::tune(std::string file, int batch_sz)
+{
+  say<1>("-- Tune mode\n");
+
+  auto loss = make_unique<MSE>();
+  auto tuner = make_unique<TunerStatic>(std::move(loss), batch_sz);
+
+  tuner->open(file);
+
+  const Tune v0 = tuner->get_init();
+  say<1>("Positions: {}\n", tuner->size());
+  say<1>("Init {}\n\n", v0);
+
+  bool success = true;
+  while (success)
+  {
+    std::string str;
+    getline(cin, str);
+
+    if (str.length() > 0)
+    {
+      string cmd = cut(str);
+
+      if (cmd == "score")
+      {
+        // Parsing python array of doubles
+        auto inner = trim(str, '[', ']');
+        auto parts = split(inner, ",");
+
+        Tune v;
+        for (auto part : parts)
+          v.push_back(parse_double(trim(part)));
+
+        if (v.size() != v0.size())
+        {
+          say<1>("Incorrect tune size: {} instead of {}\n", v.size(), v0.size());
+        }
+
+        auto score = tuner->score(v);
+        say<1>("{}\n", score.loss);
+      }
+      else if (cmd == "exit")
+      {
+        say<1>("Returning to main mode\n");
+        success = false;
+      }
+      else
+      {
+        say<1>("Wrong command \"{}\" in tune mode \n", cmd);
+        say<1>("Use \"exit\" to leave to main mode\n");
+      }
+    }
+  }
 }
 
 }

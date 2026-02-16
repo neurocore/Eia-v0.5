@@ -79,9 +79,9 @@ INLINE bool cut_end(std::string & str, char & ch)
   return true;
 }
 
-static std::vector<std::string> split(const std::string & str, std::string delim = " ")
+static Strings split(const std::string & str, std::string delim = " ")
 {
-  std::vector<std::string> result;
+  Strings result;
   if (delim.empty()) return result;
 
   size_t start = 0, end;
@@ -109,6 +109,13 @@ inline std::string trim(std::string & str, char ch = ' ')
 {
   str.erase(str.find_last_not_of(ch) + 1);
   str.erase(0, str.find_first_not_of(ch));
+  return str;
+}
+
+inline std::string trim(std::string & str, char left, char right)
+{
+  str.erase(str.find_last_not_of(left) + 1);
+  str.erase(0, str.find_first_not_of(right));
   return str;
 }
 
