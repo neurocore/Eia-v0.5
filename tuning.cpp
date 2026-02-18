@@ -7,55 +7,6 @@
 
 using namespace std;
 
-#ifdef PY_BINDINGS
-// Engine implements python3 bindings
-//  for automated evaluation tuning
-//  (such as CMA-ES, PSO or any other)
-//  via interop library 'pybind11'
-// 
-// Note that in this case we building
-//  shared library to use it in python
-//
-// Don't forget to include paths to
-//  pybind11 itself and python.h
-//  and path to python.lib
-//
-// Also, resulting eia_tuner.dll
-//  must be renamed to pyd extension
-//  and should be put in python/dlls
-
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
-
-namespace py = pybind11;
-
-unique_ptr<eia::TunerStatic> g_tuner;
-
-eia::Tune load(string file, int batch_sz)
-{
-  auto loss = make_unique<eia::MSE>();
-  g_tuner = make_unique<eia::TunerStatic>(std::move(loss), batch_sz);
-  g_tuner->open(file);
-
-  eia::log("Positions: {}\n", g_tuner->size());
-
-  return g_tuner->get_init();
-}
-
-double score(eia::Tune v)
-{
-  return g_tuner->score(v).loss;
-}
-
-PYBIND11_MODULE(eia_tuner, m)
-{
-  m.doc() = "pybind11 plugin for Eia v0.5 chess engine eval tuning";
-  m.def("load", &load, "Load dataset with given batch size");
-  m.def("score", &score, "Returns a loss score for tune");
-}
-#endif
-
-
 namespace eia {
 
 Score TunerStatic::score(Tune v)
@@ -221,7 +172,8 @@ void SPSA::start()
   // 0. Init starting point
 
   Tune u(N), u1(N), u2(N), delta(N);
-  u = tuner->get_init();;
+  u = tuner->get_init();
+  //u = {0.037074,-0.088436,-0.174262,-0.074960,0.785410,1.007010,0.904238,0.872242,0.861856,-0.018162,0.496033,1.135750,0.273255,-0.568132,0.145085,0.636661,-0.045077,0.704088,-0.467398,0.057071,0.162683,-0.027680,0.063607,0.440003,-0.400178,0.388717,-0.005833,0.426431,0.060174,0.197362,0.301646,0.206722,0.660011,0.228416,-0.019413,-0.106902,0.234184,0.477068,0.312123,0.691386,-0.996932,0.367877,-0.466317,0.168993,0.435962,0.552339,0.510864,0.464921,0.590594,1.073799,-0.015324,0.242125,-0.006888,-0.271511,0.113451,1.163061,0.852508,0.521721,0.449050,0.332933,0.112919,-0.998922,0.648018,0.037484,0.153743,0.460426,0.383879,0.233696,0.387489,0.044967,0.190420,0.402252,0.216965,0.090511};
   /*for (int i = 0; i < N; i++)
     u[i] = .5;*/
 
