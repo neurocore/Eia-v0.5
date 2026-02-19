@@ -6,6 +6,7 @@
 #include "tables.h"
 #include "magics.h"
 #include "zobrist.h"
+#include "material.h"
 
 namespace eia {
 

@@ -135,6 +135,34 @@ private:
 };
 
 
+// Piece-Square Tables tuner
+
+struct PSTMatResult
+{
+  vector<int> pst_flags; // 2*6*64 = 768
+  Val other_factors;
+  int result;
+};
+
+class TunerPST : public Tuner
+{
+  unique_ptr<Loss> L;
+  vector<PSTMatResult> data;
+  int batch_sz, index = 0;
+
+public:
+  TunerPST(unique_ptr<Loss> loss_fn, int batch_size = 10'000)
+    : L(move(loss_fn)), batch_sz(batch_size)
+  {}
+
+  Score  score(Tune v) override;
+  void   next_iter() override { index = (index + batch_sz) % data.size(); }
+  Bounds get_bounds() const override { return Eval{}.bounds(); }
+  Tune   get_init() const override { return Eval{}.to_tune(); }
+  string to_string(Tune v) override { return Eval(v).to_string(); }
+};
+
+
 // --------------------------------------------------------------------
 //  Optimizers
 // --------------------------------------------------------------------
