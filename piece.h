@@ -41,6 +41,7 @@ INLINE Piece to_piece(PieceType pt, Color c) { return static_cast<Piece>(2 * pt 
 INLINE Color col(Piece p)    { return static_cast<Color>(p & 1); }
 INLINE Piece opp(Piece p)    { return static_cast<Piece>(p ^ 1); }
 INLINE PieceType pt(Piece p) { return static_cast<PieceType>(p >> 1); }
+INLINE PieceType & operator ++ (PieceType & a) { a = static_cast<PieceType>(a + 1); return a; }
 
 INLINE Piece operator + (Piece p, int val) { return static_cast<Piece>(+p + val); }
 INLINE Piece operator - (Piece p, int val) { return static_cast<Piece>(+p - val); }

@@ -16,7 +16,10 @@ using namespace eia;
 int main()
 {
   if (Input.is_console())
+  {
     cout << format("Chess engine {} v{} by {} (c) 2025\n", Name, Vers, Auth);
+    report_num_threads();
+  }
 
   Engine * E = new Engine;
   E->start();

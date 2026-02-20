@@ -78,6 +78,59 @@ public:
 
 
 // --------------------------------------------------------------------
+//  Data providers
+// --------------------------------------------------------------------
+
+struct PosResult
+{
+  string fen;
+  int result;
+};
+
+class DataProvider
+{
+  vector<PosResult> & poss;
+
+public:
+  DataProvider(vector<PosResult> & poss) : poss(poss) {}
+  bool open(string file);
+
+private:
+  bool open_csv(string file);
+  bool open_epd(string file);
+  bool open_book(string file);
+};
+
+
+struct PSQ { Piece p; SQ sq; };
+
+struct PSTMatResult
+{
+  vector<PSQ> psq;
+  Val eval;
+  int phase;
+  int result;
+};
+
+class PSTMatConverter
+{
+  vector<PSTMatResult> & data;
+  const vector<PosResult> & poss;
+  mutable Board B;
+  mutable Eval E;
+
+public:
+  PSTMatConverter(const vector<PosResult> & poss, vector<PSTMatResult> & data)
+    : poss(poss), data(data), E({}, true, true)
+  {}
+
+  void convert() const;
+
+private:
+  PSTMatResult convert(const PosResult & pr) const;
+};
+
+// --------------------------------------------------------------------
 //  Tuners
 // --------------------------------------------------------------------
 
@@ -96,16 +149,12 @@ public:
   virtual Bounds get_bounds() const = 0;
   virtual Tune   get_init() const = 0;
   virtual string to_string(Tune v) = 0;
+  virtual bool   open(string file) = 0;
+  virtual size_t size() const = 0;
 };
 
 
 // Static tuner - fits tune to position-result dataset
-
-struct PosResult
-{
-  string fen;
-  int result;
-};
 
 class TunerStatic : public Tuner
 {
@@ -124,25 +173,12 @@ public:
   Bounds get_bounds() const override { return Eval{}.bounds(); }
   Tune   get_init() const override { return Eval{}.to_tune(); }
   string to_string(Tune v) override { return Eval(v).to_string(); }
-
+  bool   open(string file) override { return DataProvider(poss).open(file); }
   size_t size() const { return poss.size(); }
-  bool open(string file);
-
-private:
-  bool open_csv(string file);
-  bool open_epd(string file);
-  bool open_book(string file);
 };
 
 
 // Piece-Square Tables tuner
-
-struct PSTMatResult
-{
-  vector<int> pst_flags; // 2*6*64 = 768
-  Val other_factors;
-  int result;
-};
 
 class TunerPST : public Tuner
 {
@@ -156,10 +192,21 @@ public:
   {}
 
   Score  score(Tune v) override;
-  void   next_iter() override { index = (index + batch_sz) % data.size(); }
+  void   next_iter() override {}
   Bounds get_bounds() const override { return Eval{}.bounds(); }
-  Tune   get_init() const override { return Eval{}.to_tune(); }
-  string to_string(Tune v) override { return Eval(v).to_string(); }
+  Tune   get_init() const override { return Tune(768, 0.); }
+  string to_string(Tune v) override { return "[too lazy]"; }
+  size_t size() const { return data.size(); }
+  bool   open(string file) override
+  {
+    vector<PosResult> poss;
+    bool success = DataProvider(poss).open(file);
+    if (!success) return false;
+
+    PSTMatConverter converter(poss, data);
+    converter.convert();
+    return true;
+  }
 };
 
 

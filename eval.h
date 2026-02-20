@@ -6,86 +6,88 @@
 
 namespace eia {
 
-const std::string active_tune = Tunes::CMA_ES_Eth1;
+const std::string g_tune = ""; // Tunes::CMA_ES_Eth1;
 
-#define TERM(x,def,min,max)                      x,
-#define TERMS                                    \
-  TERM(MatKnightOp,    426_cp, 300_cp,  600_cp)  \
-  TERM(MatBishopOp,    441_cp, 300_cp,  600_cp)  \
-  TERM(MatRookOp,      627_cp, 500_cp, 1000_cp)  \
-  TERM(MatQueenOp,    1292_cp, 900_cp, 2000_cp)  \
-  TERM(MatPawnEg,      144_cp,  40_cp,  160_cp)  \
-  TERM(MatKnightEg,    475_cp, 300_cp,  600_cp)  \
-  TERM(MatBishopEg,    510_cp, 300_cp,  600_cp)  \
-  TERM(MatRookEg,      803_cp, 500_cp, 1000_cp)  \
-  TERM(MatQueenEg,    1623_cp, 900_cp, 2000_cp)  \
-  TERM(PawnFile,         5_cp,   0_cp,   16_cp)  \
-  TERM(KnightCenterOp,   5_cp,   0_cp,   16_cp)  \
-  TERM(KnightCenterEg,   5_cp,   0_cp,   16_cp)  \
-  TERM(KnightRank,       5_cp,   0_cp,   16_cp)  \
-  TERM(KnightBackRank,   0_cp,   0_cp,   16_cp)  \
-  TERM(KnightTrapped,  100_cp,   0_cp,  256_cp)  \
-  TERM(BishopCenterOp,   2_cp,   0_cp,   16_cp)  \
-  TERM(BishopCenterEg,   3_cp,   0_cp,   16_cp)  \
-  TERM(BishopBackRank,  10_cp,   0_cp,   16_cp)  \
-  TERM(BishopDiagonal,   4_cp,   0_cp,   16_cp)  \
-  TERM(RookFileOp,       3_cp,   0_cp,   16_cp)  \
-  TERM(QueenCenterOp,    0_cp,   0_cp,   16_cp)  \
-  TERM(QueenCenterEg,    4_cp,   0_cp,   16_cp)  \
-  TERM(QueenBackRank,    5_cp,   0_cp,   16_cp)  \
-  TERM(KingFile,        10_cp,   0_cp,   32_cp)  \
-  TERM(KingRank,        10_cp,   0_cp,   32_cp)  \
-  TERM(KingCenterEg,    20_cp,   0_cp,   32_cp)  \
-  TERM(Doubled,         10_cp,   0_cp,   32_cp)  \
-  TERM(Isolated,         9_cp,   0_cp,   32_cp)  \
-  TERM(Backward,        12_cp,   0_cp,   32_cp)  \
-  TERM(Connected,        4_cp,   0_cp,   32_cp)  \
-  TERM(WeaknessPush,    40_cp,   0_cp,   64_cp)  \
-  TERM(NMobMult,       100_cp,   0_cp,  256_cp)  \
-  TERM(BMobMult,       100_cp,   0_cp,  256_cp)  \
-  TERM(RMobMult,       125_cp,   0_cp,  256_cp)  \
-  TERM(QMobMult,       250_cp, 100_cp,  256_cp)  \
-  TERM(NMobSteep,       14_cp,   0_cp,   32_cp)  \
-  TERM(BMobSteep,       14_cp,   0_cp,   32_cp)  \
-  TERM(RMobSteep,       10_cp,   0_cp,   32_cp)  \
-  TERM(QMobSteep,        8_cp,   0_cp,   32_cp)  \
-  TERM(BishopPair,      13_cp,   0_cp,   64_cp)  \
-  TERM(BadBishop,       38_cp,   0_cp,   64_cp)  \
-  TERM(RammedBishop,     8_cp,   0_cp,   64_cp)  \
-  TERM(KnightOutpost,   10_cp,   0_cp,   64_cp)  \
-  TERM(RookSemi,        10_cp,   0_cp,   64_cp)  \
-  TERM(RookOpen,        20_cp,   0_cp,   64_cp)  \
-  TERM(Rook7thOp,       20_cp,   0_cp,   64_cp)  \
-  TERM(Rook7thEg,       12_cp,   0_cp,   64_cp)  \
-  TERM(BadRook,         20_cp,   0_cp,   64_cp)  \
-  TERM(KnightFork,      20_cp,   0_cp,   64_cp)  \
-  TERM(BishopFork,      13_cp,   0_cp,   64_cp)  \
-  TERM(KnightAdj,        4_cp,   0_cp,   32_cp)  \
-  TERM(RookAdj,          3_cp,   0_cp,   32_cp)  \
-  TERM(EarlyQueen,       5_cp,   0_cp,   32_cp)  \
-  TERM(ContactCheckR,  100_cp, 100_cp,  200_cp)  \
-  TERM(ContactCheckQ,  180_cp, 180_cp,  200_cp)  \
-  TERM(Shield1,         10_cp,   0_cp,   32_cp)  \
-  TERM(Shield2,          5_cp,   0_cp,   32_cp)  \
-  TERM(PasserK,         22_cp,   0_cp,   64_cp)  \
-  TERM(Candidate,      100_cp,   0_cp,  256_cp)  \
-  TERM(Passer,         200_cp,   0_cp,  512_cp)  \
-  TERM(Supported,      100_cp,   0_cp,  256_cp)  \
-  TERM(Unstoppable,    800_cp, 700_cp, 1000_cp)  \
-  TERM(FreePasser,      60_cp,   0_cp,  128_cp)  \
-  TERM(Xray,            40_cp,   0_cp,   64_cp)  \
-  TERM(PinMul,          12_cp,   0_cp,   64_cp)  \
-  TERM(ThreatPawn,      11_cp,   0_cp,   64_cp)  \
-  TERM(ThreatL_P,       55_cp,   0_cp,  128_cp)  \
-  TERM(ThreatL_L,       25_cp,   0_cp,  128_cp)  \
-  TERM(ThreatL_H,       30_cp,   0_cp,  128_cp)  \
-  TERM(ThreatL_K,       43_cp,   0_cp,  128_cp)  \
-  TERM(ThreatR_L,       48_cp,   0_cp,  128_cp)  \
-  TERM(ThreatR_K,       33_cp,   0_cp,  128_cp)  \
-  TERM(ThreatQ_1,       50_cp,   0_cp,  128_cp)  \
-  TERM(Tempo,           20_cp,   0_cp,   64_cp)   
+#define TERM(x,def,min,max)                           x,
+#define TERMS                                         \
+  TERM(MatKnightOp,    311.1222_cp, 300_cp,  600_cp)  \
+  TERM(MatBishopOp,    273.4692_cp, 300_cp,  600_cp)  \
+  TERM(MatRookOp,      412.8690_cp, 500_cp, 1000_cp)  \
+  TERM(MatQueenOp,     817.5440_cp, 900_cp, 2000_cp)  \
+  TERM(MatPawnEg,      134.2492_cp,  40_cp,  160_cp)  \
+  TERM(MatKnightEg,    602.1030_cp, 300_cp,  600_cp)  \
+  TERM(MatBishopEg,    571.2714_cp, 300_cp,  600_cp)  \
+  TERM(MatRookEg,      936.1210_cp, 500_cp, 1000_cp)  \
+  TERM(MatQueenEg,    1848.0416_cp, 900_cp, 2000_cp)  \
+  TERM(Doubled,          0.1866_cp,   0_cp,   32_cp)  \
+  TERM(Isolated,         13.6457_cp,  0_cp,   32_cp)  \
+  TERM(Backward,         1.9255_cp,   0_cp,   32_cp)  \
+  TERM(Connected,        6.3155_cp,   0_cp,   32_cp)  \
+  TERM(WeaknessPush,    19.3053_cp,   0_cp,   64_cp)  \
+  TERM(NMobMult,        52.9208_cp,   0_cp,  256_cp)  \
+  TERM(BMobMult,       168.9628_cp,   0_cp,  256_cp)  \
+  TERM(RMobMult,        58.4744_cp,   0_cp,  256_cp)  \
+  TERM(QMobMult,        96.9716_cp, 100_cp,  256_cp)  \
+  TERM(NMobSteep,        3.4208_cp,   0_cp,   32_cp)  \
+  TERM(BMobSteep,        7.4938_cp,   0_cp,   32_cp)  \
+  TERM(RMobSteep,       15.2661_cp,   0_cp,   32_cp)  \
+  TERM(QMobSteep,        9.9879_cp,   0_cp,   32_cp)  \
+  TERM(BishopPair,      44.2487_cp,   0_cp,   64_cp)  \
+  TERM(BadBishop,       63.8036_cp,   0_cp,   64_cp)  \
+  TERM(RammedBishop,    23.5441_cp,   0_cp,   64_cp)  \
+  TERM(KnightOutpost,   29.8442_cp,   0_cp,   64_cp)  \
+  TERM(RookSemi,        10.8155_cp,   0_cp,   64_cp)  \
+  TERM(RookOpen,        27.9015_cp,   0_cp,   64_cp)  \
+  TERM(Rook7thOp,       35.3496_cp,   0_cp,   64_cp)  \
+  TERM(Rook7thEg,       32.6952_cp,   0_cp,   64_cp)  \
+  TERM(BadRook,         29.7549_cp,   0_cp,   64_cp)  \
+  TERM(KnightFork,      37.7980_cp,   0_cp,   64_cp)  \
+  TERM(BishopFork,      68.7231_cp,   0_cp,   64_cp)  \
+  TERM(KnightAdj,        0.4903_cp,   0_cp,   32_cp)  \
+  TERM(RookAdj,          7.7480_cp,   0_cp,   32_cp)  \
+  TERM(EarlyQueen,       0.2204_cp,   0_cp,   32_cp)  \
+  TERM(ContactCheckR,   72.8489_cp, 100_cp,  200_cp)  \
+  TERM(ContactCheckQ,  182.2690_cp, 180_cp,  200_cp)  \
+  TERM(Shield1,         37.2179_cp,   0_cp,   32_cp)  \
+  TERM(Shield2,         27.2802_cp,   0_cp,   32_cp)  \
+  TERM(PasserK,         33.3901_cp,   0_cp,   64_cp)  \
+  TERM(Candidate,      114.9568_cp,   0_cp,  256_cp)  \
+  TERM(Passer,         170.4616_cp,   0_cp,  512_cp)  \
+  TERM(Supported,       28.9072_cp,   0_cp,  256_cp)  \
+  TERM(Unstoppable,    400.3234_cp, 700_cp, 1000_cp)  \
+  TERM(FreePasser,      82.9463_cp,   0_cp,  128_cp)  \
+  TERM(Xray,             2.3989_cp,   0_cp,   64_cp)  \
+  TERM(PinMul,           9.8395_cp,   0_cp,   64_cp)  \
+  TERM(ThreatPawn,      29.4672_cp,   0_cp,   64_cp)  \
+  TERM(ThreatL_P,       49.1365_cp,   0_cp,  128_cp)  \
+  TERM(ThreatL_L,       29.9130_cp,   0_cp,  128_cp)  \
+  TERM(ThreatL_H,       49.5985_cp,   0_cp,  128_cp)  \
+  TERM(ThreatL_K,        5.7557_cp,   0_cp,  128_cp)  \
+  TERM(ThreatR_L,       24.3737_cp,   0_cp,  128_cp)  \
+  TERM(ThreatR_K,       51.4882_cp,   0_cp,  128_cp)  \
+  TERM(ThreatQ_1,       27.7715_cp,   0_cp,  128_cp)  \
+  TERM(Tempo,            5.7927_cp,   0_cp,   64_cp)   
 
   //TERM(MatPawnOp,       82_cp,  40_cp,  160_cp) // anchor
+  // 
+  //TERM(KnightTrapped,   37.1417_cp,   0_cp,  256_cp) // this may be helpful
+
+  //TERM(PawnFile,         0.2905_cp,   0_cp,   16_cp) // got rid of these
+  //TERM(KnightCenterOp,   7.9365_cp,   0_cp,   16_cp) // in favor of PST
+  //TERM(KnightCenterEg,  18.1720_cp,   0_cp,   16_cp) // tables tuning
+  //TERM(KnightRank,       4.3720_cp,   0_cp,   16_cp) 
+  //TERM(KnightBackRank,   9.0901_cp,   0_cp,   16_cp) 
+  //TERM(BishopCenterOp,  10.1865_cp,   0_cp,   16_cp) 
+  //TERM(BishopCenterEg,   0.7212_cp,   0_cp,   16_cp) 
+  //TERM(BishopBackRank,  11.2654_cp,   0_cp,   16_cp) 
+  //TERM(BishopDiagonal,   7.4783_cp,   0_cp,   16_cp) 
+  //TERM(RookFileOp,       0.9131_cp,   0_cp,   16_cp) 
+  //TERM(QueenCenterOp,    2.6029_cp,   0_cp,   16_cp) 
+  //TERM(QueenCenterEg,    0.4428_cp,   0_cp,   16_cp) 
+  //TERM(QueenBackRank,    1.0177_cp,   0_cp,   16_cp) 
+  //TERM(KingFile,        14.0800_cp,   0_cp,   32_cp) 
+  //TERM(KingRank,        12.8056_cp,   0_cp,   32_cp) 
+  //TERM(KingCenterEg,    12.4389_cp,   0_cp,   32_cp) 
 
 enum Term
 {
@@ -143,6 +145,9 @@ using EvalDetails = std::vector<EvalDetail>;
 
 class Eval
 {
+  bool no_pst;
+  bool no_hash;
+
   EvalInfo ei;
   int total_bits;
   Val term[Term_N];
@@ -157,8 +162,7 @@ class Eval
   Val r_adj[9];
 
 public:
-  Eval();
-  Eval(const Tune & tune);
+  Eval(const Tune & tune = {}, bool no_pst = false, bool no_hash = false);
   void init();
   void set_explanations(bool on);
 

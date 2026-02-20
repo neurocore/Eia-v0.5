@@ -35,7 +35,7 @@ INLINE SQ to_sq(std::string s)
 
 INLINE SQ opp(SQ sq)
 {
-  return to_sq(file(sq), 7 - rank(sq));
+  return static_cast<SQ>(sq ^ 070); // flip vertically
 }
 
 INLINE std::string to_string(SQ sq)

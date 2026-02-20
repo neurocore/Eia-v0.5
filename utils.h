@@ -9,6 +9,7 @@
 #include <iostream>
 #include <charconv>
 #include <algorithm>
+#include <omp.h>
 #include "types.h"
 
 namespace eia {
@@ -230,6 +231,15 @@ template<typename... Args>
 INLINE void log(std::format_string<Args...> fmt, Args&&... args)
 {
   std::cerr << std::format(fmt, std::forward<Args>(args)...);
+}
+
+static void report_num_threads()
+{
+  #pragma omp parallel
+  {
+    #pragma omp single
+    say<1>("num_threads = {}\n", omp_get_num_threads());
+  }
 }
 
 }
