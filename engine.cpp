@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <iostream>
 #include <format>
 #include <memory>
@@ -85,6 +86,13 @@ bool Engine::parse(string str)
     string part = cut(str);
     int unused = parse_int(part);
     plegt();
+  }
+  else if (cmd == "test") [[unlikely]]
+  {
+    string op = cut(str);
+    if      (op == "checks") test_checks_gen();
+    else if (op == "evades") test_evades_gen();
+    else log("Unknown test '{}'\n", op);
   }
   else if (cmd == "eval") [[unlikely]]
   {
@@ -202,6 +210,55 @@ void Engine::plegt()
   S[1]->set(B);
   S[0]->plegt();
   S[1]->plegt();
+}
+
+void Engine::test_checks_gen()
+{
+
+}
+
+void Engine::test_evades_gen()
+{
+  bool in_check = B.in_check();
+  if (!in_check)
+  {
+    log("Moving side must be in check!\n");
+    return;
+  }
+
+  MoveList ml_orig, ml_test;
+  B.generate_legal(ml_orig);
+
+  if (B.color == White)
+    B.generate_evasions<White>(ml_test);
+  else
+    B.generate_evasions<Black>(ml_test);
+
+  // Its time to compare two movelists
+
+  bool success = true;
+  const auto orig = ml_orig.to_moves();
+  const auto test = ml_test.to_moves();
+  
+  for (Move move : orig)
+  {
+    if (std::find(test.begin(), test.end(), move) == test.end())
+    {
+      log("Missing move {} in test generator\n", move);
+      success = false;
+    }
+  }
+
+  for (Move move : test)
+  {
+    if (std::find(orig.begin(), orig.end(), move) == orig.end())
+    {
+      log("Redundand move {} in test generator\n", move);
+      success = false;
+    }
+  }
+
+  if (success) log("Test generator is correct\n");
 }
 
 void Engine::eval()

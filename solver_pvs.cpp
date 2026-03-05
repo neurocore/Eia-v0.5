@@ -43,8 +43,8 @@ void SolverPVS::init()
 
   for (int depth = 1; depth <= 10; depth++)
   {
-    LMP_Counts[0][depth] = 2.0767 + 0.3743 * depth * depth;
-    LMP_Counts[1][depth] = 3.8733 + 0.7124 * depth * depth;
+    LMP_Counts[0][depth] = (int)(2.0767 + 0.3743 * depth * depth);
+    LMP_Counts[1][depth] = (int)(3.8733 + 0.7124 * depth * depth);
   }
 }
 
@@ -525,9 +525,10 @@ Val SolverPVS::pvs(Val alpha, Val beta, int depth, bool is_null)
   return alpha;
 }
 
-Val SolverPVS::qs(Val alpha, Val beta)
+Val SolverPVS::qs(Val alpha, Val beta, int checks_depth)
 {
   const bool in_check = !!B->state.checkers;
+  const bool consider_checks = false; // checks_depth > 0;
   max_ply = (std::max)(max_ply, ply());
 
   if (ply() >= Limits::Plies) return E->eval(B, alpha, beta);
@@ -554,7 +555,7 @@ Val SolverPVS::qs(Val alpha, Val beta)
 
   // 2. Calculating stand pat
 
-  Val eval = E->eval(B, alpha, beta);
+  Val eval = in_check ? cp(ply()) - Val::Inf : E->eval(B, alpha, beta);
   //H->store(B->hash(), ply(), Move::None, eval, 0, Type::None);
 
   if (eval >= beta) return beta;
@@ -562,7 +563,8 @@ Val SolverPVS::qs(Val alpha, Val beta)
 
   // 3. Delta pruning (+123 elo 10s+.1 h2h-30)
 
-  if ((std::max)(143, B->best_cap_value()) < dry(alpha - eval))
+  if (eval > -Val::Mate
+  &&  (std::max)(143, B->best_cap_value()) < dry(alpha - eval))
   {
     return eval;
   }
@@ -571,7 +573,7 @@ Val SolverPVS::qs(Val alpha, Val beta)
   set_movepicker(mp, Move::None);
 
   Move move;
-  while (!is_empty(move = mp.get_next()))
+  while (!is_empty(move = mp.get_next(consider_checks)))
   {
     if (!B->make(move)) continue;
 
@@ -583,7 +585,20 @@ Val SolverPVS::qs(Val alpha, Val beta)
     nodes++;
     undo.curr = move;
 
-    Val val = -qs(-beta, -alpha);
+    bool gives_check = B->in_check();
+
+    // Rebel approach to deal with long checks
+    // (unstable and worse at any initial depth - Weasel)
+
+    int new_checks_depth = checks_depth + gives_check - 1;
+
+    if (in_check && !gives_check)
+    {
+      if      (mp.evasions_cnt == 1) new_checks_depth += 2;
+      else if (mp.evasions_cnt == 2) new_checks_depth += 1;
+    }
+
+    Val val = -qs(-beta, -alpha, new_checks_depth);
 
     B->unmake(move);
 

@@ -1,5 +1,6 @@
 #pragma once
 #include <cassert>
+#include <vector>
 #include "moves.h"
 
 namespace eia {
@@ -8,9 +9,6 @@ using MoveVal = u64; // value | 0000 | move
 
 INLINE int value(MoveVal mv) { return mv >> 32; } // compiler be smart
 INLINE Move move(MoveVal mv) { return static_cast<Move>(mv & 0xFFFF); }
-
-// only queen in QS; remove bishop in PVS
-enum class PromMode { QS, PVS, ALL };
 
 struct Board;
 class MoveList
@@ -74,6 +72,15 @@ public:
 
   void value_attacks(const Board * B);
   void value_quiets(const Board * B, const History & history);
+
+  std::vector<Move> to_moves()
+  {
+    Move move;
+    std::vector<Move> moves;
+    while (!is_empty(move = get_next()))
+      moves.push_back(move);
+    return moves;
+  }
 
 private:
   inline u64 value_attack(Move move, const Board * B);

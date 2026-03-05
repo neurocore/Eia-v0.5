@@ -24,6 +24,8 @@ public:
   void stop();
   void perft(int depth = 1);
   void plegt();
+  void test_checks_gen();
+  void test_evades_gen();
   void evalt(int depth = 6);
   void eval();
   void set_debug(bool val);

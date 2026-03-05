@@ -162,6 +162,9 @@ public:
   template<Color COL>
   void generate_checks(MoveList & ml) const;
 
+  template<Color COL>
+  void generate_evasions(MoveList & ml) const;
+
 private:
   template<Color COL, bool ATT, PieceType PT>
   INLINE void gen_lookup(MoveList & ml, u64 mask) const;
@@ -177,6 +180,9 @@ private:
 
   template<Color COL>
   INLINE void gen_pawn_double(MoveList & ml, u64 mask) const;
+
+  template<Color COL, bool QS = false>
+  INLINE void gen_pawn_attacks(MoveList & ml, u64 mask) const;
 
   INLINE u64 check_ray() const
   {
@@ -482,61 +488,11 @@ INLINE void Board::gen_pawn_double(MoveList & ml, u64 mask) const
   }
 }
 
-template<Color COL>
-void Board::generate_quiets(MoveList & ml) const
-{
-  const u64 o = occupied();
-
-  gen_lookup<COL, false, King>(ml, ~o); // special case (!)
-
-  if (several(state.checkers)) return; // double check -> only evade
-
-  const u64 mask = !state.checkers ? ~o : check_ray();
-  gen_lookup<COL, false, Knight>(ml, mask);
-  gen_slider<COL, false, true>(ml, mask);
-  gen_slider<COL, false, false>(ml, mask);
-
-  gen_pawn_pushes<COL>(ml, mask);
-  gen_pawn_double<COL>(ml, mask);
-
-  if (state.checkers) return;
-
-  if constexpr (COL) // Castlings
-  {
-    if (can_castle<CT_WK>()) ml.add_move(E1, G1, KCastle);
-    if (can_castle<CT_WQ>()) ml.add_move(E1, C1, QCastle);
-  }
-  else
-  {
-    if (can_castle<CT_BK>()) ml.add_move(E8, G8, KCastle);
-    if (can_castle<CT_BQ>()) ml.add_move(E8, C8, QCastle);
-  }
-}
-
 template<Color COL, bool QS>
-void Board::generate_attacks(MoveList & ml) const
+INLINE void Board::gen_pawn_attacks(MoveList & ml, u64 mask) const
 {
-  const u64 me = occ[COL];
-  const u64 opp = occ[~COL];
-  const u64 o = me | opp;
-
-  gen_lookup<COL, true, King>(ml, opp); // special case (!)
-
-  /*if (only_one(state.checkers)) // have no speedup
-  {
-    gen_kill_checker<COL>(ml);
-    return;
-  }*/
-
-  if (several(state.checkers)) return;
-
-  const u64 mask = state.checkers ? state.checkers : opp;
-
-  gen_lookup<COL, true, Knight>(ml, mask);
-  gen_slider<COL, true, true>(ml, mask);
-  gen_slider<COL, true, false>(ml, mask);
-
-  Piece p = to_piece(Pawn, color);
+  constexpr Piece p = to_piece(Pawn, COL);
+  const u64 o = occupied();
 
   if constexpr (COL)
   {
@@ -631,6 +587,62 @@ void Board::generate_attacks(MoveList & ml) const
 }
 
 template<Color COL>
+void Board::generate_quiets(MoveList & ml) const
+{
+  const u64 o = occupied();
+
+  gen_lookup<COL, false, King>(ml, ~o); // special case (!)
+
+  if (several(state.checkers)) return; // double check -> only evade
+
+  const u64 mask = !state.checkers ? ~o : check_ray();
+  gen_lookup<COL, false, Knight>(ml, mask);
+  gen_slider<COL, false, true>(ml, mask);
+  gen_slider<COL, false, false>(ml, mask);
+
+  gen_pawn_pushes<COL>(ml, mask);
+  gen_pawn_double<COL>(ml, mask);
+
+  if (state.checkers) return;
+
+  if constexpr (COL) // Castlings
+  {
+    if (can_castle<CT_WK>()) ml.add_move(E1, G1, KCastle);
+    if (can_castle<CT_WQ>()) ml.add_move(E1, C1, QCastle);
+  }
+  else
+  {
+    if (can_castle<CT_BK>()) ml.add_move(E8, G8, KCastle);
+    if (can_castle<CT_BQ>()) ml.add_move(E8, C8, QCastle);
+  }
+}
+
+template<Color COL, bool QS>
+void Board::generate_attacks(MoveList & ml) const
+{
+  const u64 me = occ[COL];
+  const u64 opp = occ[~COL];
+  const u64 o = me | opp;
+
+  gen_lookup<COL, true, King>(ml, opp); // special case (!)
+
+  /*if (only_one(state.checkers)) // have no speedup
+  {
+    gen_kill_checker<COL>(ml);
+    return;
+  }*/
+
+  if (several(state.checkers)) return;
+
+  const u64 mask = state.checkers ? state.checkers : opp;
+
+  gen_lookup<COL, true, Knight>(ml, mask);
+  gen_slider<COL, true, true>(ml, mask);
+  gen_slider<COL, true, false>(ml, mask);
+  gen_pawn_attacks<COL>(ml, mask);
+}
+
+template<Color COL>
 void Board::generate_checks(MoveList & ml) const
 {
   // Notice that we're looking for quiet checks only
@@ -666,10 +678,10 @@ void Board::generate_checks(MoveList & ml) const
   // 2. Discovered checks by piece
 
   u64 blockers  = r_att(o, king) & occ[COL];
-  u64 attackers = r_att(o ^ blockers, king) & ortho<!COL>();
+  u64 attackers = r_att(o ^ blockers, king) & ortho<~COL>();
 
   blockers   = b_att(o, king) & occ[COL];
-  attackers |= b_att(o ^ blockers, king) & diags<!COL>();
+  attackers |= b_att(o ^ blockers, king) & diags<~COL>();
 
   for (u64 bb = attackers; bb; bb = rlsb(bb))
   {
@@ -697,6 +709,41 @@ void Board::generate_checks(MoveList & ml) const
       default: assert(false);
     }
   }
+}
+
+template<Color COL>
+void Board::generate_evasions(MoveList & ml) const
+{
+  // We're considering only legal evasions
+  // It is useful in QS to decide extension
+
+  if (!state.checkers) return;
+
+  // 1. King evasions (with captures)
+
+  gen_lookup<COL, true, King>(ml, occ[~COL] & ~state.threats);
+  gen_lookup<COL, false, King>(ml, ~occupied() & ~state.threats);
+
+  if (several(state.checkers)) return;
+
+  // 2. Simple captures
+
+  gen_lookup<COL, true, Knight>(ml, state.checkers);
+  gen_slider<COL, true, true>(ml, state.checkers);
+  gen_slider<COL, true, false>(ml, state.checkers);
+  gen_pawn_attacks<COL, true>(ml, state.checkers);
+
+  // 3. Check blockage
+    
+  const u64 king = bitscan(piece[BK ^ COL]);
+  const u64 attr = bitscan(state.checkers);
+  const u64 ray  = between[king][attr];
+
+  gen_lookup<COL, false, Knight>(ml, ray);
+  gen_slider<COL, false, true>(ml, ray);
+  gen_slider<COL, false, false>(ml, ray);
+  gen_pawn_pushes<COL>(ml, ray);
+  gen_pawn_double<COL>(ml, ray);
 }
 
 }
