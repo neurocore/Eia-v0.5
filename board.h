@@ -678,10 +678,10 @@ void Board::generate_checks(MoveList & ml) const
   // 2. Discovered checks by piece
 
   u64 blockers  = r_att(o, king) & occ[COL];
-  u64 attackers = r_att(o ^ blockers, king) & ortho<~COL>();
+  u64 attackers = r_att(o ^ blockers, king) & ortho<COL>();
 
   blockers   = b_att(o, king) & occ[COL];
-  attackers |= b_att(o ^ blockers, king) & diags<~COL>();
+  attackers |= b_att(o ^ blockers, king) & diags<COL>();
 
   for (u64 bb = attackers; bb; bb = rlsb(bb))
   {
@@ -706,7 +706,11 @@ void Board::generate_checks(MoveList & ml) const
         break;
       }
 
-      default: assert(false);
+      default:
+      {
+        //print();
+        assert(false);
+      }
     }
   }
 }

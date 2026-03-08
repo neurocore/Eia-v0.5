@@ -416,6 +416,11 @@ Val SolverPVS::pvs(Val alpha, Val beta, int depth, bool is_null)
   {
     if (!B->make(move)) continue;
 
+    /*if constexpr (NT == PV)
+    {
+      log("{}\n", move);
+    }*/
+
     undo.curr = move;
     legal++;
     bool gives_check = B->in_check();
@@ -525,10 +530,10 @@ Val SolverPVS::pvs(Val alpha, Val beta, int depth, bool is_null)
   return alpha;
 }
 
-Val SolverPVS::qs(Val alpha, Val beta, int checks_depth)
+Val SolverPVS::qs(Val alpha, Val beta, int qply, int checks_depth)
 {
   const bool in_check = !!B->state.checkers;
-  const bool consider_checks = false; // checks_depth > 0;
+  const bool consider_checks = false; // qply < 8;
   max_ply = (std::max)(max_ply, ply());
 
   if (ply() >= Limits::Plies) return E->eval(B, alpha, beta);
@@ -580,25 +585,25 @@ Val SolverPVS::qs(Val alpha, Val beta, int checks_depth)
     // SEE pruning (+70 elo 10s+.1 h2h-30)
     if (!in_check
     &&  !is_prom(move)
-    &&  B->see(move) < 0) continue; 
+    &&  B->see(move) < 0) continue;
 
     nodes++;
     undo.curr = move;
 
-    bool gives_check = B->in_check();
+    //bool gives_check = B->in_check();
 
     // Rebel approach to deal with long checks
     // (unstable and worse at any initial depth - Weasel)
 
-    int new_checks_depth = checks_depth + gives_check - 1;
+    int new_checks_depth = checks_depth - 1;
 
-    if (in_check && !gives_check)
+    if (in_check/* && !gives_check*/)
     {
       if      (mp.evasions_cnt == 1) new_checks_depth += 2;
       else if (mp.evasions_cnt == 2) new_checks_depth += 1;
     }
 
-    Val val = -qs(-beta, -alpha, new_checks_depth);
+    Val val = -qs(-beta, -alpha, qply + 1, new_checks_depth);
 
     B->unmake(move);
 

@@ -62,7 +62,7 @@ public:
 
   template<NodeType NT>
   Val pvs(Val alpha, Val beta, int depth, bool is_null = false);
-  Val qs(Val alpha, Val beta, int checks_depth = 2);
+  Val qs(Val alpha, Val beta, int qply = 0, int checks_depth = 2);
 
   template<bool QS>
   friend struct MovePicker;
@@ -85,6 +85,11 @@ void SolverPVS::set_movepicker(MovePicker<QS> & mp, Move hash)
 
   mp.hash_mv = hash_correct ? hash : Move::None;
   mp.stage = hash_correct ? Stage::Hash : Stage::GenCaps;
+
+  if constexpr (QS)
+  {
+    if (B->state.checkers) mp.stage = Stage::GenEvasions;
+  }
 
   if (!ply()) return;
 

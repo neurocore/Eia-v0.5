@@ -132,6 +132,12 @@ Move MovePickerQS::get_next(bool do_quiets)
   {
     case Stage::Hash:
 
+      if (B->state.checkers)
+      {
+        stage = Stage::GenEvasions;
+        return get_next(do_quiets);
+      }
+
       stage = Stage::GenCaps;
       if (!is_empty(hash_mv)) return hash_mv;
 
