@@ -72,15 +72,20 @@ Val Eval::eval(const Board * B, Val alpha, Val beta, bool use_phash)
     duo += mat[i] * popcnt(bb);
   }
 
-  //const int margin = 300; // Lazy Eval
-  //if (val - margin > alpha
-  //&&  val + margin < beta)
-  //{
-  //  // probably check here:
-  //  // - far advanced opponent passer
-  //  // - king in danger (not in endgame)
-  //  return val;
-  //}
+  if (!B->has_pieces(B->color)) // Mop-up evaluation
+  {
+    Val val = duo.tapered(B->phase());
+    Val score = B->color ? val : -val;
+    score += mopup(B, B->color);
+    return score * (1. - B->state.fifty / 100.);
+  }
+  else if (!B->has_pieces(~B->color))
+  {
+    Val val = duo.tapered(B->phase());
+    Val score = B->color ? val : -val;
+    score += mopup(B, ~B->color);
+    return score * (1. - B->state.fifty / 100.);
+  }
 
   // collecting ei here
   duo += evalxrays<White>(B) - evalxrays<Black>(B);
@@ -137,6 +142,16 @@ Val Eval::eval(const Board * B, Val alpha, Val beta, bool use_phash)
   Val score = (B->color ? val : -val) + term[Tempo];
   score = std::clamp(score, -Val::Mate / 2, Val::Mate / 2);
   return score * (1. - B->state.fifty / 100.);
+}
+
+Val Eval::mopup(const Board * B, Color weaker)
+{
+  SQ king0 = bitscan(B->piece[BK ^ weaker]);
+  SQ king1 = bitscan(B->piece[WK ^ weaker]);
+  int cmd = center_manh(king0);
+  int md = k_dist(king0, king1);
+  double mopup = 4.7 * cmd + 1.6 * (14 - md);
+  return cp(mopup);
 }
 
 template<Color Col>

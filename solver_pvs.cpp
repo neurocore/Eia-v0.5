@@ -300,12 +300,12 @@ Val SolverPVS::pvs(Val alpha, Val beta, int depth, bool is_null)
 
   // 0. Mate pruning ?? -35 elo (20s+.2 h2h-20)
 
-  //if (ply > 0)
-  //{
-  //  Val r_alpha = max(-Val.Inf + cp(ply), alpha);
-  //  Val r_beta = min(Val.Inf - cp(ply + 1), beta);
-  //  if (r_alpha >= r_beta) return r_alpha;
-  //}
+  if constexpr (NT != Root)
+  {
+    Val r_alpha = std::max(-Val::Inf + cp(ply()), alpha);
+    Val r_beta  = std::min( Val::Inf - cp(ply() + 1), beta);
+    if (r_alpha >= r_beta) return r_alpha;
+  }
 
   // 1. Retrieving hash move
 
@@ -530,10 +530,9 @@ Val SolverPVS::pvs(Val alpha, Val beta, int depth, bool is_null)
   return alpha;
 }
 
-Val SolverPVS::qs(Val alpha, Val beta, int qply, int checks_depth)
+Val SolverPVS::qs(Val alpha, Val beta)
 {
   const bool in_check = !!B->state.checkers;
-  const bool consider_checks = false; // qply < 8;
   max_ply = (std::max)(max_ply, ply());
 
   if (ply() >= Limits::Plies) return E->eval(B, alpha, beta);
@@ -578,7 +577,7 @@ Val SolverPVS::qs(Val alpha, Val beta, int qply, int checks_depth)
   set_movepicker(mp, Move::None);
 
   Move move;
-  while (!is_empty(move = mp.get_next(consider_checks)))
+  while (!is_empty(move = mp.get_next(false)))
   {
     if (!B->make(move)) continue;
 
@@ -590,20 +589,7 @@ Val SolverPVS::qs(Val alpha, Val beta, int qply, int checks_depth)
     nodes++;
     undo.curr = move;
 
-    //bool gives_check = B->in_check();
-
-    // Rebel approach to deal with long checks
-    // (unstable and worse at any initial depth - Weasel)
-
-    int new_checks_depth = checks_depth - 1;
-
-    if (in_check/* && !gives_check*/)
-    {
-      if      (mp.evasions_cnt == 1) new_checks_depth += 2;
-      else if (mp.evasions_cnt == 2) new_checks_depth += 1;
-    }
-
-    Val val = -qs(-beta, -alpha, qply + 1, new_checks_depth);
+    Val val = -qs(-beta, -alpha);
 
     B->unmake(move);
 

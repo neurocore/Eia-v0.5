@@ -68,6 +68,15 @@ INLINE int k_dist(SQ a, SQ b) // Chebyshev or king distance
   return (std::max)(abs(rank(a) - rank(b)), abs(file(a) - file(b)));
 }
 
+INLINE int center_manh(SQ sq) // Center Manhattan Distance
+{
+  int f = file(sq);
+  int r = rank(sq);
+  f ^= (f - 4) >> 8;
+  r ^= (r - 4) >> 8;
+  return (f + r) & 7;
+}
+
 }
 
 template<>

@@ -62,7 +62,7 @@ public:
 
   template<NodeType NT>
   Val pvs(Val alpha, Val beta, int depth, bool is_null = false);
-  Val qs(Val alpha, Val beta, int qply = 0, int checks_depth = 2);
+  Val qs(Val alpha, Val beta);
 
   template<bool QS>
   friend struct MovePicker;

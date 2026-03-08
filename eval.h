@@ -167,6 +167,7 @@ public:
   void set_explanations(bool on);
 
   Val eval(const Board * B, Val alpha, Val beta, bool use_phash = true);
+  Val mopup(const Board * B, Color weaker);
 
   std::string to_string() const;
   std::string prettify() const;
