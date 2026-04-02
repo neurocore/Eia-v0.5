@@ -144,7 +144,7 @@ class Tuner
 {
 public:
   virtual ~Tuner() {}
-  virtual Score  score(Tune v) = 0;
+  virtual Score  score(Tune v, double k0 = 0.) = 0;
   virtual void   next_iter() = 0;
   virtual Bounds get_bounds() const = 0;
   virtual Tune   get_init() const = 0;
@@ -162,13 +162,14 @@ class TunerStatic : public Tuner
   unique_ptr<Loss> L;
   vector<PosResult> poss;
   int batch_sz, index = 0;
+  double k;
 
 public:
-  TunerStatic(unique_ptr<Loss> loss_fn, int batch_size = 10'000)
-    : L(move(loss_fn)), batch_sz(batch_size)
+  TunerStatic(unique_ptr<Loss> loss_fn, int batch_size = 10'000, double k = Tunes::K100)
+    : L(move(loss_fn)), batch_sz(batch_size), k(k)
   {}
 
-  Score  score(Tune v) override;
+  Score  score(Tune v, double k0 = 0.) override;
   void   next_iter() override { index = (index + batch_sz) % poss.size(); }
   Bounds get_bounds() const override { return Eval{}.bounds(); }
   Tune   get_init() const override { return Eval{}.to_tune(); }
@@ -185,13 +186,14 @@ class TunerPST : public Tuner
   unique_ptr<Loss> L;
   vector<PSTMatResult> data;
   int batch_sz, index = 0;
+  double k;
 
 public:
-  TunerPST(unique_ptr<Loss> loss_fn, int batch_size = 10'000)
-    : L(move(loss_fn)), batch_sz(batch_size)
+  TunerPST(unique_ptr<Loss> loss_fn, int batch_size = 10'000, double k = Tunes::K100)
+    : L(move(loss_fn)), batch_sz(batch_size), k(k)
   {}
 
-  Score  score(Tune v) override;
+  Score  score(Tune v, double k0 = 0.) override;
   void   next_iter() override {}
   Bounds get_bounds() const override { return Eval{}.bounds(); }
   Tune   get_init() const override { return Tune(768, 0.); }
@@ -278,6 +280,12 @@ public:
 
   void start();
 };
+
+// --------------------------------------------------------------------
+//  Utilities
+// --------------------------------------------------------------------
+
+extern double find_k(unique_ptr<Tuner> tuner, Tune v, double a, double b, double eps = 1e-5);
 
 }
 

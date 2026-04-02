@@ -150,24 +150,25 @@ bool Engine::parse(string str)
     }
     go(cfg);
   }
-  /*else if (cmd == "pbil") [[likely]]
+  else if (cmd == "tunek") [[unlikely]]
   {
     string file = cut(str);
-    pbil(file);
-  }*/
-  else if (cmd == "spsa") [[likely]]
+    string batch = cut(str);
+    tunek(file, parse_int(batch, 100'000));
+  }
+  else if (cmd == "spsa") [[unlikely]]
   {
     string file = cut(str);
     string batch = cut(str);
     spsa(file, parse_int(batch, 100'000));
   }
-  else if (cmd == "adam") [[likely]]
+  else if (cmd == "adam") [[unlikely]]
   {
     string file = cut(str);
     string batch = cut(str);
     adam(file, parse_int(batch, 100'000));
   }
-  else if (cmd == "tune") [[likely]]
+  else if (cmd == "tune") [[unlikely]]
   {
     string file = cut(str);
     string batch = cut(str);
@@ -324,6 +325,27 @@ void Engine::go(const SearchCfg & cfg)
     solver->set(B);
     solver->get_move(cfg);
   }
+}
+
+// Tuning of K constant which occurs in sigmoid function
+//  on dataset while estimating positions evaluations
+
+// best k = 0.9050442347429484 | loss = 0.12033487081174338
+
+void Engine::tunek(std::string file, int batch_sz)
+{
+  say<1>("-- Tuning K constant\n");
+
+  auto loss = make_unique<MSE>();
+  auto tuner = make_unique<TunerStatic>(std::move(loss), batch_sz);
+  tuner->open(file);
+
+  log("Positions: {}\n\n", tuner->size());
+
+  const auto v = Eval{}.to_tune();
+  
+  double k = find_k(std::move(tuner), v, .5, 1.5);
+  log("\nbest k = {}\n", k);
 }
 
 // Simultaneous Perturbation Stochastic Approximation (SPSA)

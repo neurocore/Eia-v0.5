@@ -59,9 +59,13 @@ namespace Tunes
   // 8112 evals (2h) Ethereal book 100k | +70 elo (20s+.2 h2h-20)
   Str CMA_ES_Eth1 = "MatKnightOp:311.1222 MatBishopOp:273.4692 MatRookOp:412.8690 MatQueenOp:817.5440 MatPawnEg:134.2492 MatKnightEg:602.1030 MatBishopEg:571.2714 MatRookEg:936.1210 MatQueenEg:1848.0416 PawnFile:-0.2905 KnightCenterOp:7.9365 KnightCenterEg:18.1720 KnightRank:4.3720 KnightBackRank:-9.0901 KnightTrapped:37.1417 BishopCenterOp:10.1865 BishopCenterEg:-0.7212 BishopBackRank:11.2654 BishopDiagonal:-7.4783 RookFileOp:0.9131 QueenCenterOp:2.6029 QueenCenterEg:-0.4428 QueenBackRank:1.0177 KingFile:14.0800 KingRank:-12.8056 KingCenterEg:12.4389 Doubled:-0.1866 Isolated:13.6457 Backward:1.9255 Connected:6.3155 WeaknessPush:19.3053 NMobMult:52.9208 BMobMult:168.9628 RMobMult:58.4744 QMobMult:96.9716 NMobSteep:-3.4208 BMobSteep:7.4938 RMobSteep:15.2661 QMobSteep:9.9879 BishopPair:44.2487 BadBishop:-63.8036 RammedBishop:23.5441 KnightOutpost:-29.8442 RookSemi:10.8155 RookOpen:27.9015 Rook7thOp:35.3496 Rook7thEg:32.6952 BadRook:29.7549 KnightFork:37.7980 BishopFork:68.7231 KnightAdj:-0.4903 RookAdj:7.7480 EarlyQueen:-0.2204 ContactCheckR:72.8489 ContactCheckQ:182.2690 Shield1:37.2179 Shield2:27.2802 PasserK:33.3901 Candidate:114.9568 Passer:170.4616 Supported:28.9072 Unstoppable:400.3234 FreePasser:82.9463 Xray:2.3989 PinMul:9.8395 ThreatPawn:29.4672 ThreatL_P:49.1365 ThreatL_L:29.9130 ThreatL_H:49.5985 ThreatL_K:5.7557 ThreatR_L:24.3737 ThreatR_K:51.4882 ThreatQ_1:27.7715 Tempo:5.7927";
 
-  // TODO: use whole dataset (10m positions) to fine tune
+  // 4976 evals (2h) Ethereal book 10m | -140 elo (20s+.2 h2h-20)
+  Str CMA_ES_Eth100 = "MatKnightOp:322.3518 MatBishopOp:290.7303 MatRookOp:439.9805 MatQueenOp:906.1193 MatPawnEg:157.6675 MatKnightEg:644.1270 MatBishopEg:620.5458 MatRookEg:1027.5095 MatQueenEg:2032.9593 Doubled:6.6168 Isolated:16.0011 Backward:0.7595 Connected:6.7440 WeaknessPush:10.5211 NMobMult:87.9915 BMobMult:190.0433 RMobMult:77.0969 QMobMult:34.6988 NMobSteep:5.1525 BMobSteep:7.4576 RMobSteep:14.0695 QMobSteep:27.4724 BishopPair:44.8273 BadBishop:29.8984 RammedBishop:-27.6993 KnightOutpost:55.4908 RookSemi:12.7847 RookOpen:28.4490 Rook7thOp:48.1678 Rook7thEg:21.9368 BadRook:46.3797 KnightFork:85.7733 BishopFork:71.6757 KnightAdj:0.4907 RookAdj:3.2062 EarlyQueen:0.2408 ContactCheckR:71.3622 ContactCheckQ:189.8824 Shield1:39.2677 Shield2:29.4613 PasserK:34.7628 Candidate:98.1998 Passer:140.4257 Supported:51.3210 Unstoppable:276.1882 FreePasser:118.0133 Xray:0.4789 PinMul:8.4405 ThreatPawn:30.6065 ThreatL_P:50.4051 ThreatL_L:32.8231 ThreatL_H:52.3840 ThreatL_K:-9.1562 ThreatR_L:17.1878 ThreatR_K:11.5823 ThreatQ_1:26.8933 Tempo:9.0339";
 
   Str Book = ".\\datasets\\Perfect_2011.pgn";
+
+  const double K1   = 0.9662563881992023; // 100k positions
+  const double K100 = 0.9050442347429484; // 10m positions
 };
 
 }

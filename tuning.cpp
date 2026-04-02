@@ -153,8 +153,9 @@ PSTMatResult PSTMatConverter::convert(const PosResult & pr) const
 
 /////////////////////////////////////
 
-Score TunerStatic::score(Tune v)
+Score TunerStatic::score(Tune v, double k0)
 {
+  const double k_const = k0 ? k0 : k;
   static Eval E;
   E.set(v);
 
@@ -171,7 +172,7 @@ Score TunerStatic::score(Tune v)
 
     const double r = B.color ? pos.result : -pos.result;
     const double y = (r + 1) / 2.0;
-    const double s = sigmoid(dry_double(val), 1.0);
+    const double s = sigmoid(dry_double(val), k_const);
 
     loss += L->f(y, s);
     grad += L->df(y, s);
@@ -188,8 +189,10 @@ Score TunerStatic::score(Tune v)
   return Score(loss, grad * v);
 }
 
-Score TunerPST::score(Tune v)
+Score TunerPST::score(Tune v, double k0)
 {
+  const double k_const = k0 ? k0 : k;
+
   Duo pst[12][64];
   for (PieceType pt = Pawn; pt < PieceType_N; ++pt)
   {
@@ -223,7 +226,7 @@ Score TunerPST::score(Tune v)
     Val val = pos.eval + duo.tapered(pos.phase);
 
     const double y = (pos.result + 1) / 2.0;
-    const double s = sigmoid(dry_double(val), 1.0);
+    const double s = sigmoid(dry_double(val), k_const);
 
     loss += L->f(y, s);
   }
@@ -255,7 +258,8 @@ void SPSA::start()
   // 0. Init starting point
 
   Tune u(N), u1(N), u2(N), delta(N);
-  u = tuner->get_init();
+  //u = tuner->get_init();
+  u = {0.074506,-0.030899,-0.120039,0.005563,0.980563,1.147090,1.068486,1.055019,1.029963,0.206775,0.500036,0.023737,0.210753,0.164393,0.343717,0.742357,0.301160,-0.418598,0.161018,0.233051,0.439673,0.858514,0.700427,0.467164,-0.432802,0.867044,0.199762,0.444517,0.752622,0.342763,0.724683,1.340209,1.119933,0.015337,0.100196,0.007525,-0.286378,0.494122,1.227117,0.920667,0.543169,0.383593,0.274269,0.200473,-1.412706,0.921979,0.007484,0.131884,0.478227,0.393790,0.256431,0.409250,-0.071533,0.134280,0.090487,0.210104,0.141156};
   //u = {0.037074,-0.088436,-0.174262,-0.074960,0.785410,1.007010,0.904238,0.872242,0.861856,-0.018162,0.496033,1.135750,0.273255,-0.568132,0.145085,0.636661,-0.045077,0.704088,-0.467398,0.057071,0.162683,-0.027680,0.063607,0.440003,-0.400178,0.388717,-0.005833,0.426431,0.060174,0.197362,0.301646,0.206722,0.660011,0.228416,-0.019413,-0.106902,0.234184,0.477068,0.312123,0.691386,-0.996932,0.367877,-0.466317,0.168993,0.435962,0.552339,0.510864,0.464921,0.590594,1.073799,-0.015324,0.242125,-0.006888,-0.271511,0.113451,1.163061,0.852508,0.521721,0.449050,0.332933,0.112919,-0.998922,0.648018,0.037484,0.153743,0.460426,0.383879,0.233696,0.387489,0.044967,0.190420,0.402252,0.216965,0.090511};
   /*for (int i = 0; i < N; i++)
     u[i] = .5;*/
@@ -368,5 +372,49 @@ void Adam::start()
     }
   }
 }
+
+/////////////////////
+
+// Golden Section Search for optimal K that minimizes loss
+
+double find_k(unique_ptr<Tuner> tuner, Tune v, double a, double b, double eps)
+{
+  static const double INV_PHI = .5 * (std::sqrt(5.) - 1.); // 1/phi
+  double k1, k2;
+  if (a > b) std::swap(a, b);
+
+  k1 = b - INV_PHI * (b - a);
+  k2 = a + INV_PHI * (b - a);
+
+  double f1 = tuner->score(v, k1).loss;
+  double f2 = tuner->score(v, k2).loss;
+
+  log("k = {} | loss = {}\n", k1, f1);
+  log("k = {} | loss = {}\n", k2, f2);
+
+  while (std::abs(b - a) > eps)
+  {
+    if (f1 < f2)
+    {
+      b  = k2;
+      k2 = k1;
+      f2 = f1;
+      k1 = b - INV_PHI * (b - a);
+      f1 = tuner->score(v, k1).loss;
+      log("k = {} | loss = {}\n", k1, f1);
+    }
+    else
+    {
+      a  = k1;
+      k1 = k2;
+      f1 = f2;
+      k2 = a + INV_PHI * (b - a);
+      f2 = tuner->score(v, k2).loss;
+      log("k = {} | loss = {}\n", k2, f2);
+    }
+  }
+  return (a + b) / 2.0;
+}
+
 
 }

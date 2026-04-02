@@ -32,6 +32,7 @@ public:
   void set_pos(std::string fen, std::vector<Move> moves);
   bool do_move(Move mv);
   void go(const SearchCfg & cfg);
+  void tunek(std::string file, int batch_sz = 100'000);
   void spsa(std::string file, int batch_sz = 100'000);
   void adam(std::string file, int batch_sz = 100'000);
   void tune(std::string file, int batch_sz = 100'000); // for external use

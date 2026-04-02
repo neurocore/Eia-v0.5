@@ -1,6 +1,7 @@
 #pragma once
 #include <windows.h>
 #include <conio.h>
+#include <functional>
 #include <cmath>
 #include <cassert>
 #include <string_view>
