@@ -27,6 +27,7 @@ class SolverPVS : public Solver
   int max_ply;
   MS to_think;
   u64 nodes;
+  int g_depth;
   Val best_val;
 
 public:
@@ -34,7 +35,7 @@ public:
   ~SolverPVS();
   void init();
   bool is_solver() { return true; }
-  void new_game() { H->clear(); }
+  void new_game();
   void set(const Board & board) override;
   Move get_move(const SearchCfg & cfg) override;
   int  get_best_val() const { return best_val; }
@@ -61,7 +62,7 @@ public:
   void update_moves_stats(int depth);
 
   template<NodeType NT>
-  Val pvs(Val alpha, Val beta, int depth, bool is_null = false);
+  Val pvs(Val alpha, Val beta, int depth, bool is_null = false, bool is_singular = false);
   Val qs(Val alpha, Val beta);
 
   template<bool QS>
@@ -81,15 +82,9 @@ void SolverPVS::set_movepicker(MovePicker<QS> & mp, Move hash)
   mp.H = &history;
   mp.killer[0] = undo.killer[0];
   mp.killer[1] = undo.killer[1];
-  mp.evasions_cnt = 0;
 
   mp.hash_mv = hash_correct ? hash : Move::None;
   mp.stage = hash_correct ? Stage::Hash : Stage::GenCaps;
-
-  if constexpr (QS)
-  {
-    if (B->state.checkers) mp.stage = Stage::GenEvasions;
-  }
 
   if (!ply()) return;
 
@@ -100,8 +95,8 @@ void SolverPVS::set_movepicker(MovePicker<QS> & mp, Move hash)
 
 
 // explicit instantiate for use in cpp leads to better compile time
-template Val SolverPVS::pvs<PV>(Val alpha, Val beta, int depth, bool is_null);
-template Val SolverPVS::pvs<NonPV>(Val alpha, Val beta, int depth, bool is_null);
-template Val SolverPVS::pvs<Root>(Val alpha, Val beta, int depth, bool is_null);
+template Val SolverPVS::pvs<PV>(Val alpha, Val beta, int depth, bool is_null, bool is_singular);
+template Val SolverPVS::pvs<NonPV>(Val alpha, Val beta, int depth, bool is_null, bool is_singular);
+template Val SolverPVS::pvs<Root>(Val alpha, Val beta, int depth, bool is_null, bool is_singular);
 
 }

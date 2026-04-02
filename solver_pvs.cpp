@@ -7,6 +7,8 @@ using namespace std;
 
 namespace eia {
 
+const bool USE_SINGULAR_MOVE = true;
+
 // from GreKo 2021.12
 const Val Futility_Margin[] = { 0_cp, 50_cp, 350_cp, 550_cp };
 
@@ -48,6 +50,35 @@ void SolverPVS::init()
   }
 }
 
+void SolverPVS::new_game()
+{
+  best_val = 0_cp;
+  max_ply = 0;
+  nodes = 0ull;
+  g_depth = 0;
+
+  H->clear();
+  undos[0].killer[0] = Move::None;
+  undos[0].killer[1] = Move::None;
+
+  for (SQ i = A1; i < SQ_N; ++i)
+  {
+    for (SQ j = A1; j < SQ_N; ++j)
+    {
+      for (int col = 0; col < 2; col++)
+      {
+        history[col][0][0][i][j] = 0;
+        history[col][0][1][i][j] = 0;
+        history[col][1][0][i][j] = 0;
+        history[col][1][1][i][j] = 0;
+      }
+    }
+  }
+
+  for (int i = 0; i < Limits::Plies; i++)
+    undos[i].excluded = Move::None;
+}
+
 void SolverPVS::set(const Board & board)
 {
   *B = board;
@@ -60,7 +91,11 @@ Move SolverPVS::get_move(const SearchCfg & cfg)
   infinite = cfg.infinite;
   max_ply = 0;
   nodes = 0ull;
+  g_depth = 0;
   best_val = 0_cp;
+
+  for (int i = 0; i < Limits::Plies; i++)
+    undos[i].excluded = Move::None;
 
   B->revert_states();
 
@@ -79,16 +114,16 @@ Move SolverPVS::get_move(const SearchCfg & cfg)
 
   else
 
-  for (int depth = 1; depth <= (std::min)(+Limits::Plies, cfg.depth); ++depth)
+  for (g_depth = 1; g_depth <= (std::min)(+Limits::Plies, cfg.depth); ++g_depth)
   {
-    Val val = best_val = pvs<Root>(-Val::Inf, Val::Inf, depth);
+    Val val = best_val = pvs<Root>(-Val::Inf, Val::Inf, g_depth);
     if (!thinking) break;
 
     best = is_empty(undos[0].best) ? best : undos[0].best;
 
     if (verbose)
     say<1>("info depth {} seldepth {} score {:o} nodes {} time {} pv {} hashfull {}\n",
-            depth, max_ply, val, nodes, timer.getms(), best, H->hashfull());
+            g_depth, max_ply, val, nodes, timer.getms(), best, H->hashfull());
 
     if (val > Val::Mate || val < -Val::Mate) break;
   }
@@ -277,7 +312,7 @@ void SolverPVS::update_moves_stats(int depth)
 }
 
 template<NodeType NT>
-Val SolverPVS::pvs(Val alpha, Val beta, int depth, bool is_null)
+Val SolverPVS::pvs(Val alpha, Val beta, int depth, bool is_null, bool is_singular)
 {
   using namespace Hash;
   if constexpr (NT == Root) thinking = true;
@@ -298,32 +333,44 @@ Val SolverPVS::pvs(Val alpha, Val beta, int depth, bool is_null)
     if (B->is_draw()) return contempt();
   }
 
-  // 0. Mate pruning ?? -35 elo (20s+.2 h2h-20)
+  // 0. Mate pruning ?? -35 elo (20s+.2 h2h-40)
 
-  if constexpr (NT != Root)
+  /*if constexpr (NT != Root)
   {
     Val r_alpha = std::max(-Val::Inf + cp(ply()), alpha);
     Val r_beta  = std::min( Val::Inf - cp(ply() + 1), beta);
     if (r_alpha >= r_beta) return r_alpha;
-  }
+  }*/
 
   // 1. Retrieving hash move
 
-  Entry entry;
+  /*Entry entry;
   const bool tt_hit = H->probe(B->hash(), ply(), entry);
   Move hash_move = tt_hit ? entry.move : Move::None;
-  Val hash_val = tt_hit ? cp(entry.val) : 0_cp;
+  Val hash_val = tt_hit ? cp(entry.val) : 0_cp;*/
 
-  if constexpr (NT == NonPV) // +100 elo (1+1 h2h-10)
+  Entry entry{};
+  bool tt_hit = false;
+  Move hash_move = Move::None;
+  Val hash_val = 0_cp;
+
+  if (is_empty(undo.excluded))
   {
-    if (tt_hit
-    &&  entry.depth >= depth)
+    tt_hit = H->probe(B->hash(), ply(), entry);
+    hash_move = tt_hit ? entry.move : Move::None;
+    hash_val = tt_hit ? cp(entry.val) : 0_cp;
+
+    if constexpr (NT == NonPV) // +100 elo (1+1 h2h-10)
     {
-      if (entry.type == Type::Exact
-      || (entry.type == Type::Lower && hash_val >= beta)
-      || (entry.type == Type::Upper && hash_val <= alpha))
+      if (tt_hit
+      &&  entry.depth >= depth)
       {
-        return hash_val;
+        if (entry.type == Type::Exact
+        || (entry.type == Type::Lower && hash_val >= beta)
+        || (entry.type == Type::Upper && hash_val <= alpha))
+        {
+          return hash_val;
+        }
       }
     }
   }
@@ -341,6 +388,7 @@ Val SolverPVS::pvs(Val alpha, Val beta, int depth, bool is_null)
 
     if (!in_check
     &&  !is_null
+    &&  is_empty(undo.excluded)
     &&  depth >= 1
     &&  depth <= 3)
     {
@@ -357,6 +405,7 @@ Val SolverPVS::pvs(Val alpha, Val beta, int depth, bool is_null)
 
   //  if (!in_check
   //  &&  !is_null
+  //  &&  is_empty(undo.excluded)
   //  &&  depth <= 6)
   //  {
   //    if (eval - 65 * std::max(0, (depth - improving)) >= beta)
@@ -370,6 +419,7 @@ Val SolverPVS::pvs(Val alpha, Val beta, int depth, bool is_null)
 
     if (!in_check
     &&  !is_null
+    &&  is_empty(undo.excluded)
     &&  B->has_pieces(B->color)
     &&  eval >= beta
     &&  beta > -Val::Mate
@@ -378,7 +428,7 @@ Val SolverPVS::pvs(Val alpha, Val beta, int depth, bool is_null)
       int R = 3 + depth / 4;
 
       B->make_null();
-      Val v = -pvs<NonPV>(-beta, -beta + 1, depth - R, true);
+      Val v = -pvs<NonPV>(-beta, -beta + 1, depth - R, true, is_singular);
       B->unmake_null();
 
       if (v >= beta)
@@ -414,6 +464,7 @@ Val SolverPVS::pvs(Val alpha, Val beta, int depth, bool is_null)
   Move move;
   while (!is_empty(move = mp.get_next(do_quiets)))
   {
+    if (move == undo.excluded) continue;
     if (!B->make(move)) continue;
 
     /*if constexpr (NT == PV)
@@ -459,6 +510,54 @@ Val SolverPVS::pvs(Val alpha, Val beta, int depth, bool is_null)
     //    extend++;
     //  }
     //}
+
+    // Singular move extension | +50 elo (20s+.2 h2h-20)
+
+    if constexpr (USE_SINGULAR_MOVE && NT != Root)
+    {
+      if (!is_singular
+      &&  undo.extensions <= 8
+      &&  ply() < 2 * (g_depth + 1)
+      &&  depth >= 6
+      &&  move == hash_move
+      &&  is_empty(undo.excluded)
+      &&  entry.depth >= depth - 3
+      &&  entry.type == Hash::Type::Lower
+      &&  abs(hash_val) < Val::Mate)
+      {
+        B->unmake(hash_move);
+        Undo & undo = undos[ply()]; // numbers from SF
+        Val margin = cp((1.0926 + 1.4259 * (NT == NonPV)) * depth);
+        Val s_beta = hash_val - margin * 1.5;
+
+        undo.excluded = hash_move;
+        Val val = pvs<NonPV>(s_beta - 1, s_beta, depth / 2, false, true);
+        undo.excluded = Move::None;
+
+        B->make(hash_move);
+
+        if (abort()) return alpha;
+
+        if (val < s_beta)
+        {
+          extend = 1;
+        }
+
+        // Multi-cut pruning
+        else if (val >= beta && abs(val) < Val::Mate)
+        {
+          B->unmake(hash_move);
+          return val;
+        }
+
+        // Hash move isn't singular
+        // so give chance to others
+        else if (hash_val >= beta)
+        {
+          extend = -3;
+        }
+      }
+    }
     
     // LMR | +70 elo (20s+.2 h2h-20)
 
@@ -482,15 +581,18 @@ Val SolverPVS::pvs(Val alpha, Val beta, int depth, bool is_null)
     reduce = std::min(depth - 1, (std::max)(reduce, 1));
     int new_depth = depth - 1 + extend;
 
+    undo.extensions = NT == Root ? 0
+        : undos[ply() - 1].extensions + extend;
+
     if (legal == 1)
-      val = -pvs<PV>(-beta, -alpha, new_depth, is_null);
+      val = -pvs<PV>(-beta, -alpha, new_depth, is_null, is_singular);
     else
     {
-      val = -pvs<NonPV>(-alpha - 1, -alpha, new_depth - reduce, is_null);
+      val = -pvs<NonPV>(-alpha - 1, -alpha, new_depth - reduce, is_null, is_singular);
       if (val > alpha && reduce > 0)
-        val = -pvs<NonPV>(-alpha - 1, -alpha, new_depth, is_null);
+        val = -pvs<NonPV>(-alpha - 1, -alpha, new_depth, is_null, is_singular);
       if (val > alpha && val < beta)
-        val = -pvs<PV>(-beta, -alpha, new_depth, is_null);
+        val = -pvs<PV>(-beta, -alpha, new_depth, is_null, is_singular);
     }
 
     B->unmake(move);
@@ -516,15 +618,18 @@ Val SolverPVS::pvs(Val alpha, Val beta, int depth, bool is_null)
     }
   }
 
-  if (!legal)
+  if (is_empty(undo.excluded))
   {
-    return in_check ? val : contempt();
-  }
+    if (!legal)
+    {
+      return in_check ? val : contempt();
+    }
 
-  if (!abort())
-  {
-    Move best = hash_type == Upper ? Move::None : undo.best;
-    H->store(B->hash(), ply(), best, alpha, depth, hash_type);
+    if (!abort())
+    {
+      Move best = hash_type == Upper ? Move::None : undo.best;
+      H->store(B->hash(), ply(), best, alpha, depth, hash_type);
+    }
   }
 
   return alpha;

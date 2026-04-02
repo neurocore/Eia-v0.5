@@ -13,6 +13,8 @@ struct Undo
   int eval;
   Move curr, best;
   Move killer[2];
+  Move excluded;
+  int extensions;
 };
 
 struct SearchCfg
