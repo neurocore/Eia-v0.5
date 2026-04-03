@@ -1,7 +1,6 @@
 #pragma once
 #include "movepicker.h"
 #include "board.h"
-#include "timer.h"
 #include "solver.h"
 #include "eval.h"
 #include "hash.h"
@@ -14,13 +13,13 @@ enum NodeType { PV, NonPV, Root };
 
 class SolverPVS : public Solver
 {
+  Timestamp start;
   int LMR[64][256];
   int LMP_Counts[2][11];
   Undo undos[Limits::Plies];
   Board * B;
   Eval * E;
   Table * H;
-  Timer timer;
   Counter counter;
   History history;
 
@@ -37,7 +36,7 @@ public:
   bool is_solver() { return true; }
   void new_game();
   void set(const Board & board) override;
-  Move get_move(const SearchCfg & cfg) override;
+  Move get_move(Timestamp start, const SearchCfg & cfg) override;
   int  get_best_val() const { return best_val; }
 
   u64 get_hash() const { return B->state.bhash; }

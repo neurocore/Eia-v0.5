@@ -84,9 +84,9 @@ void SolverPVS::set(const Board & board)
   *B = board;
 }
 
-Move SolverPVS::get_move(const SearchCfg & cfg)
+Move SolverPVS::get_move(Timestamp move_start, const SearchCfg & cfg)
 {
-  timer.start();
+  start = move_start;
   to_think = cfg.full_time(B->to_move());
   infinite = cfg.infinite;
   max_ply = 0;
@@ -123,7 +123,7 @@ Move SolverPVS::get_move(const SearchCfg & cfg)
 
     if (verbose)
     say<1>("info depth {} seldepth {} score {:o} nodes {} time {} pv {} hashfull {}\n",
-            g_depth, max_ply, val, nodes, timer.getms(), best, H->hashfull());
+            g_depth, max_ply, val, nodes, elapsed(start), best, H->hashfull());
 
     if (val > Val::Mate || val < -Val::Mate) break;
   }
@@ -141,7 +141,7 @@ u64 SolverPVS::perft(int depth)
   say("-- Perft {}\n", depth);
   B->print();
 
-  timer.start();
+  start = Clock::now();
 
   /*MoveList ml;
   B->generate_all(ml);
@@ -170,7 +170,7 @@ u64 SolverPVS::perft(int depth)
     B->unmake(move);
   }
 
-  i64 time = timer.getms();
+  i64 time = elapsed(start);
   double knps = static_cast<double>(count) / (time + 1);
 
   say("\nCount: {}\n", count);
@@ -271,7 +271,7 @@ bool SolverPVS::abort() const
   if (infinite) return false;
 
   const MS time_to_move = to_think / 30;
-  if (timer.getms() > time_to_move)
+  if (elapsed(start) > time_to_move)
   {
     thinking = false;
     return true;

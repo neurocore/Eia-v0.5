@@ -2,11 +2,13 @@
 #include "options.h"
 #include "solver.h"
 #include "board.h"
+#include "timer.h"
 
 namespace eia {
 
 class Engine
 {
+  Timestamp move_start;
   Options options;
   Solver * S[2];
   Board B;

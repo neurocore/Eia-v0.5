@@ -1,6 +1,7 @@
 #pragma once
 #include "board.h"
 #include "value.h"
+#include "timer.h"
 
 namespace eia {
 
@@ -46,7 +47,7 @@ public:
 
   virtual bool is_solver() { return 0; }
   virtual void new_game() {}
-  virtual Move get_move(const SearchCfg & cfg) = 0;
+  virtual Move get_move(Timestamp start, const SearchCfg & cfg) = 0;
   virtual void make(Move move) = 0;
   virtual void set(const Board & board) = 0;
   virtual u64 perft(int depth) { return 0; }
@@ -61,7 +62,7 @@ class Reader : public Solver
 {
 public:
   Reader() {}
-  Move get_move(const SearchCfg & cfg) override { return Move(); }
+  Move get_move(Timestamp start, const SearchCfg & cfg) override { return Move(); }
   void make(Move move) override {}
   void set(const Board & board) override {}
 };

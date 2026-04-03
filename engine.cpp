@@ -15,6 +15,7 @@ Engine::Engine()
   S[0] = new SolverPVS(new Eval);
   S[1] = new Reader();
   cout.sync_with_stdio(false);
+  cerr.sync_with_stdio(false);
   cin.sync_with_stdio(false);
 }
 
@@ -41,6 +42,7 @@ void Engine::start()
   {
     std::string str;
     getline(cin, str);
+    move_start = Clock::now();
 
     if (str.length() > 0)
     {
@@ -323,7 +325,7 @@ void Engine::go(const SearchCfg & cfg)
   for (auto solver : S)
   {
     solver->set(B);
-    solver->get_move(cfg);
+    solver->get_move(move_start, cfg);
   }
 }
 
