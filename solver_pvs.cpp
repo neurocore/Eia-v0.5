@@ -1,6 +1,7 @@
 #include <format>
 #include <iostream>
 #include "solver_pvs.h"
+#include "history.h"
 #include "hash.h"
 
 using namespace std;
@@ -61,16 +62,30 @@ void SolverPVS::new_game()
   undos[0].killer[0] = Move::None;
   undos[0].killer[1] = Move::None;
 
-  for (SQ i = A1; i < SQ_N; ++i)
+  for (int col = 0; col < 2; col++)
   {
-    for (SQ j = A1; j < SQ_N; ++j)
+    for (SQ i = A1; i < SQ_N; ++i)
     {
-      for (int col = 0; col < 2; col++)
+      for (SQ j = A1; j < SQ_N; ++j)
       {
         history[col][0][0][i][j] = 0;
         history[col][0][1][i][j] = 0;
         history[col][1][0][i][j] = 0;
         history[col][1][1][i][j] = 0;
+      }
+    }
+  }
+
+  for (Piece p = BP; p < Piece_N; ++p)
+  {
+    for (SQ sq = A1; sq < SQ_N; ++sq)
+    {
+      for (PieceType q = Pawn; q < King; ++q)
+      {
+        caphist[p][0][0][sq][q] = 0;
+        caphist[p][0][1][sq][q] = 0;
+        caphist[p][1][0][sq][q] = 0;
+        caphist[p][1][1][sq][q] = 0;
       }
     }
   }
@@ -279,35 +294,47 @@ bool SolverPVS::abort() const
   return false;
 }
 
-void SolverPVS::update_moves_stats(int depth)
+void SolverPVS::update_moves_stats(Move * moves, int cnt, int depth)
 {
   Undo & undo = undos[ply()];
-
-  // History table
-
-  const Move move = undo.curr;
-  const SQ from = get_from(move);
-  const SQ to = get_to(move);
-
-  const bool leave = B->state.threats & bit(from);
-  const bool enter = B->state.threats & bit(to);
-
-  history[B->color][leave][enter][from][to] += depth * depth;
+  Move best = moves[cnt - 1];
 
   // Counter move
 
   if (ply() > 0)
   {
     Move prev = undos[ply() - 1].curr;
-    counter[~B->color][get_from(prev)][get_to(prev)] = move;
+    if (!is_empty(prev)) // null move may be
+      counter[~B->color][get_from(prev)][get_to(prev)] = best;
   }
 
   // Killers
 
-  if (undo.killer[0] != move)
+  if (undo.killer[0] != best)
   {
     undo.killer[1] = undo.killer[0];
-    undo.killer[0] = move;
+    undo.killer[0] = best;
+  }
+
+  // History table
+
+  if (!depth // found a low-depth cutoff too easily
+  || (cnt == 1 && depth <= 3))
+    return; 
+
+  for (int i = 0; i < cnt; i++)
+  {
+    int & hist = underlying_history(B, moves[i], history);
+    update_history(hist, depth, moves[i] == best);
+  }
+}
+
+void SolverPVS::update_captures_stats(Move best, Move * moves, int cnt, int depth)
+{
+  for (int i = 0; i < cnt; i++)
+  {
+    int & hist = underlying_caphist(B, moves[i], caphist);
+    update_history(hist, depth, moves[i] == best);
   }
 }
 
@@ -320,9 +347,13 @@ Val SolverPVS::pvs(Val alpha, Val beta, int depth, bool is_null, bool is_singula
   if (ply() >= Limits::Plies) return E->eval(B, alpha, beta);
 
   const bool in_check = !!B->state.checkers;
-  Type hash_type = Type::Upper;
-  Val val = cp(ply()) - Val::Inf;
+  int quiets_cnt = 0, captures_cnt = 0;
+  Move quiets_tried[Limits::M0ves];
+  Move captures_tried[Limits::M0ves];
   Undo & undo = undos[ply()];
+  Val val = cp(ply()) - Val::Inf;
+  Val best = -Val::Inf;
+  Val alpha_ = alpha;
   undo.best = Move::None;
   nodes++;
 
@@ -343,11 +374,6 @@ Val SolverPVS::pvs(Val alpha, Val beta, int depth, bool is_null, bool is_singula
   }*/
 
   // 1. Retrieving hash move
-
-  /*Entry entry;
-  const bool tt_hit = H->probe(B->hash(), ply(), entry);
-  Move hash_move = tt_hit ? entry.move : Move::None;
-  Val hash_val = tt_hit ? cp(entry.val) : 0_cp;*/
 
   Entry entry{};
   bool tt_hit = false;
@@ -476,6 +502,10 @@ Val SolverPVS::pvs(Val alpha, Val beta, int depth, bool is_null, bool is_singula
     legal++;
     bool gives_check = B->in_check();
     bool is_tactical = is_attack(move);
+
+    if (!is_tactical) quiets_tried[quiets_cnt++] = move;
+             else captures_tried[captures_cnt++] = move;
+
     int reduce = 0, extend = 0;
 
     // Late Move Pruning | +0 elo (20s+.2 h2h-20)
@@ -599,24 +629,27 @@ Val SolverPVS::pvs(Val alpha, Val beta, int depth, bool is_null, bool is_singula
 
     if (abort()) return alpha;
 
-    if (val > alpha)
+    if (val > best)
     {
-      alpha = val;
-      hash_type = Type::Exact;
+      best = val;
       undo.best = move;
 
-      if (val >= beta)
+      if (val > alpha)
       {
-        if (!is_attack(move)/* && !in_check*/)
-        {
-          update_moves_stats(depth);
-        }
+        alpha = val;
 
-        hash_type = Type::Lower;
-        break;
+        if (val >= beta) break;
       }
     }
   }
+
+  // Histories | +0 elo (20s+.2 h2h-20) - requires fine tuning?
+
+  if (best >= beta && !is_attack(undo.best))
+    update_moves_stats(quiets_tried, quiets_cnt, depth);
+
+  if (best >= beta)
+    update_captures_stats(undo.best, captures_tried, captures_cnt, depth);
 
   if (is_empty(undo.excluded))
   {
@@ -627,12 +660,14 @@ Val SolverPVS::pvs(Val alpha, Val beta, int depth, bool is_null, bool is_singula
 
     if (!abort())
     {
-      Move best = hash_type == Upper ? Move::None : undo.best;
-      H->store(B->hash(), ply(), best, alpha, depth, hash_type);
+      auto bound = best >= beta  ? Hash::Lower
+                 : best > alpha_ ? Hash::Exact : Hash::Upper;
+      Move bm = bound == Upper ? Move::None : undo.best;
+      H->store(B->hash(), ply(), bm, best, depth, bound);
     }
   }
 
-  return alpha;
+  return best;
 }
 
 Val SolverPVS::qs(Val alpha, Val beta)

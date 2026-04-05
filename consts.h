@@ -27,6 +27,7 @@ enum Time
 enum Limits
 {
   Plies = 128,
+  M0ves = 256,
 };
 
 enum HashTables

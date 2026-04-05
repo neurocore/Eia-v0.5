@@ -37,6 +37,8 @@ namespace eia {
   static INLINE Val operator * (Val a, double k) { return static_cast<Val>(+a * k); }
   static INLINE Val operator / (Val a, double k) { return static_cast<Val>(+a / k); }
   static INLINE Val operator * (double k, Val a) { return static_cast<Val>(+a * k); }
+ 
+  static INLINE Val mated_in(int n){ return cp(n) - Inf; }
   
   static INLINE Val operator * (Val a, Val b)
   {

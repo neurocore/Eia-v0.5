@@ -22,6 +22,7 @@ class SolverPVS : public Solver
   Table * H;
   Counter counter;
   History history;
+  CapHist caphist;
 
   int max_ply;
   MS to_think;
@@ -58,7 +59,8 @@ public:
 
   template<bool QS>
   void set_movepicker(MovePicker<QS> & mp, Move hash);
-  void update_moves_stats(int depth);
+  void update_moves_stats(Move * moves, int cnt, int depth);
+  void update_captures_stats(Move best, Move * moves, int cnt, int depth);
 
   template<NodeType NT>
   Val pvs(Val alpha, Val beta, int depth, bool is_null = false, bool is_singular = false);
@@ -79,6 +81,7 @@ void SolverPVS::set_movepicker(MovePicker<QS> & mp, Move hash)
 
   mp.B = B;
   mp.H = &history;
+  mp.C = &caphist;
   mp.killer[0] = undo.killer[0];
   mp.killer[1] = undo.killer[1];
 
