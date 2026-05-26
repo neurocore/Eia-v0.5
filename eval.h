@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 #include <vector>
+#include "material.h"
 #include "piece.h"
 #include "duo.h"
 
@@ -161,6 +162,8 @@ class Eval
   Val n_adj[9];
   Val r_adj[9];
 
+  MatInfo mattable[+MatKey::Total];
+
 public:
   Eval(const Tune & tune = {}, bool no_pst = false, bool no_hash = false);
   void init();
@@ -220,18 +223,9 @@ private:
 #define APPLY(v, factor) (v)
 #endif
 
-// from Fruit 2.1
-const int PFile[8] = {-3, -1, +0, +1, +1, +0, -1, -3};
-const int NLine[8] = {-4, -2, +0, +1, +1, +0, -2, -4};
-const int NRank[8] = {-2, -1, +0, +1, +2, +3, +2, +1};
-const int BLine[8] = {-3, -1, +0, +1, +1, +0, -1, -3};
-const int RFile[8] = {-2, -1, +0, +1, +1, +0, -1, -2};
-const int QLine[8] = {-3, -1, +0, +1, +1, +0, -1, -3};
-const int KLine[8] = {-3, -1, +0, +1, +1, +0, -1, -3};
-const int KFile[8] = {+3, +4, +2, +0, +0, +2, +4, +3};
-const int KRank[8] = {+1, +0, -2, -3, -4, -5, -6, -7};
-
 // from CPW-Engine
 const int PAdj[9] = {-5, -4, -3, -2, -1, 0, +1, +2, +3};
+
+extern Eval E[1];
 
 }

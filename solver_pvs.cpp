@@ -3,6 +3,7 @@
 #include "solver_pvs.h"
 #include "history.h"
 #include "hash.h"
+#include "eval.h"
 
 using namespace std;
 
@@ -16,7 +17,7 @@ const Val Futility_Margin[] = { 0_cp, 50_cp, 350_cp, 550_cp };
 // from Ethereal
 const int LMP_Depth = 8;
 
-SolverPVS::SolverPVS(Eval * eval) : E(eval)
+SolverPVS::SolverPVS()
 {
   B = new Board;
   H = new Hash::Table(HashTables::Size);
@@ -26,7 +27,6 @@ SolverPVS::SolverPVS(Eval * eval) : E(eval)
 SolverPVS::~SolverPVS()
 {
   delete H;
-  delete E;
   delete B;
 }
 

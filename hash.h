@@ -3,6 +3,7 @@
 #include "moves.h"
 #include "value.h"
 #include "bitboard.h"
+#include "duo.h"
 
 namespace eia::Hash {
 

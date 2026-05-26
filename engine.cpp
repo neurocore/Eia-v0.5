@@ -12,7 +12,7 @@ namespace eia {
 
 Engine::Engine()
 {
-  S[0] = new SolverPVS(new Eval);
+  S[0] = new SolverPVS();
   S[1] = new Reader();
   cout.sync_with_stdio(false);
   cerr.sync_with_stdio(false);

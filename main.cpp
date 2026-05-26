@@ -1,14 +1,7 @@
 #include <iostream>
 #include <format>
-#include "bitboard.h"
-#include "magics.h"
-#include "piece.h"
-#include "moves.h"
-#include "board.h"
 #include "engine.h"
-#include "solver_pvs.h"
-#include "book.h"
-#include "epd.h"
+#include "eval.h"
 
 using namespace std;
 using namespace eia;
@@ -17,12 +10,14 @@ int main()
 {
   if (Input.is_console())
   {
-    cout << format("Chess engine {} v{} by {} (c) 2025-2026\n", Name, Vers, Auth);
+    say("Chess engine {} v{} by {} (c) 2025-2026\n", Name, Vers, Auth);
     report_num_threads();
   }
 
-  Engine * E = new Engine;
-  E->start();
+  //log("here we are {}\n", E->to_string());
+
+  Engine * engine = new Engine;
+  engine->start();
 
   return 0;
 }

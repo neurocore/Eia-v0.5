@@ -2,7 +2,6 @@
 #include "movepicker.h"
 #include "board.h"
 #include "solver.h"
-#include "eval.h"
 #include "hash.h"
 
 namespace eia {
@@ -18,7 +17,6 @@ class SolverPVS : public Solver
   int LMP_Counts[2][11];
   Undo undos[Limits::Plies];
   Board * B;
-  Eval * E;
   Table * H;
   Counter counter;
   History history;
@@ -31,7 +29,7 @@ class SolverPVS : public Solver
   Val best_val;
 
 public:
-  SolverPVS(Eval * eval);
+  SolverPVS();
   ~SolverPVS();
   void init();
   bool is_solver() { return true; }

@@ -9,6 +9,8 @@ using namespace std;
 
 namespace eia {
 
+Eval E[1];
+
 // from Toga
 const Val safety_table[100] =
 {
@@ -65,6 +67,16 @@ Val Eval::eval(const Board * B, Val alpha, Val beta, bool use_phash)
 #ifdef _DEBUG
   ed.clear();
 #endif
+
+  const MatKey mkey = B->mkey();
+  int scale = 256;
+
+  if (is_correct(mkey))
+  {
+    const auto matinfo = mattable[get_index(mkey)];
+    scale = matinfo.scale;
+    if (scale != 256) log("scale = {}\n", scale);
+  }
   
   for (int i = 0; i < BK; i++) // material
   {
@@ -140,6 +152,7 @@ Val Eval::eval(const Board * B, Val alpha, Val beta, bool use_phash)
   val += ei.king_safety(); // TODO: not tapered?
 
   Val score = (B->color ? val : -val) + term[Tempo];
+  score = score / 256 * scale; // rescale for endgames
   score = std::clamp(score, -Val::Mate / 2, Val::Mate / 2);
   return score * (1. - B->state.fifty / 100.);
 }
@@ -1055,6 +1068,18 @@ void Eval::init()
     passer_scale[rank] = pscore(256, k, rank);
 
     //cout << std::format("{}\n", passer_scale[rank]);
+  }
+
+  // Material info /////////////////////////////////////////////////
+
+  for (int wq = 0; wq < 2; wq++) for (int bq = 0; bq < 2; bq++)
+  for (int wr = 0; wr < 3; wr++) for (int br = 0; br < 3; br++)
+  for (int wb = 0; wb < 3; wb++) for (int bb = 0; bb < 3; bb++)
+  for (int wn = 0; wn < 3; wn++) for (int bn = 0; bn < 3; bn++)
+  for (int wp = 0; wp < 9; wp++) for (int bp = 0; bp < 9; bp++)
+  {
+    auto mat = get_matinfo({bp, wp, bn, wn, bb, wb, br, wr, bq, wq});
+    mattable[get_index(mat.first)] = mat.second;
   }
 }
 
