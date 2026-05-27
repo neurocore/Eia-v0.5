@@ -45,6 +45,8 @@ const std::string g_tune = ""; // Tunes::CMA_ES_Eth100;
   TERM(BishopFork,      68.7231_cp,   0_cp,   64_cp)  \
   TERM(KnightAdj,        0.4903_cp,   0_cp,   32_cp)  \
   TERM(RookAdj,          7.7480_cp,   0_cp,   32_cp)  \
+  TERM(TrappedHard,         150_cp,   0_cp,  256_cp)  \
+  TERM(TrappedSoft,          50_cp,   0_cp,  256_cp)  \
   TERM(EarlyQueen,       0.2204_cp,   0_cp,   32_cp)  \
   TERM(ContactCheckR,   72.8489_cp, 100_cp,  200_cp)  \
   TERM(ContactCheckQ,  182.2690_cp, 180_cp,  200_cp)  \
@@ -69,8 +71,6 @@ const std::string g_tune = ""; // Tunes::CMA_ES_Eth100;
   TERM(Tempo,            5.7927_cp,   0_cp,   64_cp)   
 
   //TERM(MatPawnOp,       82_cp,  40_cp,  160_cp) // anchor
-  // 
-  //TERM(KnightTrapped,   37.1417_cp,   0_cp,  256_cp) // this may be helpful
 
   //TERM(PawnFile,         0.2905_cp,   0_cp,   16_cp) // got rid of these
   //TERM(KnightCenterOp,   7.9365_cp,   0_cp,   16_cp) // in favor of PST

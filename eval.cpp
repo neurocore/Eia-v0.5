@@ -451,7 +451,8 @@ Duo Eval::evaluateN(const Board * B)
 
     vals += APPLY(pst[p][sq], "PST");
 
-    Val v = mob[Knight][popcnt(att & ~ei.pawn_atts[~Col])];
+    const u64 pawn_atts = ei.pawn_atts[~Col];
+    Val v = mob[Knight][popcnt(att & ~pawn_atts)];
     vals += APPLY(Duo(v, 3 * v / 2), "Mobility");
 
     // adjustments
@@ -459,6 +460,16 @@ Duo Eval::evaluateN(const Board * B)
     int pawns = popcnt(B->piece[BP ^ Col]);
     const Duo adj = Duo::both(this->n_adj[pawns]);
     vals += APPLY(adj, "Adjustments");
+
+    // trapped
+
+    const u64 mask = Col ? bit(H8) | bit(A8) | bit(H7) | bit(A7)
+                         : bit(H1) | bit(A1) | bit(H2) | bit(A2);
+
+    if (bit(sq) & mask && !(att & ~pawn_atts))
+    {
+      vals += APPLY(Duo::both(-term[TrappedHard]), "Trapped Knight");
+    }
 
     // forks
 
@@ -511,6 +522,31 @@ Duo Eval::evaluateB(const Board * B)
     else if (cnt < 12)
     {
       vals += APPLY(Duo::both(-term[BadBishop] / 2), "Bad bishop");
+    }
+
+    // trapped
+
+    u64 opp_pawns = B->piece[WP ^ Col];
+    bool trapped = false;
+
+    if (bit(sq) & (Col ? bit(H7) : bit(H2)))
+    {
+      u64 blockers = Col ? bit(F7) | bit(G6)
+                         : bit(F2) | bit(G3);
+
+      if ((opp_pawns & blockers) == blockers) trapped = true;
+    }
+    else if (bit(sq) & (Col ? bit(A7) : bit(A2)))
+    {
+      u64 blockers = Col ? bit(C7) | bit(B6)
+                         : bit(C2) | bit(B3);
+
+      if ((opp_pawns & blockers) == blockers) trapped = true;
+    }
+
+    if (trapped)
+    {
+      vals += APPLY(Duo::both(-term[TrappedHard]), "Trapped Bishop");
     }
 
     // forks
