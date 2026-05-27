@@ -159,6 +159,18 @@ const std::array<SQ_BB, Color_N> front = []
   return result;
 }();
 
+const std::array<SQ_BB, Color_N> fwd = []
+{
+  std::array<SQ_BB, Color_N> result{};
+  for (SQ sq = A1; sq < SQ_N; ++sq)
+  {
+    int r = rank(sq);
+    for (u64 bb = rank_bb[r] >> 8; bb; bb >>= 8) result[0][sq] |= bb;
+    for (u64 bb = rank_bb[r] << 8; bb; bb <<= 8) result[1][sq] |= bb;
+  }
+  return result;
+}();
+
 const std::array<SQ_BB, Color_N> att_span = []
 {
   std::array<SQ_BB, Color_N> result{};

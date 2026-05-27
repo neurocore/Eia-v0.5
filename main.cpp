@@ -14,8 +14,6 @@ int main()
     report_num_threads();
   }
 
-  //log("here we are {}\n", E->to_string());
-
   Engine * engine = new Engine;
   engine->start();
 

@@ -34,8 +34,7 @@ const std::string g_tune = ""; // Tunes::CMA_ES_Eth100;
   TERM(RMobSteep,       15.2661_cp,   0_cp,   32_cp)  \
   TERM(QMobSteep,        9.9879_cp,   0_cp,   32_cp)  \
   TERM(BishopPair,      44.2487_cp,   0_cp,   64_cp)  \
-  TERM(BadBishop,       63.8036_cp,   0_cp,   64_cp)  \
-  TERM(RammedBishop,    23.5441_cp,   0_cp,   64_cp)  \
+  TERM(BadBishop,       33.8036_cp,   0_cp,   64_cp)  \
   TERM(KnightOutpost,   29.8442_cp,   0_cp,   64_cp)  \
   TERM(RookSemi,        10.8155_cp,   0_cp,   64_cp)  \
   TERM(RookOpen,        27.9015_cp,   0_cp,   64_cp)  \

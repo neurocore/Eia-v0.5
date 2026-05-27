@@ -451,7 +451,7 @@ Duo Eval::evaluateN(const Board * B)
 
     vals += APPLY(pst[p][sq], "PST");
 
-    Val v = mob[Knight][popcnt(att)];
+    Val v = mob[Knight][popcnt(att & ~ei.pawn_atts[~Col])];
     vals += APPLY(Duo(v, 3 * v / 2), "Mobility");
 
     // adjustments
@@ -499,11 +499,19 @@ Duo Eval::evaluateB(const Board * B)
     Val v = mob[Bishop][popcnt(att)];
     vals += APPLY(Duo(v, 3 * v / 2), "Mobility");
 
-    // rammed bishop
+    // bad bishop
 
-    /*u64 colour = bit(sq) & Light ? Light : Dark;
-    Val v = -popcnt(colour & ei.rammed[Col]) * term[RammedBishop];
-    vals += APPLY(Duo(v, 2 * v), "Rammed bishop");*/
+    u64 pawn_mob = B->attack<Bishop>(sq, B->piece[BP ^ Col]);
+    int cnt = popcnt(pawn_mob & fwd[Col][sq]);
+
+    if (cnt < 5)
+    {
+      vals += APPLY(Duo::both(-term[BadBishop]), "Bad bishop");
+    }
+    else if (cnt < 12)
+    {
+      vals += APPLY(Duo::both(-term[BadBishop] / 2), "Bad bishop");
+    }
 
     // forks
 
@@ -747,6 +755,9 @@ void EvalInfo::init(const Board * B)
 
   const u64 bpawns = B->piece[BP];
   const u64 wpawns = B->piece[WP];
+
+  //rammed[0] = shift_u(wpawns) & bpawns;
+  //rammed[1] = shift_d(bpawns) & wpawns;
 
   pawn_atts[0]  = shift_dl(bpawns) | shift_dr(bpawns);
   pawn_atts[1]  = shift_ul(wpawns) | shift_ur(wpawns);
