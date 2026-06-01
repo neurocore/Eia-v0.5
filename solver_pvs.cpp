@@ -99,15 +99,35 @@ void SolverPVS::set(const Board & board)
   *B = board;
 }
 
+void SolverPVS::set_time(const SearchCfg & cfg)
+{
+  Color we = B->to_move(); // late EG needs more time
+  int moves_base = 50 - popcnt(B->occupied()) / 3;
+  int moves_left = std::max(25, moves_base - B->moves_cnt / 2);
+  MS time = cfg.time[we] - 50;
+  MS to_think = time / moves_left + cfg.inc[we] / 2;
+
+  hard_bound = std::min((MS)(1.2 * to_think), time - 50);
+  soft_bound = std::min((MS)(0.7 * to_think), hard_bound);
+
+  log("  time: {} + {}\n", time, cfg.inc[we]);
+  log(" whole: {}\n", to_think);
+  log("bounds: {} / {}\n\n", soft_bound, hard_bound);
+}
+
 Move SolverPVS::get_move(Timestamp move_start, const SearchCfg & cfg)
 {
   start = move_start;
-  to_think = cfg.full_time(B->to_move());
   infinite = cfg.infinite;
+  set_time(cfg);  
   max_ply = 0;
   nodes = 0ull;
   g_depth = 0;
   best_val = 0_cp;
+
+  const int iters_soft = 6;
+  Move bests[Limits::Plies + 1];
+  Val  vals[Limits::Plies + 1];
 
   for (int i = 0; i < Limits::Plies; i++)
     undos[i].excluded = Move::None;
@@ -136,11 +156,33 @@ Move SolverPVS::get_move(Timestamp move_start, const SearchCfg & cfg)
 
     best = is_empty(undos[0].best) ? best : undos[0].best;
 
+    bests[g_depth] = best;
+    vals[g_depth] = val;
+
     if (verbose)
     say<1>("info depth {} seldepth {} score {:o} nodes {} time {} pv {} hashfull {}\n",
             g_depth, max_ply, val, nodes, elapsed(start), best, H->hashfull());
 
     if (val > Val::Mate || val < -Val::Mate) break;
+
+    // checking soft bound
+
+    if (elapsed(start) > soft_bound
+    &&  g_depth > iters_soft)
+    {
+      bool stable_bests = true;
+      Val max_range = 0_cp;
+
+      for (int i = 0; i < iters_soft; i++)
+      {
+        if (best != bests[g_depth - i]) stable_bests = false;
+        Val range = abs(val - vals[g_depth - i]);
+        if (range > max_range) max_range = range;
+      }
+
+      bool stable_vals = max_range < 20_cp;
+      if (stable_bests && stable_vals) break;
+    }
   }
 
   if (verbose) say<1>("bestmove {}\n", best);
@@ -269,6 +311,9 @@ int SolverPVS::plegt()
 
 bool SolverPVS::abort() const
 {
+  if (!thinking) return true;
+  if (infinite) return false;
+
   if ((nodes & 8191) == 0 && Input.available())
   {
     std::string str;
@@ -282,11 +327,7 @@ bool SolverPVS::abort() const
     }
   }
 
-  if (!thinking) return true;
-  if (infinite) return false;
-
-  const MS time_to_move = to_think / 30;
-  if (elapsed(start) > time_to_move)
+  if (g_depth > 2 && elapsed(start) > hard_bound)
   {
     thinking = false;
     return true;

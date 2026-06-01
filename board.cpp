@@ -184,12 +184,11 @@ bool Board::set(string fen)
   string fen_fifty = cut(fen); // fifty move counter
   state.fifty = parse_int(fen_fifty);
 
-  // full move counter - no need
+  string fen_cnt = cut(fen); // full move counter
+  moves_cnt = parse_int(fen_cnt);
 
   state.bhash ^= color ? Empty : Zobrist::turn;
   state.pkhash ^= color ? Empty : Zobrist::turn;
-
-  moves_cnt = 0;
 
   state.checkers = king_attackers();
   state.threats = opp_attacks();

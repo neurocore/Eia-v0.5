@@ -25,8 +25,6 @@ struct SearchCfg
   bool infinite = false;
   int depth = Val::Inf;
 
-  INLINE MS full_time(Color c) const { return time[c] + inc[c]; }
-
   // not supported by eia
   Move searchmoves = Move::None;
   bool ponder = false;

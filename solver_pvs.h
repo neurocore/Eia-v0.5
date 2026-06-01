@@ -23,10 +23,12 @@ class SolverPVS : public Solver
   CapHist caphist;
 
   int max_ply;
-  MS to_think;
   u64 nodes;
   int g_depth;
   Val best_val;
+
+  MS soft_bound;
+  MS hard_bound;
 
 public:
   SolverPVS();
@@ -66,6 +68,9 @@ public:
 
   template<bool QS>
   friend struct MovePicker;
+
+private:
+  void set_time(const SearchCfg & cfg);
 };
 
 
