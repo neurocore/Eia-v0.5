@@ -101,18 +101,13 @@ void SolverPVS::set(const Board & board)
 
 void SolverPVS::set_time(const SearchCfg & cfg)
 {
-  Color we = B->to_move(); // late EG needs more time
-  int moves_base = 50 - popcnt(B->occupied()) / 3;
-  int moves_left = std::max(25, moves_base - B->moves_cnt / 2);
+  Color we = B->to_move();
+  int moves_left = std::max(25, 50 - B->moves_cnt / 2);
   MS time = cfg.time[we] - 50;
   MS to_think = time / moves_left + cfg.inc[we] / 2;
 
   hard_bound = std::min((MS)(1.2 * to_think), time - 50);
   soft_bound = std::min((MS)(0.7 * to_think), hard_bound);
-
-  log("  time: {} + {}\n", time, cfg.inc[we]);
-  log(" whole: {}\n", to_think);
-  log("bounds: {} / {}\n\n", soft_bound, hard_bound);
 }
 
 Move SolverPVS::get_move(Timestamp move_start, const SearchCfg & cfg)
@@ -327,7 +322,7 @@ bool SolverPVS::abort() const
     }
   }
 
-  if (g_depth > 2 && elapsed(start) > hard_bound)
+  if (g_depth > 1 && elapsed(start) > hard_bound)
   {
     thinking = false;
     return true;
