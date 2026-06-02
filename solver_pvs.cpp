@@ -162,7 +162,8 @@ Move SolverPVS::get_move(Timestamp move_start, const SearchCfg & cfg)
 
     // checking soft bound
 
-    if (elapsed(start) > soft_bound
+    if (!infinite
+    &&  elapsed(start) > soft_bound
     &&  g_depth > iters_soft)
     {
       bool stable_bests = true;
@@ -322,7 +323,7 @@ bool SolverPVS::abort() const
     }
   }
 
-  if (g_depth > 1 && elapsed(start) > hard_bound)
+  if (g_depth > 2 && elapsed(start) > hard_bound)
   {
     thinking = false;
     return true;

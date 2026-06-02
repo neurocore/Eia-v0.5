@@ -68,12 +68,11 @@ Val Eval::eval(const Board * B, Val alpha, Val beta, bool use_phash)
   ed.clear();
 #endif
 
-  const MatKey mkey = B->mkey();
   int scale = 256;
 
-  if (is_correct(mkey))
+  if (is_correct(B->mkey))
   {
-    const auto matinfo = mattable[get_index(mkey)];
+    const auto matinfo = mattable[get_index(B->mkey)];
     scale = matinfo.scale;
     if (scale != 256) log("scale = {}\n", scale);
   }

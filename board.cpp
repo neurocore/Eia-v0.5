@@ -36,6 +36,8 @@ void Board::clear()
   moves_cnt = 0;
   for (int i = 0; i < 8192; ++i)
     threefold[i] = 0ull;
+
+  mkey = MatKey::Init;
 }
 
 void Board::revert_states()

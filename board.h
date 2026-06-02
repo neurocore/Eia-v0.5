@@ -21,7 +21,6 @@ struct State
   SQ ep = SQ_N;
   Piece cap = NOP;
   Castling castling = Castling::NO;
-  MatKey mkey = MatKey::Init;
   int fifty = 0;
   u64 bhash = Empty;
   u64 pkhash = Empty;
@@ -42,6 +41,7 @@ struct Board
   State state;
   u64 threefold[8192];
   int moves_cnt;
+  MatKey mkey;
 
   State states[128];
   State * state_ptr;
@@ -67,11 +67,6 @@ public:
     return state.bhash
       ^ Zobrist::castle[(u8)state.castling]
       ^ Zobrist::ep[state.ep];
-  }
-
-  inline MatKey mkey() const
-  {
-    return state.mkey;
   }
 
   u64 calc_hash() const;
@@ -342,11 +337,10 @@ void Board::place(SQ sq, Piece p)
   occ[col(p)] ^= bit(sq);
   square[sq]   = p;
 
+  mkey += matkey[p];
+
   if constexpr (full)
   {
-    // state.pst += E->pst[p][sq];
-    state.mkey += matkey[p];
-
     state.bhash ^= Zobrist::key[p][sq];
     state.pkhash ^= Zobrist::pk_key[p][sq];
   }
@@ -362,11 +356,10 @@ void Board::remove(SQ sq)
   occ[col(p)] ^= bit(sq);
   square[sq]   = NOP;
 
+  mkey -= matkey[p];
+
   if constexpr (full)
   {
-    // state.pst -= E->pst[p][sq];
-    state.mkey -= matkey[p];
-
     state.bhash ^= Zobrist::key[p][sq];
     state.pkhash ^= Zobrist::pk_key[p][sq];
   }
