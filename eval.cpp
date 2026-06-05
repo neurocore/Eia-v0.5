@@ -87,14 +87,14 @@ Val Eval::eval(const Board * B, Val alpha, Val beta, bool use_phash)
     Val val = duo.tapered(B->phase());
     Val score = B->color ? val : -val;
     score += mopup(B, B->color);
-    return score * (1. - B->state.fifty / 100.);
+    return unzero(score * (1. - B->state.fifty / 100.));
   }
   else if (!B->has_pieces(~B->color))
   {
     Val val = duo.tapered(B->phase());
     Val score = B->color ? val : -val;
     score += mopup(B, ~B->color);
-    return score * (1. - B->state.fifty / 100.);
+    return unzero(score * (1. - B->state.fifty / 100.));
   }
 
   // collecting ei here
@@ -152,7 +152,7 @@ Val Eval::eval(const Board * B, Val alpha, Val beta, bool use_phash)
   Val score = (B->color ? val : -val) + term[Tempo];
   score = score / 256 * scale; // rescale for endgames
   score = std::clamp(score, -Val::Mate / 2, Val::Mate / 2);
-  return score * (1. - B->state.fifty / 100.);
+  return unzero(score * (1. - B->state.fifty / 100.));
 }
 
 Val Eval::mopup(const Board * B, Color weaker)

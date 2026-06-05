@@ -7,11 +7,11 @@ namespace eia {
 
   enum Val : int
   {
-    Draw  = 0,
+    Zero  = 0,
     Grain = 1,
     CP    = 10000,
-    Inf   = 32767 * CP,
     Mate  = 32000 * CP,
+    Inf   = 32767 * CP,
   };
 
   static INLINE Val operator ""_cp(u64 val) { return static_cast<Val>(+val * +CP); }
@@ -22,7 +22,7 @@ namespace eia {
   static INLINE float  dry_float(Val val)  { return static_cast<float>(val) / +CP; }
   static INLINE double dry_double(Val val) { return static_cast<double>(val) / +CP; }
   static INLINE Val to_val(int v){ return static_cast<Val>(v); }
-  static INLINE Val undraw(Val v){ return v == Draw ? Grain : v; }
+  static INLINE Val unzero(Val v){ return v == Zero ? Grain : v; }
 
   static INLINE Val operator + (Val a, Val b) { return static_cast<Val>(+a + +b); }
   static INLINE Val operator - (Val a, Val b) { return static_cast<Val>(+a - +b); }
@@ -39,6 +39,10 @@ namespace eia {
   static INLINE Val operator * (double k, Val a) { return static_cast<Val>(+a * k); }
  
   static INLINE Val mated_in(int n){ return cp(n) - Inf; }
+
+  static INLINE bool is_win(Val v)  { return v >  Mate; }
+  static INLINE bool is_lose(Val v) { return v < -Mate; }
+  static INLINE bool decisive(Val v) { return is_win(v) || is_lose(v); }
   
   static INLINE Val operator * (Val a, Val b)
   {

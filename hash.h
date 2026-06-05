@@ -14,12 +14,13 @@ namespace eia::Hash {
 
 enum Type { None, Lower, Upper, Exact };
 
-struct Entry // 8
+struct alignas(16) Entry
 {
-  u16 key16;      // 2
+  u32 key32;      // 4
   Move move;      // 2
   u8 depth, type; // 2
   i16 val;        // 2
+  i16 eval;       // 2
 };
 
 inline int val_from(int val, int height)
@@ -36,10 +37,10 @@ inline int val_to(int val, int height)
 
 inline u16 key_high(u64 key)
 {
-  return static_cast<u16>(key >> 48);
+  return static_cast<u16>(key >> 32);
 }
 
-const Entry entry0 { Empty, Move::None, 0u, 0u, 0 };
+const Entry entry0 { Empty, Move::None, 0u, 0u, 0u, 0 };
 
 
 class Table
@@ -83,7 +84,7 @@ public:
   {
     Entry & e = table[key & (size - 1)];
 
-    if (e.key16 != key_high(key)) return false;
+    if (e.key32 != key_high(key)) return false;
 
     Entry result = e;
     result.val = val_from(result.val, height);
@@ -91,19 +92,20 @@ public:
     return true;
   }
 
-  void store(u64 key, int height, Move move, Val val, int depth, Type type)
+  void store(u64 key, int height, Move move, Val val, Val eval, int depth, Type type)
   {
     Entry & entry = table[key & (size - 1)];
 
     if (type != Type::Exact
-    &&  key_high(key) == entry.key16
+    &&  key_high(key) == entry.key32
     &&  depth < entry.depth - 2) return;
 
     entry = Entry
     {
       key_high(key), move,
       (u8)depth, (u8)type,
-      (i16)val_to(dry(val), height)
+      (i16)val_to(dry(val), height),
+      (i16)dry(val)
     };
   }
 

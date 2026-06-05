@@ -357,8 +357,9 @@ Val SolverPVS::pvs(Val alpha, Val beta, int depth, bool is_null, bool is_singula
 
   if (ply() >= Limits::Plies) return E->eval(B, alpha, beta);
 
-  const bool in_check = !!B->state.checkers;
   Undo & undo = undos[ply()];
+  const bool in_check = !!B->state.checkers;
+  const bool excluded = !is_empty(undo.excluded);
   Val val = cp(ply()) - Val::Inf;
   Val best = -Val::Inf;
   Val alpha_ = alpha;
@@ -386,19 +387,23 @@ Val SolverPVS::pvs(Val alpha, Val beta, int depth, bool is_null, bool is_singula
   Entry entry{};
   bool tt_hit = false;
   Move hash_move = Move::None;
-  Val hash_val = 0_cp;
+  Val hash_val = Val::Zero;
+  Val hash_eval = Val::Zero;
 
-  if (is_empty(undo.excluded))
+  if (!excluded)
   {
     tt_hit = H->probe(B->hash(), ply(), entry);
     hash_move = tt_hit ? entry.move : Move::None;
-    hash_val = tt_hit ? cp(entry.val) : 0_cp;
+    hash_val = tt_hit ? cp(entry.val) : Val::Zero;
+    hash_eval = tt_hit ? cp(entry.eval) : Val::Zero;
 
     if constexpr (NT == NonPV) // +100 elo (1+1 h2h-10)
     {
       if (tt_hit
       &&  entry.depth >= depth)
       {
+        const Val hash_val = cp(entry.val);
+
         if (entry.type == Type::Exact
         || (entry.type == Type::Lower && hash_val >= beta)
         || (entry.type == Type::Upper && hash_val <= alpha))
@@ -409,8 +414,13 @@ Val SolverPVS::pvs(Val alpha, Val beta, int depth, bool is_null, bool is_singula
     }
   }
 
-  Val eval = tt_hit ? hash_val
-           : (NT == NonPV ? E->eval(B, alpha, beta) : 0_cp);
+  Val eval = hash_eval != Val::Zero ? hash_eval
+           : E->eval(B, alpha, beta);
+
+  if (!tt_hit && !in_check && !excluded) // +20 elo (20+.2s h2h-20)
+  {
+    H->store(B->hash(), ply(), Move::None, Val::Zero, eval, 0, Type::None);
+  }
 
   undo.eval = eval;
   const bool improving = !in_check && ply() > 2
@@ -558,7 +568,7 @@ Val SolverPVS::pvs(Val alpha, Val beta, int depth, bool is_null, bool is_singula
       &&  is_empty(undo.excluded)
       &&  entry.depth >= depth - 3
       &&  entry.type == Hash::Type::Lower
-      &&  abs(hash_val) < Val::Mate)
+      &&  !decisive(hash_val))
       {
         B->unmake(hash_move);
         Undo & undo = undos[ply()]; // numbers from SF
@@ -665,7 +675,7 @@ Val SolverPVS::pvs(Val alpha, Val beta, int depth, bool is_null, bool is_singula
       auto bound = best >= beta  ? Hash::Lower
                  : best > alpha_ ? Hash::Exact : Hash::Upper;
       Move bm = bound == Upper ? Move::None : undo.best;
-      H->store(B->hash(), ply(), bm, best, depth, bound);
+      H->store(B->hash(), ply(), bm, best, eval, depth, bound);
     }
   }
   return best;

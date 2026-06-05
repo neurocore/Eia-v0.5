@@ -1,5 +1,4 @@
 #include "movelist.h"
-#include "history.h"
 #include "board.h"
 
 namespace eia {
