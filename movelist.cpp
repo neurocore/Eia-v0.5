@@ -75,29 +75,12 @@ u64 MoveList::value_attack(Move mv, const Board * B)
   return O_BadCap;
 }
 
-void MoveList::value_attacks(const Board * B, CapHist & history)
+void MoveList::value_attacks(const Board * B)
 {
-  static const int MVV_Augment[] = { 0, 2400, 2400, 4800, 9600 };
-
   for (MoveVal * ptr = first; ptr != last; ptr++)
   {
     const Move mv = move(*ptr);
-    if (B->state.cap == Piece_N)
-    {
-      B->print();
-      log("{}\n", mv);
-      assert(false);
-    }
-
-    const MT mt   = get_mt(mv);
-    const auto cap = get_captured(B, mv);
-    const int hist = underlying_caphist(B, mv, history);
-    const bool qprom = is_prom(mt) && promoted(mv) == Queen;
-
-    const u64 val = O_EqCap + 64000 * qprom + hist + MVV_Augment[cap];
-
-    *ptr += val << 32;
-    //*ptr += value_attack(mv, B) << 32;
+    *ptr += value_attack(mv, B) << 32;
   }
 }
 

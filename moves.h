@@ -254,7 +254,6 @@ INLINE std::string to_string(Castling castling, std::string fill = "")
 }
 
 using History = int[Color_N][2][2][SQ_N][SQ_N];
-using CapHist = int[Piece_N][2][2][SQ_N][PieceType_N - 1];
 using Counter = Move[Color_N][SQ_N][SQ_N];
 
 }

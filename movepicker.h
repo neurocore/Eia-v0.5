@@ -19,7 +19,6 @@ struct MovePicker
   Stage stage;
   Board * B;
   History * H;
-  CapHist * C;
   MoveList ml;
   Move hash_mv, killer[2], counter;
 
@@ -49,7 +48,7 @@ Move MovePicker<QS>::get_next(bool do_quiets)
       else          B->generate_attacks<Black, QS>(ml);
 
       ml.remove_move(hash_mv);
-      ml.value_attacks(B, *C);
+      ml.value_attacks(B);
 
       [[fallthrough]];
 

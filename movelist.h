@@ -70,7 +70,7 @@ public:
     }
   }
 
-  void value_attacks(const Board * B, CapHist & history);
+  void value_attacks(const Board * B);
   void value_quiets(const Board * B, const History & history);
 
   std::vector<Move> to_moves()

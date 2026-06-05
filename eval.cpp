@@ -74,7 +74,6 @@ Val Eval::eval(const Board * B, Val alpha, Val beta, bool use_phash)
   {
     const auto matinfo = mattable[get_index(B->mkey)];
     scale = matinfo.scale;
-    if (scale != 256) log("scale = {}\n", scale);
   }
   
   for (int i = 0; i < BK; i++) // material
