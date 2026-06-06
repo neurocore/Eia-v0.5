@@ -123,6 +123,9 @@ public:
   template<Color COL>
   INLINE u64  opp_atts() const;
 
+  template<Color COL>
+  INLINE u64  discovered(SQ sq) const;
+
   int see(Move move) const;
   Move recognize(Move move);
   Move parse_san(std::string str);
@@ -328,6 +331,24 @@ INLINE u64 Board::opp_atts() const
   }
 
   return att;
+}
+
+template<Color Col>
+INLINE u64 Board::discovered(SQ sq) const
+{
+  const u64 opp = occ[~Col];
+  const u64 o = occupied();
+
+  const u64 batt = b_att(o, sq);
+  const u64 ratt = r_att(o, sq);
+
+  const u64 bq = diags<~Col>() & ~batt; // not direct
+  const u64 rq = ortho<~Col>() & ~ratt; //  attack
+
+  const u64 bq2 = bq & b_att(o & ~batt, sq); // discovered
+  const u64 rq2 = rq & r_att(o & ~ratt, sq); // attackers
+
+  return bq2 | rq2;
 }
 
 template<bool full>

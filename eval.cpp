@@ -654,6 +654,14 @@ Duo Eval::evaluateQ(const Board * B)
 
     ei.add_king_attack(Col, AttWeight::Queen, att);
 
+    // relative pin
+
+    if (B->discovered<Col>(sq))
+    {
+      const Val v = term[QPin];
+      vals += APPLY(-Duo::both(v), "Queen relative pin");
+    }
+
     // pst & mobility
 
     vals += APPLY(pst[p][sq], "PST");
