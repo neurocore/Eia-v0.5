@@ -176,11 +176,8 @@ const std::array<SQ_BB, Color_N> att_span = []
   std::array<SQ_BB, Color_N> result{};
   for (SQ sq = A1; sq < SQ_N; ++sq)
   {
-    result[0][sq]  = file(sq) > 0 ? front[0][sq - 1] : Empty;
-    result[0][sq] |= file(sq) < 7 ? front[0][sq + 1] : Empty;
-
-    result[1][sq]  = file(sq) > 0 ? front[1][sq - 1] : Empty;
-    result[1][sq] |= file(sq) < 7 ? front[1][sq + 1] : Empty;
+    for (u64 bb = atts[BP][sq] >> 8; bb; bb >>= 8) result[0][sq] |= bb;
+    for (u64 bb = atts[WP][sq] << 8; bb; bb <<= 8) result[1][sq] |= bb;
   }
   return result;
 }();
@@ -216,8 +213,8 @@ const std::array<SQ_BB, Color_N> att_rear = []
   std::array<SQ_BB, Color_N> result{};
   for (SQ sq = A1; sq < SQ_N; ++sq)
   {
-    result[0][sq] = att_span[0][sq] ^ isolator[sq];
-    result[1][sq] = att_span[1][sq] ^ isolator[sq];
+    result[0][sq] = isolator[sq] ^ att_span[0][sq] ^ atts[BP][sq];
+    result[1][sq] = isolator[sq] ^ att_span[1][sq] ^ atts[WP][sq];
   }
   return result;
 }();

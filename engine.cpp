@@ -266,21 +266,25 @@ void Engine::test_evades_gen()
 
 void Engine::eval()
 {
-  Eval E;
-
-  E.set_explanations(true);
-  Val val = E.eval(&B, -Val::Inf, Val::Inf, false);
-  E.set_explanations(false);
+  E->set_explanations(true);
+  Val val = E->eval(&B, -Val::Inf, Val::Inf, false);
+  E->set_explanations(false);
 
   string str = format("Eval: {}\n\n", val);
 
 #ifdef _DEBUG
-  auto & details = E.get_details();
+  Duo duo{};
+  auto & details = E->get_details();
   for (const auto & d : details)
   {
     if (d.vals.eg == 0 && d.vals.op == 0) continue;
     str += format("{} {} {} {}\n", d.p, d.sq, d.vals, d.factor);
+    duo += d.vals;
   }
+  const int phase = B.phase();
+  str += format("Total: {}\n", duo);
+  str += format("Phase: {} / {}\n", phase, Phase::Total);
+  str += format("Value: {}\n", duo.tapered(phase));
 #else
   str += "Use in debug mode to get details\n";
 #endif

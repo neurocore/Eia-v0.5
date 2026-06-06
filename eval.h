@@ -116,6 +116,7 @@ struct EvalInfo
   u64 attacked_by[Color_N][PieceType_N];
   u64 attacked_by2[Color_N];
   u64 attacked[Color_N];
+  u64 passers;
 
   void init(const Board * B);
 
@@ -191,7 +192,7 @@ private:
   template<Color Col> Duo evaluateQ(const Board * B);
   template<Color Col> Duo evaluateK(const Board * B);
 
-  template<Color Col> Duo eval_passer(const Board * B, SQ sq);
+  template<Color Col> Duo eval_passers(const Board * B);
   template<Color Col> Duo eval_threats(const Board * B);
 
 #ifdef _DEBUG

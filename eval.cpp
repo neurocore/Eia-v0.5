@@ -31,16 +31,15 @@ const Val weakness_push_table[] =
   128_cp, 106_cp, 86_cp, 68_cp, 52_cp, 38_cp, 26_cp, 16_cp, 8_cp, 2_cp
 };
 
-//    Engine        Score          St         Mo         Ei         Ei         Li    S-B
-// 1: Stellar-1.4.3 32,0/40 ·········· =000101011 =1111111=1 1111111111 11101=1111  505,25
-// 2: Monarch(v1.7) 26,0/40 =111010100 ·········· 0101010011 1==1010110 111111=111  428,75
-// 3: Eia-v0.5      22,0/40 =0000000=0 1010101100 ·········· 11=1=1011= 111110=111  318,50
-// 4: Eia_v0_3      13,5/40 0000000000 0==0101001 00=0=0100= ·········· =101011=11  204,50
-// 5: Liquid_v0_1   6,5/40  00010=0000 000000=000 000001=000 =010100=00 ··········  134,50
-//
-// 100 games played / Tournament is finished
-// Name of the tournament: 105
-// Level: Blitz 0:20/0,2
+//    Engine        Score          St         Ei         Mo         Ei    S-B
+// 1: Stellar-1.4.3 25,0/30 ·········· 1111001=11 =111011111 11=11=1111  285,00
+// 2: Eia-v0.5_new  16,5/30 0000110=00 ·········· 111=110110 1==1111=00  193,25
+// 3: Monarch(v1.7) 10,5/30 =000100000 000=001001 ·········· 10=1=101=1  130,75
+// 4: Eia_v0_3      8,0/30  00=00=0000 0==0000=11 01=0=010=0 ··········  119,50
+// 
+// 60 games played / Tournament is finished
+// Name of the tournament: 213
+// Level: Blitz 1/1
 
 
 // All tests were done with control 10s+.1s (h2h-30)
@@ -50,11 +49,11 @@ const Val weakness_push_table[] =
 // + connected pawns           +30 elo
 // + threats                  +150 elo
 // + rebalanced material       +50 elo
-// - trapped pieces            ??? elo
-// - relative pin on queen     ??? elo
+// + trapped pieces            +10 elo
+// + bad bishop                +15 elo
 // 
-// = bishop rammed pawns       -70 elo (need to tune?)
-// = soft mobility             -80 elo
+// - wider passers             ??? elo
+// - relative pin on queen     ??? elo
 
 Val Eval::eval(const Board * B, Val alpha, Val beta, bool use_phash)
 {
@@ -81,6 +80,8 @@ Val Eval::eval(const Board * B, Val alpha, Val beta, bool use_phash)
     const u64 bb = B->piece[i];
     duo += mat[i] * popcnt(bb);
   }
+
+  A(duo, NOP, SQ_N, "material");
 
   if (!B->has_pieces(B->color)) // Mop-up evaluation
   {
@@ -144,6 +145,7 @@ Val Eval::eval(const Board * B, Val alpha, Val beta, bool use_phash)
   duo += evaluateQ<White>(B) - evaluateQ<Black>(B);
   duo += evaluateK<White>(B) - evaluateK<Black>(B);
 
+  duo += eval_passers<White>(B) - eval_passers<Black>(B);
   duo += eval_threats<White>(B) - eval_threats<Black>(B);
 
   Val val = duo.tapered(B->phase());
@@ -230,9 +232,10 @@ Duo Eval::evaluateP(const Board * B)
     u64 fore_friendly = front[Col][sq] & B->piece[p];
     u64 connected  = psupport[Col][sq] & B->piece[p];
 
+    u64 blocked = front_one[Col][sq] & B->piece[opp];
     u64 cannot_pass = front[Col][sq] & B->piece[opp];
-    u64 has_support = att_rear[Col][sq] & B->piece[p];
-    u64 has_sentry = att_span[Col][sq] & B->piece[opp];
+    u64 supports = att_rear[Col][sq] & B->piece[p];
+    u64 sentries = att_span[Col][sq] & B->piece[opp];
 
     // isolated
 
@@ -252,15 +255,15 @@ Duo Eval::evaluateP(const Board * B)
 
     // blocked weak
 
-    if (cannot_pass)
+    if (blocked)
     {
       ei.rammed[Col] |= bit(sq);
-      if (!has_support) ei.add_weak(Col, sq);
+      if (!supports) ei.add_weak(Col, sq);
     }
 
     // backward
 
-    if (!has_support && has_sentry)
+    if (!supports && sentries)
     {
       bool developed = Col ? rank(sq) > 3 : rank(sq) < 4;
       if (!developed)
@@ -286,8 +289,16 @@ Duo Eval::evaluateP(const Board * B)
 
     if (!cannot_pass && !fore_friendly)
     {
-      const Duo v = eval_passer<Col>(B, sq);
-      vals += APPLY(v, "Passers");
+      if (!sentries)
+      {
+        ei.passers |= Bit << sq;
+      }
+      else if (popcnt(supports) >= popcnt(sentries)) // candidate
+      {
+        int prank = Col ? rank(sq) : 7 - rank(sq);
+        const Val v = term[Candidate] / 256 * passer_scale[prank];
+        vals += APPLY(Duo(v / 2, v), "Candidate passer");
+      }
     }
   }
 
@@ -328,103 +339,101 @@ Duo Eval::evaluateP(const Board * B)
 }
 
 template<Color Col>
-Duo Eval::eval_passer(const Board * B, SQ sq)
+Duo Eval::eval_passers(const Board * B)
 {
+  constexpr int forward = Col ? 8 : -8;
+  constexpr Piece p = to_piece(Pawn, Col);
   const SQ king = ei.king[Col];
   const SQ kopp = ei.king[~Col];
-
-  // kpk probe <- TODO
-  Val kpk = 0_cp;
-  /*if (!B->has_pieces(Col) && !B->has_pieces(~Col))
-  {
-    int win = Kpk::probe<Col>(Col, king, sq, kopp);
-    if (win > 0)
-    {
-      u64 pawns = B->piece[BP] | B->piece[WP];
-      if (only_one(pawns))
-      {
-        kpk += term[Unstoppable];
-      }
-    }
-  }*/
-
   Val v = 0_cp;
-  const Piece p = BP ^ Col;
-  const u64 sentries = att_span[Col][sq] & B->piece[opp(p)];
-  int prank = Col ? rank(sq) : 7 - rank(sq);
-  prank += prank == 1; // double pawn move
-  prank += B->color == Col; // tempo
-  const int scale = passer_scale[prank];
 
-  // TODO: decrease scale factor for edge passers
-
-  if (!sentries) // Passer
+  for (u64 bb = ei.passers & B->occ[Col]; bb; bb = rlsb(bb))
   {
-    v += term[Passer] / 256 * scale;
+    SQ sq = bitscan(bb);
 
-    if (!(front[Col][sq] & B->occ[Col]) // Unstoppable
-    &&  !B->has_pieces(~Col))
+    // kpk probe <- TODO
+    Val kpk = 0_cp;
+    /*if (!B->has_pieces(Col) && !B->has_pieces(~Col))
     {
-      SQ prom = to_sq(file(sq), Col ? 7 : 0);
-      int turn = static_cast<int>(B->color != Col);
-
-      // opp king is not in square
-      if (k_dist(kopp, prom) - turn > k_dist(sq, prom))
+      int win = Kpk::probe<Col>(Col, king, sq, kopp);
+      if (win > 0)
       {
-        v += term[Unstoppable];
-      }
-    }
-    else
-    if (!(bit(sq) & (FileA | FileH)) // King passer
-    &&  !B->has_pieces(~Col))
-    {
-      SQ prom = to_sq(file(sq), Col ? 7 : 0);
-
-      // own king controls all promote path
-      if (file(king) != file(sq)
-      &&  k_dist(king, sq) <= 1
-      &&  k_dist(king, prom) <= 1)
-      {
-        v += term[Unstoppable];
-      }
-    }
-    else // Bonuses for increasing passers potential
-    {
-      if (psupport[Col][sq] & B->piece[p]) // Supported
-      {
-        v += term[Supported] / 256 * scale;
-      }
-
-      const u64 o = B->occ[0] | B->occ[1];
-      if (!(front_one[Col][sq] & o)) // Free passer
-      {
-        SQ stop = Col ? sq + 8 : sq - 8;
-        Move move = to_move(sq, stop);
-        if (B->see(move) > 0)
+        u64 pawns = B->piece[BP] | B->piece[WP];
+        if (only_one(pawns))
         {
-          v += term[FreePasser];
+          kpk += term[Unstoppable];
         }
       }
+    }*/
 
-      // King tropism to stop square
+    const u64 sentries = att_span[Col][sq] & B->piece[opp(p)];
+    int prank = Col ? rank(sq) : 7 - rank(sq);
+    prank += B->color == Col; // tempo
+    const int scale = passer_scale[prank];
 
-      SQ stop = Col ? sq + 8 : sq - 8;
-      Val tropism = 20_cp * k_dist(kopp, stop)
-                  -  5_cp * k_dist(king, stop);
+    // TODO: decrease scale factor for edge passers
 
-      if (tropism > 0_cp) v += tropism;
-    }
-  }
-  else if (only_one(sentries)) // Candidate
-  {
-    SQ j = bitscan(sentries); // simplest case
-    if (front[~Col][j] & B->piece[p])
+    if (!sentries) // Passer
     {
-      v += term[Candidate] / 256 * scale;
+      v += term[Passer] / 256 * scale;
+
+      if (!(front[Col][sq] & B->occ[Col]) // Unstoppable
+      &&  !B->has_pieces(~Col))
+      {
+        SQ prom = to_sq(file(sq), Col ? 7 : 0);
+        int turn = static_cast<int>(B->color != Col);
+
+        // opp king is not in square
+        if (k_dist(kopp, prom) - turn > k_dist(sq, prom))
+        {
+          v += term[Unstoppable];
+        }
+      }
+      else
+      if (!(bit(sq) & (FileA | FileH)) // King passer
+      &&  !B->has_pieces(~Col))
+      {
+        SQ prom = to_sq(file(sq), Col ? 7 : 0);
+
+        // own king controls all promote path
+        if (file(king) != file(sq)
+        &&  k_dist(king, sq) <= 1
+        &&  k_dist(king, prom) <= 1)
+        {
+          v += term[Unstoppable];
+        }
+      }
+      else // Bonuses for increasing passers potential
+      {
+        if (psupport[Col][sq] & B->piece[p]) // Supported
+        {
+          v += term[Supported] / 256 * scale;
+        }
+
+        const u64 o = B->occupied();
+        if (prank > 4 && !(front_one[Col][sq] & o)) // Free passer
+        {
+          SQ stop = Col ? sq + 8 : sq - 8;
+          Move move = to_move(sq, stop);
+          if (B->see(move) > 0)
+          {
+            v += term[FreePasser];
+          }
+        }
+
+        // King tropism to stop square
+
+        SQ stop = Col ? sq + 8 : sq - 8;
+        Val tropism = 20_cp * k_dist(kopp, stop)
+                    -  5_cp * k_dist(king, stop);
+
+        if (tropism > 0_cp) v += tropism;
+      }
     }
+
+    v += kpk;
   }
 
-  v += kpk;
   return Duo(v / 2, v);
 }
 
@@ -805,6 +814,7 @@ void EvalInfo::init(const Board * B)
   attacked_by2[0] = attacked_by2[1] = 0ull;
 
   attacked_by[0][Pawn] = attacked_by[1][Pawn] = 0ull;
+  passers = 0ull;
 }
 
 void EvalInfo::add_king_attack(Color col, AttWeight weight, u64 att)
@@ -1107,13 +1117,21 @@ void Eval::init()
     return static_cast<int>(m * nexp(k, rank) / nexp(k, 6));
   };
 
+  const double k = unzero(dry_double(term[PasserK])) / 32.0;
+
   for (int rank = 0; rank < 8; rank++)
   {
-    const double k = unzero(dry_double(term[PasserK])) / 32.0;
     passer_scale[rank] = pscore(256, k, rank);
-
-    //cout << std::format("{}\n", passer_scale[rank]);
   }
+
+  passer_scale[0] = 0;
+  passer_scale[1] = passer_scale[2]; // doubled move
+  passer_scale[7] = passer_scale[6]; // for tempo adj
+
+  /*for (int rank = 0; rank < 8; rank++)
+  {
+    cout << std::format("{}\n", passer_scale[rank]);
+  }*/
 
   // Material info /////////////////////////////////////////////////
 
@@ -1157,8 +1175,8 @@ template Duo Eval::evaluateR<White>(const Board * B);
 template Duo Eval::evaluateQ<White>(const Board * B);
 template Duo Eval::evaluateK<White>(const Board * B);
 
-template Duo Eval::eval_passer<Black>(const Board * B, SQ sq);
-template Duo Eval::eval_passer<White>(const Board * B, SQ sq);
+template Duo Eval::eval_passers<Black>(const Board * B);
+template Duo Eval::eval_passers<White>(const Board * B);
 
 template Duo Eval::eval_threats<Black>(const Board * B);
 template Duo Eval::eval_threats<White>(const Board * B);

@@ -8,15 +8,16 @@ using SQ_BB  = std::array<u64, SQ_N + 1>;
 using SQ_SQ  = std::array<SQ,  SQ_N + 1>;
 using SQ_Val = std::array<int, SQ_N + 1>;
 
-// front_one  front  att_span  att_rear  isolator  psupport  kingzone
+// front_one  front  att_span  att_rear   isolator  psupport  kingzone
 //
+//   ---       -x-     x-x       ---       x-x       ---       ---
 //   ---       -x-     x-x       ---       x-x       ---       xxx
-//   -x-       -x-     x-x       ---       x-x       ---       xxx
+//   -x-       -x-     ---       ---       x-x       ---       xxx
 //   -O-       -O-     -O-       xOx       xOx       xOx       xOx
 //   ---       ---     ---       x-x       x-x       x-x       xxx
 //   ---       ---     ---       x-x       x-x       ---       ---
 
-// isolator = att_span | att_rear
+// isolator = att_span | att_rear | pawn_att
 // psupport = (rank | backrank) & isolator
 
 extern const std::array<SQ_BB, Piece_N> atts;
