@@ -394,16 +394,14 @@ Val SolverPVS::pvs(Val alpha, Val beta, int depth, bool is_null, bool is_singula
   {
     tt_hit = H->probe(B->hash(), ply(), entry);
     hash_move = tt_hit ? entry.move : Move::None;
-    hash_val = tt_hit ? cp(entry.val) : Val::Zero;
-    hash_eval = tt_hit ? cp(entry.eval) : Val::Zero;
+    hash_val  = tt_hit ? entry.val : Val::Zero;
+    hash_eval = tt_hit ? entry.eval : Val::Zero;
 
     if constexpr (NT == NonPV) // +100 elo (1+1 h2h-10)
     {
       if (tt_hit
       &&  entry.depth >= depth)
       {
-        const Val hash_val = cp(entry.val);
-
         if (entry.type == Type::Exact
         || (entry.type == Type::Lower && hash_val >= beta)
         || (entry.type == Type::Upper && hash_val <= alpha))
@@ -414,8 +412,7 @@ Val SolverPVS::pvs(Val alpha, Val beta, int depth, bool is_null, bool is_singula
     }
   }
 
-  Val eval = hash_eval != Val::Zero ? hash_eval
-           : E->eval(B, alpha, beta);
+  Val eval = hash_eval  ? hash_eval : E->eval(B, alpha, beta);
 
   if (!tt_hit && !in_check && !excluded) // +20 elo (20+.2s h2h-20)
   {
@@ -696,7 +693,8 @@ Val SolverPVS::qs(Val alpha, Val beta)
   Entry entry;
   const bool tt_hit = H->probe(B->hash(), ply(), entry);
   Move hash_move = tt_hit ? entry.move : Move::None;
-  Val hash_val = tt_hit ? cp(entry.val) : 0_cp;
+  Val  hash_val  = tt_hit ? entry.val : Val::Zero;
+  Val  hash_eval = tt_hit ? entry.eval : Val::Zero;
 
   if (tt_hit)
   {
@@ -710,8 +708,13 @@ Val SolverPVS::qs(Val alpha, Val beta)
 
   // 2. Calculating stand pat
 
-  Val eval = in_check ? cp(ply()) - Val::Inf : E->eval(B, alpha, beta);
-  //H->store(B->hash(), ply(), Move::None, eval, 0, Type::None);
+  Val eval = in_check ? cp(ply()) - Val::Inf
+           : hash_eval ? hash_eval : E->eval(B, alpha, beta);
+
+  if (!tt_hit && !in_check) // ?? elo (20+.2s h2h-20)
+  {
+    H->store(B->hash(), ply(), Move::None, Val::Zero, eval, 0, Type::None);
+  }
 
   if (eval >= beta) return beta;
   if (eval > alpha) alpha = eval;

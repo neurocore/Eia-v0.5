@@ -19,20 +19,19 @@ struct alignas(16) Entry
   u32 key32;      // 4
   Move move;      // 2
   u8 depth, type; // 2
-  i16 val;        // 2
-  i16 eval;       // 2
+  Val val, eval;  // 8
 };
 
-inline int val_from(int val, int height)
+inline Val val_from(Val val, int height)
 {
-  return val >=  dry(Val::Mate) ? val - height
-       : val <= -dry(Val::Mate) ? val + height : val;
+  return val >=  Val::Mate ? val - cp(height)
+       : val <= -Val::Mate ? val + cp(height) : val;
 }
 
-inline int val_to(int val, int height)
+inline Val val_to(Val val, int height)
 {
-  return val >=  dry(Val::Mate) ? val + height
-       : val <= -dry(Val::Mate) ? val - height : val;
+  return val >=  Val::Mate ? val + cp(height)
+       : val <= -Val::Mate ? val - cp(height) : val;
 }
 
 inline u16 key_high(u64 key)
@@ -40,7 +39,7 @@ inline u16 key_high(u64 key)
   return static_cast<u16>(key >> 32);
 }
 
-const Entry entry0 { Empty, Move::None, 0u, 0u, 0u, 0 };
+const Entry entry0 { 0ull, Move::None, 0u, 0u, Val::Zero, Val::Zero };
 
 
 class Table
@@ -104,8 +103,8 @@ public:
     {
       key_high(key), move,
       (u8)depth, (u8)type,
-      (i16)val_to(dry(val), height),
-      (i16)dry(val)
+      val_to(val, height),
+      eval
     };
   }
 
