@@ -505,7 +505,7 @@ Val SolverPVS::pvs(Val alpha, Val beta, int depth, bool is_null, bool is_singula
     if (B->color) B->generate_evasions<White>(evades);
     else          B->generate_evasions<Black>(evades);
 
-    pre_extend = 2 * (evades.count() == 1);
+    pre_extend = 1 * (evades.count() == 1);
   }
 
   // Looking all legal moves
