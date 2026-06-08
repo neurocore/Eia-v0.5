@@ -296,8 +296,8 @@ INLINE u64 Board::king_attrs() const
 template<Color COL>
 INLINE u64 Board::opp_atts() const
 {
-  u64 att;
-  const u64 o = occupied();
+  u64 att; // remove king to attack through
+  const u64 o = occupied() ^ piece[BK ^ COL];
   const u64 pawns = piece[WP ^ COL];
 
   if constexpr (COL) att = shift_dl(pawns) | shift_dr(pawns);
@@ -759,9 +759,9 @@ void Board::generate_evasions(MoveList & ml) const
 
   // 3. Check blockage
     
-  const u64 king = bitscan(piece[BK ^ COL]);
-  const u64 attr = bitscan(state.checkers);
-  const u64 ray  = between[king][attr];
+  const SQ king = bitscan(piece[BK ^ COL]);
+  const SQ attr = bitscan(state.checkers);
+  const u64 ray = between[king][attr];
 
   gen_lookup<COL, false, Knight>(ml, ray);
   gen_slider<COL, false, true>(ml, ray);

@@ -495,6 +495,19 @@ Val SolverPVS::pvs(Val alpha, Val beta, int depth, bool is_null, bool is_singula
   //  }
   //}
 
+  // 4. Singular evade from check | +100 elo (20s+.2 h2h-20)
+
+  int pre_extend = 0;
+
+  if (in_check)
+  {
+    MoveList evades;
+    if (B->color) B->generate_evasions<White>(evades);
+    else          B->generate_evasions<Black>(evades);
+
+    pre_extend = 2 * (evades.count() == 1);
+  }
+
   // Looking all legal moves
 
   int legal = 0;
@@ -508,28 +521,12 @@ Val SolverPVS::pvs(Val alpha, Val beta, int depth, bool is_null, bool is_singula
     if (move == undo.excluded) continue;
     if (!B->make(move)) continue;
 
-    /*if constexpr (NT == PV)
-    {
-      log("{}\n", move);
-    }*/
-
     undo.curr = move;
     legal++;
     bool gives_check = B->in_check();
     bool is_tactical = is_attack(move);
 
-    int reduce = 0, extend = 0;
-
-    // Late Move Pruning | +0 elo (20s+.2 h2h-20)
-    // 
-    //  losing opportunities, sometimes vital
-
-    /*if (val > -Val::Mate
-    &&  depth <= LMP_Depth
-    &&  legal >= LMP_Counts[improving][depth])
-    {
-      do_quiets = false;
-    }*/
+    int reduce = 0, extend = pre_extend;
 
     // Check extension | +50 elo (20s+.2 h2h-20)
     
