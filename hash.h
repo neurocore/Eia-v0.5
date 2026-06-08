@@ -11,6 +11,7 @@ namespace eia::Hash {
 //
 //  - no bucket system, no aging
 //  - replacement is simply 'always'
+//  - full values for scores (+100 elo | 20+.2s h2h-20)
 
 enum Type { None, Lower, Upper, Exact };
 
