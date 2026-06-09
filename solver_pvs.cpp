@@ -429,7 +429,7 @@ Val SolverPVS::pvs(Val alpha, Val beta, int depth, bool is_null, bool is_singula
 
     if (!in_check
     &&  !is_null
-    &&  is_empty(undo.excluded)
+    &&  !excluded
     &&  depth >= 1
     &&  depth <= 3)
     {
@@ -440,19 +440,20 @@ Val SolverPVS::pvs(Val alpha, Val beta, int depth, bool is_null, bool is_singula
     }
   }
 
-  //if constexpr (NT == NonPV) // 
-  //{
-  //  // 2.1. Reversed Futility Pruning
+  if constexpr (NT == NonPV) // +30 elo (20+.2s h2h-20)
+  {
+    // 2.1. Reverse Futility Pruning
 
-  //  if (!in_check
-  //  &&  !is_null
-  //  &&  is_empty(undo.excluded)
-  //  &&  depth <= 6)
-  //  {
-  //    if (eval - 65 * std::max(0, (depth - improving)) >= beta)
-  //      return eval;
-  //  }
-  //}
+    if (!in_check
+    &&  !is_null
+    &&  !excluded
+    &&  depth <= 8)
+    {
+      const Val margin = 65_cp * std::max(0, depth - improving);
+      if (eval >= beta + margin)
+        return eval;
+    }
+  }
 
   if constexpr (NT == NonPV) // +100 elo (10s+.1 h2h-20)
   {
@@ -495,18 +496,18 @@ Val SolverPVS::pvs(Val alpha, Val beta, int depth, bool is_null, bool is_singula
   //  }
   //}
 
-  // 4. Singular evade from check | +100 elo (20s+.2 h2h-20)
+  // 4. Singular evade from check | +50 elo (20s+.2 h2h-20)
 
   int pre_extend = 0;
 
-  if (in_check)
+  /*if (in_check) // leads to search stuck in tactical poss
   {
     MoveList evades;
     if (B->color) B->generate_evasions<White>(evades);
     else          B->generate_evasions<Black>(evades);
 
     pre_extend = 1 * (evades.count() == 1);
-  }
+  }*/
 
   // Looking all legal moves
 

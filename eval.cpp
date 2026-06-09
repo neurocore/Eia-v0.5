@@ -352,21 +352,6 @@ Duo Eval::eval_passers(const Board * B)
   {
     SQ sq = bitscan(bb);
 
-    // kpk probe <- TODO
-    Val kpk = 0_cp;
-    /*if (!B->has_pieces(Col) && !B->has_pieces(~Col))
-    {
-      int win = Kpk::probe<Col>(Col, king, sq, kopp);
-      if (win > 0)
-      {
-        u64 pawns = B->piece[BP] | B->piece[WP];
-        if (only_one(pawns))
-        {
-          kpk += term[Unstoppable];
-        }
-      }
-    }*/
-
     const u64 sentries = att_span[Col][sq] & B->piece[opp(p)];
     int prank = Col ? rank(sq) : 7 - rank(sq);
     prank += B->color == Col; // tempo
@@ -431,10 +416,7 @@ Duo Eval::eval_passers(const Board * B)
         if (tropism > 0_cp) v += tropism;
       }
     }
-
-    v += kpk;
   }
-
   return Duo(v / 2, v);
 }
 
