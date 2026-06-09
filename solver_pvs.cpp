@@ -31,7 +31,7 @@ SolverPVS::~SolverPVS()
 
 void SolverPVS::init()
 {
-  // from Ethereal
+  // both from Ethereal
 
   for (int depth = 1; depth < 64; depth++)
   {
@@ -349,6 +349,17 @@ void SolverPVS::update_moves_stats(int depth)
   }
 }
 
+int SolverPVS::get_history(Move move) const
+{
+  const SQ from = get_from(move);
+  const SQ to = get_to(move);
+
+  const bool leave = B->state.threats & bit(from);
+  const bool enter = B->state.threats & bit(to);
+
+  return history[B->color][leave][enter][from][to];
+}
+
 template<NodeType NT>
 Val SolverPVS::pvs(Val alpha, Val beta, int depth, bool is_null, bool is_singular)
 {
@@ -496,22 +507,9 @@ Val SolverPVS::pvs(Val alpha, Val beta, int depth, bool is_null, bool is_singula
   //  }
   //}
 
-  // 4. Singular evade from check | +50 elo (20s+.2 h2h-20)
-
-  int pre_extend = 0;
-
-  /*if (in_check) // leads to search stuck in tactical poss
-  {
-    MoveList evades;
-    if (B->color) B->generate_evasions<White>(evades);
-    else          B->generate_evasions<Black>(evades);
-
-    pre_extend = 1 * (evades.count() == 1);
-  }*/
-
   // Looking all legal moves
 
-  int legal = 0;
+  int seen = 0, legal = 0;
   bool do_quiets = true;
   MovePickerPVS mp;
   set_movepicker(mp, hash_move);
@@ -520,14 +518,28 @@ Val SolverPVS::pvs(Val alpha, Val beta, int depth, bool is_null, bool is_singula
   while (!is_empty(move = mp.get_next(do_quiets)))
   {
     if (move == undo.excluded) continue;
+
+    seen++;
+    const bool is_tactical = is_attack(move);
+
+    // Late Move Pruning | -100 elo (20s+.2 h2h-20)
+
+    //if (!is_tactical       // something wrong with moves ordering
+    //&&  depth <= LMP_Depth
+    //&&  seen >= LMP_Counts[improving][depth]
+    //&&  mp.stage == Stage::Quiets) 
+    //{
+    //  continue;
+    //}
+
     if (!B->make(move)) continue;
 
     undo.curr = move;
     legal++;
-    bool gives_check = B->in_check();
-    bool is_tactical = is_attack(move);
+    const bool gives_check = B->in_check();
+    const int hist = get_history(move);
 
-    int reduce = 0, extend = pre_extend;
+    int reduce = 0, extend = 0;
 
     // Check extension | +50 elo (20s+.2 h2h-20)
     
@@ -599,11 +611,11 @@ Val SolverPVS::pvs(Val alpha, Val beta, int depth, bool is_null, bool is_singula
       }
     }
     
-    // LMR | +70 elo (20s+.2 h2h-20)
+    // LMR | +100 elo (20s+.2 h2h-20)
 
     if (!is_null
-    &&  !in_check
     &&  depth >= 3
+    &&  legal > 1
     &&  extend <= 0
     &&  !is_tactical)
     {
@@ -613,8 +625,14 @@ Val SolverPVS::pvs(Val alpha, Val beta, int depth, bool is_null, bool is_singula
       // Non-PV nodes and not imporing reduced
       reduce += (NT == NonPV) + !improving;
 
+      // Increase for king moves that evade checks
+      reduce += in_check && pt(B->square[get_to(move)]) == King;
+
       // Prevent reducing killers and countermove
       reduce -= (mp.stage < Stage::GenQuiets);
+
+      // Adjust based on history scores
+      reduce -= hist / 6167;
     }
 
     // Don't extend or drop into QS

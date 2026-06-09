@@ -59,6 +59,7 @@ public:
   template<bool QS>
   void set_movepicker(MovePicker<QS> & mp, Move hash);
   void update_moves_stats(int depth);
+  int get_history(Move move) const;
 
   template<NodeType NT>
   Val pvs(Val alpha, Val beta, int depth, bool is_null = false, bool is_singular = false);
