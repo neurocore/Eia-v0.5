@@ -82,7 +82,7 @@ Val Eval::eval(const Board * B, Val alpha, Val beta, bool use_phash)
     duo += mat[i] * popcnt(bb);
   }
 
-  A(duo, NOP, SQ_N, "material");
+  A(duo, NOP, SQ_N, "Material");
 
   if (!B->has_pieces(B->color)) // Mop-up evaluation
   {
@@ -346,7 +346,7 @@ Duo Eval::eval_passers(const Board * B)
   constexpr Piece p = to_piece(Pawn, Col);
   const SQ king = ei.king[Col];
   const SQ kopp = ei.king[~Col];
-  Val v = 0_cp;
+  Duo vals = 0_cp;
 
   for (u64 bb = ei.passers & B->occ[Col]; bb; bb = rlsb(bb))
   {
@@ -354,14 +354,14 @@ Duo Eval::eval_passers(const Board * B)
 
     const u64 sentries = att_span[Col][sq] & B->piece[opp(p)];
     int prank = Col ? rank(sq) : 7 - rank(sq);
-    prank += B->color == Col; // tempo
     const int scale = passer_scale[prank];
 
     // TODO: decrease scale factor for edge passers
 
     if (!sentries) // Passer
     {
-      v += term[Passer] / 256 * scale;
+      Val v = term[Passer] / 256 * scale;
+      vals += APPLY(Duo(v / 2, v), "Passer");
 
       if (!(front[Col][sq] & B->occ[Col]) // Unstoppable
       &&  !B->has_pieces(~Col))
@@ -372,7 +372,8 @@ Duo Eval::eval_passers(const Board * B)
         // opp king is not in square
         if (k_dist(kopp, prom) - turn > k_dist(sq, prom))
         {
-          v += term[Unstoppable];
+          Val w = term[Unstoppable];
+          vals += APPLY(Duo(w / 2, w), "Unstoppable");
         }
       }
       else
@@ -386,14 +387,16 @@ Duo Eval::eval_passers(const Board * B)
         &&  k_dist(king, sq) <= 1
         &&  k_dist(king, prom) <= 1)
         {
-          v += term[Unstoppable];
+          Val v = term[Unstoppable];
+          vals += APPLY(Duo(v / 2, v), "King passer");
         }
       }
       else // Bonuses for increasing passers potential
       {
         if (psupport[Col][sq] & B->piece[p]) // Supported
         {
-          v += term[Supported] / 256 * scale;
+          Val v = term[Supported] / 256 * scale;
+          vals += APPLY(Duo(v / 2, v), "Supported passer");
         }
 
         const u64 o = B->occupied();
@@ -403,21 +406,26 @@ Duo Eval::eval_passers(const Board * B)
           Move move = to_move(sq, stop);
           if (B->see(move) > 0)
           {
-            v += term[FreePasser];
+            Val v = term[FreePasser];
+            vals += APPLY(Duo(v / 2, v), "Free passer");
           }
         }
 
         // King tropism to stop square
 
         SQ stop = Col ? sq + 8 : sq - 8;
-        Val tropism = 20_cp * k_dist(kopp, stop)
-                    -  5_cp * k_dist(king, stop);
+        Val tropism = term[PasserAtt] * k_dist(kopp, stop)
+                    - term[PasserDef] * k_dist(king, stop);
 
-        if (tropism > 0_cp) v += tropism;
+        if (tropism > 0_cp)
+        {
+          Val v = tropism;
+          vals += APPLY(Duo(v / 2, v), "Passer king tropism");
+        }
       }
     }
   }
-  return Duo(v / 2, v);
+  return vals;
 }
 
 template<Color Col>

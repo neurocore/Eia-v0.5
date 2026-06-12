@@ -58,6 +58,8 @@ const std::string g_tune = ""; // Tunes::CMA_ES_Eth100;
   TERM(Supported,       28.9072_cp,   0_cp,  256_cp)  \
   TERM(Unstoppable,    400.3234_cp, 700_cp, 1000_cp)  \
   TERM(FreePasser,      82.9463_cp,   0_cp,  128_cp)  \
+  TERM(PasserAtt,       20.0000_cp,   0_cp,  128_cp)  \
+  TERM(PasserDef,        5.0000_cp,   0_cp,  128_cp)  \
   TERM(Xray,             2.3989_cp,   0_cp,   64_cp)  \
   TERM(QPin,            25.0000_cp,   0_cp,   64_cp)  \
   TERM(PinMul,           9.8395_cp,   0_cp,   64_cp)  \

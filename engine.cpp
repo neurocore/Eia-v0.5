@@ -279,7 +279,7 @@ void Engine::eval()
   {
     if (d.vals.eg == 0 && d.vals.op == 0) continue;
     str += format("{} {} {} {}\n", d.p, d.sq, d.vals, d.factor);
-    duo += d.vals;
+    duo += d.p == NOP || d.p ? d.vals : -d.vals;
   }
   const int phase = B.phase();
   str += format("Total: {}\n", duo);
