@@ -384,14 +384,14 @@ Val SolverPVS::pvs(Val alpha, Val beta, int depth, bool is_null, bool is_singula
     if (B->is_draw()) return contempt();
   }
 
-  // 0. Mate pruning ?? -35 elo (20s+.2 h2h-40)
+  // 0. Mate distance pruning | +0 elo (20s+.2 h2h-50)
 
-  /*if constexpr (NT != Root)
+  if constexpr (NT != Root)
   {
-    Val r_alpha = std::max(-Val::Inf + cp(ply()), alpha);
-    Val r_beta  = std::min( Val::Inf - cp(ply() + 1), beta);
-    if (r_alpha >= r_beta) return r_alpha;
-  }*/
+    alpha = std::max(-Val::Inf + cp(ply()), alpha);
+    beta  = std::min( Val::Inf - cp(ply() + 1), beta);
+    if (alpha >= beta) return alpha;
+  }
 
   // 1. Retrieving hash move
 
