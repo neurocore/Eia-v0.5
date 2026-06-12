@@ -143,7 +143,7 @@ Move SolverPVS::get_move(Timestamp move_start, const SearchCfg & cfg)
     say<1>("info depth {} seldepth {} score {:o} nodes {} time {} pv {} hashfull {}\n",
             g_depth, max_ply, val, nodes, elapsed(start), best, H->hashfull());
 
-    if (val > Val::Mate || val < -Val::Mate) break;
+    //if (val > Val::Mate || val < -Val::Mate) break;
 
     // checking soft bound
 

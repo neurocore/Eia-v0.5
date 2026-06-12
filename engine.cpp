@@ -277,7 +277,6 @@ void Engine::eval()
   auto & details = E->get_details();
   for (const auto & d : details)
   {
-    if (d.vals.eg == 0 && d.vals.op == 0) continue;
     str += format("{} {} {} {}\n", d.p, d.sq, d.vals, d.factor);
     duo += d.p == NOP || d.p ? d.vals : -d.vals;
   }

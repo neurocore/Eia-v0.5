@@ -84,19 +84,22 @@ Val Eval::eval(const Board * B, Val alpha, Val beta, bool use_phash)
 
   A(duo, NOP, SQ_N, "Material");
 
-  if (!B->has_pieces(B->color)) // Mop-up evaluation
+  if (!B->pawns()) // Mop-up evaluation
   {
-    Val val = duo.tapered(B->phase());
-    Val score = B->color ? val : -val;
-    score += mopup(B, B->color);
-    return unzero(score * (1. - B->state.fifty / 100.));
-  }
-  else if (!B->has_pieces(~B->color))
-  {
-    Val val = duo.tapered(B->phase());
-    Val score = B->color ? val : -val;
-    score += mopup(B, ~B->color);
-    return unzero(score * (1. - B->state.fifty / 100.));
+    if (!B->has_pieces(B->color))
+    {
+      Val val = duo.tapered(B->phase());
+      Val score = B->color ? val : -val;
+      score += mopup(B, B->color);
+      return unzero(score * (1. - B->state.fifty / 100.));
+    }
+    else if (!B->has_pieces(~B->color))
+    {
+      Val val = duo.tapered(B->phase());
+      Val score = B->color ? val : -val;
+      score += mopup(B, ~B->color);
+      return unzero(score * (1. - B->state.fifty / 100.));
+    }
   }
 
   // collecting ei here
