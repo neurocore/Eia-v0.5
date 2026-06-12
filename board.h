@@ -77,6 +77,12 @@ public:
     return !!pieces;
   }
 
+  INLINE bool has_pieces() const
+  {
+    u64 pieces = occupied() ^ kings() ^ pawns();
+    return !!pieces;
+  }
+
   INLINE bool is_pawn_eg(Color col) const
   {
     return !has_pieces(~col) && !!piece[WP ^ col];
