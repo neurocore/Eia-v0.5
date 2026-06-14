@@ -143,9 +143,11 @@ Move SolverPVS::get_move(Timestamp move_start, const SearchCfg & cfg)
     say<1>("info depth {} seldepth {} score {:o} nodes {} time {} pv {} hashfull {}\n",
             g_depth, max_ply, val, nodes, elapsed(start), best, H->hashfull());
 
-    //if (val > Val::Mate || val < -Val::Mate) break;
+    if (val + cp(g_depth) >  Val::Inf) break;
+    if (val - cp(g_depth) < -Val::Inf) break;
 
-    // checking soft bound
+
+    // checking soft time bound
 
     if (!infinite
     &&  elapsed(start) > soft_bound
@@ -439,7 +441,6 @@ Val SolverPVS::pvs(Val alpha, Val beta, int depth, bool is_null, bool is_singula
     // 2. Futility Pruning
 
     if (!in_check
-    &&  !is_null
     &&  !excluded
     &&  depth >= 1
     &&  depth <= 3)
@@ -456,7 +457,6 @@ Val SolverPVS::pvs(Val alpha, Val beta, int depth, bool is_null, bool is_singula
     // 2.1. Reverse Futility Pruning
 
     if (!in_check
-    &&  !is_null
     &&  !excluded
     &&  depth <= 8)
     {
@@ -466,12 +466,11 @@ Val SolverPVS::pvs(Val alpha, Val beta, int depth, bool is_null, bool is_singula
     }
   }
 
-  if constexpr (NT == NonPV) // +108 elo (20+.2s h2h-20)
+  if constexpr (NT == NonPV) // +30 elo (20+.2s h2h-80)
   {
-    // 2.2. Razoring
+    // 2.2. Limited Razoring
 
     if (!in_check
-    &&  !is_null
     &&  !excluded
     &&  depth == 3
     &&  eval + 1150_cp <= alpha
