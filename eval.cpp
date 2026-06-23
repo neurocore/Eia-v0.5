@@ -128,13 +128,14 @@ Val Eval::eval(const Board * B, Val alpha, Val beta, bool use_phash)
   //        __debugbreak();
   //      }
   //    }*/
-  //    Hash::pk_store(B->state.pkhash, pvals, ei.eg_weak);
+  //    Hash::pk_store(B->state.pkhash, pvals, ei.eg_weak, ei.passers);
   //  }
   //  else
   //  {
   //    pvals = pk->vals;
   //    ei.eg_weak[0] = pk->weak[0];
   //    ei.eg_weak[1] = pk->weak[1];
+  //    ei.passers = pk->passers;
   //  }
   //}
   //else

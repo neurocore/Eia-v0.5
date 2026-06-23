@@ -1,4 +1,5 @@
 #pragma once
+#include <bit>
 #include <array>
 #include <concepts>
 #include <iostream>
@@ -33,8 +34,6 @@ const u64 Rank8 = 0xff00000000000000ull;
 const u64 QWing = FileA | FileB | FileC | FileD;
 const u64 KWing = FileE | FileF | FileG | FileH;
 
-const u64 Debruijn = 0x03f79d71b4cb0a89ull;
-
 INLINE u64 bit(SQ sq) { return Bit << static_cast<int>(sq); }
 INLINE u64 lsb(u64 bb) { return bb & (Empty - bb); }
 INLINE u64 rlsb(u64 bb) { return bb & (bb - Bit); }
@@ -51,45 +50,17 @@ INLINE T msb(T bb)
   return static_cast<T>(1) << n;
 }
 
-const std::array<int, 65536> lut = []
-{
-  std::array<int, 65536> arr{};
-  for (int i = 0; i < 65536; ++i)
-  {
-    int cnt = 0;
-    for (u64 j = +i; j; j = rlsb(j)) ++cnt;
-    arr[i] = cnt;
-  }
-  return arr;
-}();
-
-const int btscn[64] =
-{
-   0,  1, 48,  2, 57, 49, 28,  3,
-  61, 58, 50, 42, 38, 29, 17,  4,
-  62, 55, 59, 36, 53, 51, 43, 22,
-  45, 39, 33, 30, 24, 18, 12,  5,
-  63, 47, 56, 27, 60, 41, 37, 16,
-  54, 35, 52, 21, 44, 32, 23, 11,
-  46, 26, 40, 15, 34, 20, 31, 10,
-  25, 14, 19,  9, 13,  8,  7,  6
-};
-
 const u64 file_bb[] = { FileA, FileB, FileC, FileD, FileE, FileF, FileG, FileH };
 const u64 rank_bb[] = { Rank1, Rank2, Rank3, Rank4, Rank5, Rank6, Rank7, Rank8 };
 
 INLINE int popcnt(u64 bb)
 {
-  const int a =  bb >> 48;
-  const int b = (bb >> 32) & 0xFFFF;
-  const int c = (bb >> 16) & 0xFFFF;
-  const int d =  bb        & 0xFFFF;
-  return lut[a] + lut[b] + lut[c] + lut[d];
+  return std::popcount(bb);
 }
 
 INLINE SQ bitscan(u64 bb)
 {
-  return static_cast<SQ>(btscn[(lsb(bb) * Debruijn) >> 58]);
+  return static_cast<SQ>(std::countr_zero(bb));
 }
 
 struct BitBoard { u64 val; }; // adapter
