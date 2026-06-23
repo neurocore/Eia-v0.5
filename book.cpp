@@ -92,7 +92,7 @@ void BookReader::parse_line(vector<string> line)
 
     if (mv == Move::None)
     {
-      B.print();
+      say("{}", B.to_string());
       say("Move {} isn't legal!\n", move);
       assert(false);
       return;

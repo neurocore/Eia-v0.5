@@ -267,3 +267,13 @@ struct std::formatter<eia::Move> : std::formatter<std::string>
     return std::formatter<std::string>::format(str, ctx);
   }
 };
+
+template<>
+struct std::formatter<eia::Castling> : std::formatter<std::string>
+{
+  auto format(const eia::Castling & c, std::format_context & ctx) const
+  {
+    std::string str = to_string(c);
+    return std::formatter<std::string>::format(str, ctx);
+  }
+};

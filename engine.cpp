@@ -309,7 +309,7 @@ void Engine::set_pos(string fen, std::vector<Move> moves)
       break;
     }
   }
-  B.print();
+  log("{}", B.to_string());
 }
 
 bool Engine::do_move(Move mv)

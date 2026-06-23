@@ -179,7 +179,7 @@ u64 SolverPVS::perft(int depth)
   u64 count = 0ull;
 
   say("-- Perft {}\n", depth);
-  B->print();
+  say("{}", B->to_string());
 
   start = Clock::now();
 
@@ -258,7 +258,7 @@ int SolverPVS::plegt()
   MoveList pseudo, legal;
   B->generate_all(pseudo);
   B->generate_legal(legal);
-  B->print();
+  say("{}", B->to_string());
 
   say("Pseudo moves: {}\n", pseudo.count());
   say("Legal moves: {}\n\n", legal.count());

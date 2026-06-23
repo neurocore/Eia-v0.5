@@ -102,8 +102,7 @@ public:
   bool set(std::string fen = Pos::Init);
   std::string to_fen();
 
-  void print() const;
-  void print(Move move) const;
+  std::string to_string() const;
 
   template<PieceType PT>
   INLINE u64  attack(SQ sq) const;

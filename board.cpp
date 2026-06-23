@@ -249,30 +249,27 @@ bool Board::operator == (const Board & board) const
   return true;
 }
 
-void Board::print() const
+string Board::to_string() const
 {
+  string str;
   for (int y = 7; y >= 0; --y)
   {
-    cout << ' ' << (y + 1) << " | ";
+    str += format(" {} | ", y + 1);
 
     for (int x = 0; x < 8; ++x)
     {
       SQ sq = to_sq(x, y);
       Piece p = square[sq];
       
-      cout << to_char(p) << ' ';
+      str += format("{} ", p);
     }
-    cout << "\n";
+    str += "\n";
   }
-  cout << "   +----------------  ";
-  cout << (color ? "<W>" : "<B>") << " ";
-  cout << to_string(state.castling) << "\n";
-  cout << "     a b c d e f g h   \n\n";
-}
-
-void Board::print(Move move) const
-{
-  cout << move; // TODO: make prettifier
+  str += "   +----------------  ";
+  str += format("<{}> ", color ? "W" : "B");
+  str += format("{}\n", state.castling);
+  str += "     a b c d e f g h   \n\n";
+  return str;
 }
 
 INLINE u64 Board::attack(Piece p, SQ sq) const
