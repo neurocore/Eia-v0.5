@@ -84,28 +84,28 @@ Val Eval::eval(const Board * B, Val alpha, Val beta, bool use_phash)
 
   A(duo, NOP, SQ_N, "Material");
 
-  if (!B->pawns()) // Mop-up evaluation
-  {
-    if (!B->has_pieces(B->color))
-    {
-      Val val = duo.tapered(B->phase());
-      Val score = B->color ? val : -val;
-      score += mopup(B, B->color);
-      return unzero(score * (1. - B->state.fifty / 100.));
-    }
-    else if (!B->has_pieces(~B->color))
-    {
-      Val val = duo.tapered(B->phase());
-      Val score = B->color ? val : -val;
-      score += mopup(B, ~B->color);
-      return unzero(score * (1. - B->state.fifty / 100.));
-    }
-  }
+  //if (!B->pawns()) // Mop-up evaluation | -30 elo (20s+.2 h2h-20)
+  //{
+  //  if (!B->has_pieces(B->color))
+  //  {
+  //    Val val = duo.tapered(B->phase());
+  //    Val score = B->color ? val : -val;
+  //    score += mopup(B, B->color);
+  //    return unzero(score * (1. - B->state.fifty / 100.));
+  //  }
+  //  else if (!B->has_pieces(~B->color))
+  //  {
+  //    Val val = duo.tapered(B->phase());
+  //    Val score = B->color ? val : -val;
+  //    score += mopup(B, ~B->color);
+  //    return unzero(score * (1. - B->state.fifty / 100.));
+  //  }
+  //}
 
   // collecting ei here
   duo += evalxrays<White>(B) - evalxrays<Black>(B);
 
-  // Pawn-king hash table | +20 elo (20s+.2 h2h-20)
+  // Pawn-king hash table | -30 elo (20s+.2 h2h-20) mistakes?
 
   Duo pvals;
 
@@ -115,23 +115,23 @@ Val Eval::eval(const Board * B, Val alpha, Val beta, bool use_phash)
   //  if (pk == nullptr)
   //  {
   //    pvals = evaluateP<White>(B) - evaluateP<Black>(B);
-
-  //    /*if (pk != nullptr)
-  //    {
-  //      if (pvals != pk->vals
-  //      ||  ei.eg_weak[0] != pk->weak[0]
-  //      ||  ei.eg_weak[1] != pk->weak[1])
-  //      {
-  //        B->print();
-  //        log("Expected: val {} weaks {} {}\n", pvals, ei.eg_weak[0], ei.eg_weak[1]);
-  //        log("Hashed:   val {} weaks {} {}\n", pk->vals, pk->weak[0], pk->weak[1]);
-  //        __debugbreak();
-  //      }
-  //    }*/
   //    Hash::pk_store(B->state.pkhash, pvals, ei.eg_weak, ei.passers);
   //  }
   //  else
   //  {
+  //    //pvals = evaluateP<White>(B) - evaluateP<Black>(B); // recheck
+
+  //    //if (pvals != pk->vals
+  //    //||  ei.passers != pk->passers
+  //    //||  ei.eg_weak[0] != pk->weak[0]
+  //    //||  ei.eg_weak[1] != pk->weak[1])
+  //    //{
+  //    //  log("{}", B->to_string());
+  //    //  log("Expected: val {} weaks {} {}\n", pvals, ei.eg_weak[0], ei.eg_weak[1]);
+  //    //  log("Hashed:   val {} weaks {} {}\n", pk->vals, pk->weak[0], pk->weak[1]);
+  //    //  __debugbreak();
+  //    //}
+
   //    pvals = pk->vals;
   //    ei.eg_weak[0] = pk->weak[0];
   //    ei.eg_weak[1] = pk->weak[1];

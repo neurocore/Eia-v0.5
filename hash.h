@@ -121,7 +121,9 @@ public:
 };
 
 
-// Pawn hash table with kings positions
+// --------------------------------------------
+//  Pawn hash table with kings positions
+// --------------------------------------------
 
 struct PK_Entry
 {
@@ -133,7 +135,7 @@ struct PK_Entry
 constexpr int PK_HASH_BITS = 16;
 constexpr int PK_HASH_MASK = (1 << PK_HASH_BITS) - 1;
 
-static PK_Entry pk_table[PK_HASH_MASK]; // 2 mb
+static PK_Entry pk_table[1 << PK_HASH_BITS]{}; // 2 mb
 
 inline PK_Entry const * pk_probe(u64 key)
 {

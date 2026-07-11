@@ -190,7 +190,6 @@ bool Board::set(string fen)
   moves_cnt = parse_int(fen_cnt);
 
   state.bhash ^= color ? Empty : Zobrist::turn;
-  state.pkhash ^= color ? Empty : Zobrist::turn;
 
   state.checkers = king_attackers();
   state.threats = opp_attacks();
@@ -816,7 +815,6 @@ bool Board::make(Move move)
 
   color = ~color;
   state.bhash ^= Zobrist::turn;
-  state.pkhash ^= Zobrist::turn;
   threefold[moves_cnt++] = hash();
 
 #ifdef _DEBUG
@@ -924,7 +922,6 @@ void Board::make_null()
   color = ~color;
   state.ep = SQ_N;
   state.bhash ^= Zobrist::turn;
-  state.pkhash ^= Zobrist::turn;
   threefold[moves_cnt++] = hash();
 }
 

@@ -466,19 +466,19 @@ Val SolverPVS::pvs(Val alpha, Val beta, int depth, bool is_null, bool is_singula
     }
   }
 
-  if constexpr (NT == NonPV) // +30 elo (20+.2s h2h-80)
-  {
-    // 2.2. Limited Razoring
+  //if constexpr (NT == NonPV) // -50 elo (20+.2s h2h-80)
+  //{
+  //  // 2.2. Limited Razoring
 
-    if (!in_check
-    &&  !excluded
-    &&  depth == 3
-    &&  eval + 1150_cp <= alpha
-    &&  B->has_pieces())
-    {
-      depth--;
-    }
-  }
+  //  if (!in_check
+  //  &&  !excluded
+  //  &&  depth == 3
+  //  &&  eval + 1150_cp <= alpha
+  //  &&  B->has_pieces())
+  //  {
+  //    depth--;
+  //  }
+  //}
 
   if constexpr (NT == NonPV) // +100 elo (10s+.1 h2h-20)
   {
