@@ -105,40 +105,27 @@ Val Eval::eval(const Board * B, Val alpha, Val beta, bool use_phash)
   // collecting ei here
   duo += evalxrays<White>(B) - evalxrays<Black>(B);
 
-  // Pawn-king hash table | -30 elo (20s+.2 h2h-20) mistakes?
+  // Pawn-king hash table | +27.85 elo (5+.05 h2h-100)
 
   Duo pvals;
 
-  //if (!no_hash && use_phash)
-  //{
-  //  auto pk = Hash::pk_probe(B->state.pkhash);
-  //  if (pk == nullptr)
-  //  {
-  //    pvals = evaluateP<White>(B) - evaluateP<Black>(B);
-  //    Hash::pk_store(B->state.pkhash, pvals, ei.eg_weak, ei.passers);
-  //  }
-  //  else
-  //  {
-  //    //pvals = evaluateP<White>(B) - evaluateP<Black>(B); // recheck
-
-  //    //if (pvals != pk->vals
-  //    //||  ei.passers != pk->passers
-  //    //||  ei.eg_weak[0] != pk->weak[0]
-  //    //||  ei.eg_weak[1] != pk->weak[1])
-  //    //{
-  //    //  log("{}", B->to_string());
-  //    //  log("Expected: val {} weaks {} {}\n", pvals, ei.eg_weak[0], ei.eg_weak[1]);
-  //    //  log("Hashed:   val {} weaks {} {}\n", pk->vals, pk->weak[0], pk->weak[1]);
-  //    //  __debugbreak();
-  //    //}
-
-  //    pvals = pk->vals;
-  //    ei.eg_weak[0] = pk->weak[0];
-  //    ei.eg_weak[1] = pk->weak[1];
-  //    ei.passers = pk->passers;
-  //  }
-  //}
-  //else
+  if (!no_hash && use_phash)
+  {
+    auto pk = Hash::pk_probe(B->state.pkhash);
+    if (pk == nullptr)
+    {
+      pvals = evaluateP<White>(B) - evaluateP<Black>(B);
+      Hash::pk_store(B->state.pkhash, pvals, ei.weak, ei.passers);
+    }
+    else
+    {
+      pvals = pk->vals;
+      ei.weak[0] = pk->weak & B->occ[0];
+      ei.weak[1] = pk->weak & B->occ[1];
+      ei.passers = pk->passers;
+    }
+  }
+  else
   {
     pvals = evaluateP<White>(B) - evaluateP<Black>(B);
   }
@@ -223,7 +210,7 @@ Duo Eval::evaluateP(const Board * B)
   constexpr Piece p = to_piece(Pawn, Col);
   constexpr Piece opp = to_piece(Pawn, ~Col);
 
-  ei.add_attack(Col, Pawn, ei.pawn_atts[Col]);
+  // INFO: Pawn attacks moved to ei.init()
 
   Duo vals{};
   for (u64 bb = B->piece[p]; bb; bb = rlsb(bb))
@@ -263,7 +250,7 @@ Duo Eval::evaluateP(const Board * B)
     if (blocked)
     {
       ei.rammed[Col] |= bit(sq);
-      if (!supports) ei.add_weak(Col, sq);
+      if (!supports) ei.weak[Col] |= bit(sq);
     }
 
     // backward
@@ -277,7 +264,7 @@ Duo Eval::evaluateP(const Board * B)
         vals += APPLY(v, "Backward pawn");
       }
 
-      ei.add_weak(Col, sq);
+      ei.weak[Col] |= bit(sq);
     }
 
     else
@@ -717,7 +704,14 @@ Duo Eval::evaluateK(const Board * B)
 
     // pawn weakness
 
-    const Val push = ei.weakness(~Col, dry(term[WeaknessPush]));
+    Val push = 0_cp;
+    for (u64 ww = ei.weak[~Col]; ww; ww = rlsb(ww))
+    {
+      SQ j = bitscan(ww);
+      push += weakness_push_table[k_dist(sq, j)];
+    }
+
+    push = push / 128 * dry(term[WeaknessPush]);
     vals += APPLY(Duo::as_eg(push), "Weakness push");
   }
   return vals;
@@ -790,7 +784,7 @@ void EvalInfo::init(const Board * B)
   king[1] = bitscan(B->piece[WK]);
   king_att_weight[0] = king_att_weight[1] = 0;
   king_att_count[0] = king_att_count[1] = 0;
-  eg_weak[0] = eg_weak[1] = 0_cp;
+  weak[0] = weak[1] = 0ull;
   rammed[0] = rammed[1] = 0ull;
 
   occ_not_rq[0] = B->occupied() ^ B->ortho<Black>();
@@ -814,9 +808,14 @@ void EvalInfo::init(const Board * B)
   attacked[0] = attacked_by[0][King] = atts[BK][king[0]];
   attacked[1] = attacked_by[1][King] = atts[WK][king[1]];
 
-  attacked_by2[0] = attacked_by2[1] = 0ull;
+  attacked_by2[0]       = pawn_atts[0] & attacked[0];
+  attacked[0]          |= pawn_atts[0];
+  attacked_by[0][Pawn]  = pawn_atts[0];
 
-  attacked_by[0][Pawn] = attacked_by[1][Pawn] = 0ull;
+  attacked_by2[1]       = pawn_atts[1] & attacked[1];
+  attacked[1]          |= pawn_atts[1];
+  attacked_by[1][Pawn]  = pawn_atts[1];
+
   passers = 0ull;
 }
 
@@ -838,17 +837,6 @@ Val EvalInfo::king_safety(Color col) const
 Val EvalInfo::king_safety() const
 {
   return king_safety(White) - king_safety(Black);
-}
-
-void EvalInfo::add_weak(Color col, SQ sq)
-{
-  Val val = weakness_push_table[k_dist(king[~col], sq)];
-  if (val > eg_weak[col]) eg_weak[col] = val;
-}
-
-Val EvalInfo::weakness(Color col, int bonus) const
-{
-  return eg_weak[col] * bonus / 128;
 }
 
 void EvalInfo::add_attack(Color col, PieceType pt, u64 att)

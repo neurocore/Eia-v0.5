@@ -127,15 +127,14 @@ public:
 
 struct PK_Entry
 {
-  u64 key, passers;
-  Val weak[2];
+  u64 key, weak, passers;
   Duo vals;
 };
 
-constexpr int PK_HASH_BITS = 16;
+constexpr int PK_HASH_BITS = 17;
 constexpr int PK_HASH_MASK = (1 << PK_HASH_BITS) - 1;
 
-static PK_Entry pk_table[1 << PK_HASH_BITS]{}; // 2 mb
+static PK_Entry pk_table[1 << PK_HASH_BITS]{}; // 4 mb
 
 inline PK_Entry const * pk_probe(u64 key)
 {
@@ -143,13 +142,13 @@ inline PK_Entry const * pk_probe(u64 key)
   return entry->key == key ? entry : nullptr;
 }
 
-inline void pk_store(u64 key, Duo vals, Val weak[2], u64 passers = 0ull)
+inline void pk_store(u64 key, Duo vals, u64 weak[2], u64 passers = 0ull)
 {
   pk_table[key & PK_HASH_MASK] =
   {
     .key = key,
+    .weak = weak[0] | weak[1],
     .passers = passers,
-    .weak = { weak[0], weak[1] },
     .vals = vals
   };
 }

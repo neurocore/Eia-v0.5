@@ -108,7 +108,7 @@ struct EvalInfo
   int king_att_weight[Color_N];
   int king_att_count[Color_N];
 
-  Val eg_weak[Color_N]; // pawn info
+  u64 weak[Color_N]; // pawn info
   u64 rammed[Color_N];
 
   u64 occ_not_rq[Color_N]; // used in mobility to
@@ -126,9 +126,6 @@ struct EvalInfo
   void add_king_attack(Color col, AttWeight weight, u64 att);
   Val  king_safety(Color col) const;
   Val  king_safety() const;
-
-  void add_weak(Color col, SQ sq);
-  Val  weakness(Color col, int bonus) const;
 
   void add_attack(Color col, PieceType pt, u64 att);
 };
