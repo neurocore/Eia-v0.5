@@ -559,24 +559,6 @@ Val SolverPVS::pvs(Val alpha, Val beta, int depth, bool is_null, bool is_singula
     
     if (in_check) extend++;
 
-    // Pawn push extension | -100 elo (20s+.2 h2h-20) ??
-
-    //if (is_prom(move))
-    //{
-    //  extend++;
-    //}
-    //else if (is_pawn(move))
-    //{
-    //  const SQ to = get_to(move);
-
-    //  // move is done
-    //  if ((~B->color && rank(to) == 6)
-    //  ||  ( B->color && rank(to) == 1))
-    //  {
-    //    extend++;
-    //  }
-    //}
-
     // Singular move extension | +50 elo (20s+.2 h2h-20)
 
     if constexpr (USE_SINGULAR_MOVE && NT != Root)
@@ -624,6 +606,23 @@ Val SolverPVS::pvs(Val alpha, Val beta, int depth, bool is_null, bool is_singula
         }
       }
     }
+
+    // Passed push extension | +2 elo (5+.05 h2h-260)
+
+    /*if (extend <= 0)
+    {
+      if (is_prom(move))
+      {
+        extend++;
+      }
+      else if (is_pawn(move))
+      {
+        if (bit(get_to(move)) & Seventh)
+        {
+          extend++;
+        }
+      }
+    }*/
     
     // LMR | +100 elo (20s+.2 h2h-20)
 

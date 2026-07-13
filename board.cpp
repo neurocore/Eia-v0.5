@@ -585,7 +585,7 @@ Move Board::parse_san(string str)
   for (auto move : moves)
     msg += format("{}, ", move);
 
-  print();
+  log("{}", to_string());
   say("Ambigious {}, candidates are {}\n", old, msg);
   assert(false);
 #endif
@@ -820,7 +820,7 @@ bool Board::make(Move move)
 #ifdef _DEBUG
   if (hash() != calc_hash())
   {
-    print();
+    log("{}", to_string());
     say(" actual hash: 0x{:016X}\n", hash());
     say("correct hash: 0x{:016X}\n", calc_hash());
     assert(false);
