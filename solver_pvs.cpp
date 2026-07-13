@@ -536,15 +536,15 @@ Val SolverPVS::pvs(Val alpha, Val beta, int depth, bool is_null, bool is_singula
     seen++;
     const bool is_tactical = is_attack(move);
 
-    // Late Move Pruning | -100 elo (20s+.2 h2h-20)
+    // Late Move Pruning | 1.49 +/- 21.36 elo (5+.05 h2h-700)
 
-    //if (!is_tactical       // something wrong with moves ordering
-    //&&  depth <= LMP_Depth
-    //&&  seen >= LMP_Counts[improving][depth]
-    //&&  mp.stage == Stage::Quiets) 
-    //{
-    //  continue;
-    //}
+    if (!is_tactical
+    &&  val > Val::Mate
+    &&  seen > (3 + depth * depth) / (2 - improving) // SF
+    &&  mp.stage == Stage::Quiets) 
+    {
+      continue;
+    }
 
     if (!B->make(move)) continue;
 
@@ -606,23 +606,6 @@ Val SolverPVS::pvs(Val alpha, Val beta, int depth, bool is_null, bool is_singula
         }
       }
     }
-
-    // Passed push extension | +2 elo (5+.05 h2h-260)
-
-    /*if (extend <= 0)
-    {
-      if (is_prom(move))
-      {
-        extend++;
-      }
-      else if (is_pawn(move))
-      {
-        if (bit(get_to(move)) & Seventh)
-        {
-          extend++;
-        }
-      }
-    }*/
     
     // LMR | +100 elo (20s+.2 h2h-20)
 
