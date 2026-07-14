@@ -536,14 +536,19 @@ Val SolverPVS::pvs(Val alpha, Val beta, int depth, bool is_null, bool is_singula
     seen++;
     const bool is_tactical = is_attack(move);
 
-    // Late Move Pruning | 1.49 +/- 21.36 elo (5+.05 h2h-700)
+    // Late Move Pruning | +40 elo (5+.05 h2h-100)
 
-    if (!is_tactical
-    &&  val > Val::Mate
-    &&  seen > (3 + depth * depth) / (2 - improving) // SF
-    &&  mp.stage == Stage::Quiets) 
+    if constexpr (NT == NonPV) // SF formula
     {
-      continue;
+      if (!is_tactical
+      &&  !in_check
+      &&  best > -Val::Mate
+      &&  B->has_pieces(B->color)
+      &&  mp.stage == Stage::Quiets
+      &&  legal >= (3 + depth * depth) / (2 - improving))
+      {
+        continue;
+      }
     }
 
     if (!B->make(move)) continue;

@@ -27,7 +27,7 @@ public:
   Move   get_next()    { assert(first < last); return move(*(first++)); }
 
   void put_to_pocket() { first = last; }
-  void reveal_pocket() { first = &moves[0]; }
+  void reveal_pocket() { last = first; first = &moves[0]; }
 
   bool contains(Move move) const;
   Move get_best(u64 lower_bound = 0ull);
