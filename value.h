@@ -53,41 +53,12 @@ namespace eia {
   static INLINE int operator + (Val a) { return static_cast<int>(a); }
   static INLINE Val operator - (Val a) { return static_cast<Val>(-(+a)); }
 
-  static INLINE Val & operator += (Val & a, Val b)
-  {
-    a = a + b;
-    return a;
-  }
-
-  static INLINE Val & operator -= (Val & a, Val b)
-  {
-    a = a - b;
-    return a;
-  }
-
-  static INLINE Val & operator *= (Val & a, int k)
-  {
-    a = a * k;
-    return a;
-  }
-
-  static INLINE Val & operator /= (Val & a, int k)
-  {
-    a = a * k;
-    return a;
-  }
-
-  static INLINE Val & operator *= (Val & a, double k)
-  {
-    a = a * k;
-    return a;
-  }
-
-  static INLINE Val & operator /= (Val & a, double k)
-  {
-    a = a * k;
-    return a;
-  }
+  static INLINE Val & operator += (Val & a, Val b) { a = a + b; return a; }
+  static INLINE Val & operator -= (Val & a, Val b) { a = a - b; return a; }
+  static INLINE Val & operator *= (Val & a, int k) { a = a * k; return a; }
+  static INLINE Val & operator /= (Val & a, int k) { a = a / k; return a; }
+  static INLINE Val & operator *= (Val & a, f64 k) { a = a * k; return a; }
+  static INLINE Val & operator /= (Val & a, f64 k) { a = a / k; return a; }
 }
 
 template<>
