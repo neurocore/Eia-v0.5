@@ -272,7 +272,7 @@ void Engine::eval()
 
   string str = format("Eval: {}\n\n", val);
 
-#ifdef _DEBUG
+#ifdef DEBUG_EVAL
   Duo duo{};
   auto & details = E->get_details();
   for (const auto & d : details)

@@ -6,6 +6,8 @@
 #include "piece.h"
 #include "duo.h"
 
+//#define DEBUG_EVAL
+
 namespace eia {
 
 const std::string g_tune = ""; // Tunes::CMA_ES_Eth100;
@@ -23,7 +25,7 @@ struct TermInfo { int group, index, size; };
 #define TERM(group,x,op,eg)                          x,
 #define TERM_ARR(group,x,sz)                         x,
 #define TERMS                                        \
-  TERM(Material, MatPawn,      311.1222,  134.2492)  \
+  TERM(Material, MatPawn,       82.0000,  134.2492)  \
   TERM(Material, MatKnight,    311.1222,  602.1030)  \
   TERM(Material, MatBishop,    273.4692,  571.2714)  \
   TERM(Material, MatRook,      412.8690,  936.1210)  \
@@ -135,7 +137,7 @@ struct EvalInfo
 };
 
 
-#ifdef _DEBUG
+#ifdef DEBUG_EVAL
 struct EvalDetail
 {
   Piece p;
@@ -197,7 +199,7 @@ private:
   template<Color Col> Duo eval_passers(const Board * B);
   template<Color Col> Duo eval_threats(const Board * B);
 
-#ifdef _DEBUG
+#ifdef DEBUG_EVAL
 public:
   const EvalDetails & get_details() { return ed; }
 
@@ -213,13 +215,13 @@ private:
 #endif
 };
 
-#ifdef _DEBUG
+#ifdef DEBUG_EVAL
 #define A(v, p, sq, factor) (apply(v, p, sq, factor))
 #else
 #define A(v, p, sq, factor) (v)
 #endif
 
-#ifdef _DEBUG
+#ifdef DEBUG_EVAL
 #define APPLY(v, factor) (apply(v, p, sq, factor))
 #else
 #define APPLY(v, factor) (v)

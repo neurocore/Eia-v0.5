@@ -58,7 +58,7 @@ Val Eval::eval(const Board * B, Val alpha, Val beta, bool use_phash)
   // +70 elo (20s+.2s h2h-30)
   if (B->is_simply_mated()) return -Val::Inf;
 
-#ifdef _DEBUG
+#ifdef DEBUG_EVAL
   ed.clear();
 #endif
 
@@ -527,7 +527,7 @@ Duo Eval::evaluateB(const Board * B)
 
   if (several(B->piece[p]))
   {
-    vals += APPLY(get(BishopPair), "Bishop pair");
+    vals += A(get(BishopPair), p, SQ_N, "Bishop pair");
   }
   return vals;
 }
@@ -1179,7 +1179,7 @@ void Eval::init()
 
 void Eval::set_explanations(bool on)
 {
-#ifdef _DEBUG
+#ifdef DEBUG_EVAL
   explain = on;
 #endif
 }
