@@ -26,6 +26,8 @@ struct Duo
   INLINE Duo operator * (int k) const { return Duo(op * k, eg * k); }
   INLINE Duo operator / (int k) const { return Duo(op / k, eg / k); }
 
+  friend Duo operator * (int k, Duo vals) { return vals * k; }
+
   INLINE Duo & operator += (const Duo & v) { op += v.op; eg += v.eg; return *this; }
   INLINE Duo & operator -= (const Duo & v) { op -= v.op; eg -= v.eg; return *this; }
 

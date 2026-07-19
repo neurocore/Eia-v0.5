@@ -338,20 +338,23 @@ INLINE u64 Board::opp_atts() const
   return att;
 }
 
+// discovered attackers on sq
+// with any kind of blockers
 template<Color Col>
 INLINE u64 Board::discovered(SQ sq) const
 {
-  const u64 opp = occ[~Col];
+  // well tested, don't touch
+
   const u64 o = occupied();
 
-  const u64 batt = b_att(o, sq);
-  const u64 ratt = r_att(o, sq);
+  const u64 batt = b_att(o, sq); // attack with
+  const u64 ratt = r_att(o, sq); // blockers
 
-  const u64 bq = diags<~Col>() & ~batt; // not direct
-  const u64 rq = ortho<~Col>() & ~ratt; //  attack
+  const u64 bq = diags<~Col>() & ~batt; // not directly
+  const u64 rq = ortho<~Col>() & ~ratt; // seen attackers
 
-  const u64 bq2 = bq & b_att(o & ~batt, sq); // discovered
-  const u64 rq2 = rq & r_att(o & ~ratt, sq); // attackers
+  const u64 bq2 = b_att(o & ~batt, sq) & bq; // discovered
+  const u64 rq2 = r_att(o & ~ratt, sq) & rq; // attackers
 
   return bq2 | rq2;
 }

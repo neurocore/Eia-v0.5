@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 #include <vector>
+#include <utility>
 #include "material.h"
 #include "piece.h"
 #include "duo.h"
@@ -9,94 +10,97 @@ namespace eia {
 
 const std::string g_tune = ""; // Tunes::CMA_ES_Eth100;
 
-#define TERM(x,def,min,max)                           x,
-#define TERMS                                         \
-  TERM(MatKnightOp,    311.1222_cp, 300_cp,  600_cp)  \
-  TERM(MatBishopOp,    273.4692_cp, 300_cp,  600_cp)  \
-  TERM(MatRookOp,      412.8690_cp, 500_cp, 1000_cp)  \
-  TERM(MatQueenOp,     817.5440_cp, 900_cp, 2000_cp)  \
-  TERM(MatPawnEg,      134.2492_cp,  40_cp,  160_cp)  \
-  TERM(MatKnightEg,    602.1030_cp, 300_cp,  600_cp)  \
-  TERM(MatBishopEg,    571.2714_cp, 300_cp,  600_cp)  \
-  TERM(MatRookEg,      936.1210_cp, 500_cp, 1000_cp)  \
-  TERM(MatQueenEg,    1848.0416_cp, 900_cp, 2000_cp)  \
-  TERM(Doubled,          0.1866_cp,   0_cp,   32_cp)  \
-  TERM(Isolated,         13.6457_cp,  0_cp,   32_cp)  \
-  TERM(Backward,         1.9255_cp,   0_cp,   32_cp)  \
-  TERM(Connected,        6.3155_cp,   0_cp,   32_cp)  \
-  TERM(WeaknessPush,    19.3053_cp,   0_cp,   64_cp)  \
-  TERM(NMobMult,        52.9208_cp,   0_cp,  256_cp)  \
-  TERM(BMobMult,       168.9628_cp,   0_cp,  256_cp)  \
-  TERM(RMobMult,        58.4744_cp,   0_cp,  256_cp)  \
-  TERM(QMobMult,        96.9716_cp, 100_cp,  256_cp)  \
-  TERM(NMobSteep,        3.4208_cp,   0_cp,   32_cp)  \
-  TERM(BMobSteep,        7.4938_cp,   0_cp,   32_cp)  \
-  TERM(RMobSteep,       15.2661_cp,   0_cp,   32_cp)  \
-  TERM(QMobSteep,        9.9879_cp,   0_cp,   32_cp)  \
-  TERM(BishopPair,      44.2487_cp,   0_cp,   64_cp)  \
-  TERM(BadBishop,       33.8036_cp,   0_cp,   64_cp)  \
-  TERM(KnightOutpost,   29.8442_cp,   0_cp,   64_cp)  \
-  TERM(RookSemi,        10.8155_cp,   0_cp,   64_cp)  \
-  TERM(RookOpen,        27.9015_cp,   0_cp,   64_cp)  \
-  TERM(Rook7thOp,       35.3496_cp,   0_cp,   64_cp)  \
-  TERM(Rook7thEg,       32.6952_cp,   0_cp,   64_cp)  \
-  TERM(BadRook,         29.7549_cp,   0_cp,   64_cp)  \
-  TERM(KnightFork,      37.7980_cp,   0_cp,   64_cp)  \
-  TERM(BishopFork,      68.7231_cp,   0_cp,   64_cp)  \
-  TERM(KnightAdj,        0.4903_cp,   0_cp,   32_cp)  \
-  TERM(RookAdj,          7.7480_cp,   0_cp,   32_cp)  \
-  TERM(TrappedHard,         150_cp,   0_cp,  256_cp)  \
-  TERM(TrappedSoft,          50_cp,   0_cp,  256_cp)  \
-  TERM(EarlyQueen,       0.2204_cp,   0_cp,   32_cp)  \
-  TERM(ContactCheckR,   72.8489_cp, 100_cp,  200_cp)  \
-  TERM(ContactCheckQ,  182.2690_cp, 180_cp,  200_cp)  \
-  TERM(Shield1,         37.2179_cp,   0_cp,   32_cp)  \
-  TERM(Shield2,         27.2802_cp,   0_cp,   32_cp)  \
-  TERM(PasserK,         33.3901_cp,   0_cp,   64_cp)  \
-  TERM(Candidate,      114.9568_cp,   0_cp,  256_cp)  \
-  TERM(Passer,         170.4616_cp,   0_cp,  512_cp)  \
-  TERM(Supported,       28.9072_cp,   0_cp,  256_cp)  \
-  TERM(Unstoppable,    400.3234_cp, 700_cp, 1000_cp)  \
-  TERM(FreePasser,      82.9463_cp,   0_cp,  128_cp)  \
-  TERM(PasserAtt,       20.0000_cp,   0_cp,  128_cp)  \
-  TERM(PasserDef,        5.0000_cp,   0_cp,  128_cp)  \
-  TERM(Xray,             2.3989_cp,   0_cp,   64_cp)  \
-  TERM(QPin,            25.0000_cp,   0_cp,   64_cp)  \
-  TERM(PinMul,           9.8395_cp,   0_cp,   64_cp)  \
-  TERM(ThreatPawn,      29.4672_cp,   0_cp,   64_cp)  \
-  TERM(ThreatL_P,       49.1365_cp,   0_cp,  128_cp)  \
-  TERM(ThreatL_L,       29.9130_cp,   0_cp,  128_cp)  \
-  TERM(ThreatL_H,       49.5985_cp,   0_cp,  128_cp)  \
-  TERM(ThreatL_K,        5.7557_cp,   0_cp,  128_cp)  \
-  TERM(ThreatR_L,       24.3737_cp,   0_cp,  128_cp)  \
-  TERM(ThreatR_K,       51.4882_cp,   0_cp,  128_cp)  \
-  TERM(ThreatQ_1,       27.7715_cp,   0_cp,  128_cp)  \
-  TERM(Tempo,            5.7927_cp,   0_cp,   64_cp)   
+enum Group
+{
+  Material, Pawns, Mobility,
+  Adjust, Pieces, Safety,
+  Passers, Complex, Xrays,
+  Threats, Various,
+};
 
-  //TERM(MatPawnOp,       82_cp,  40_cp,  160_cp) // anchor
+struct TermInfo { int group, index, size; };
 
-  //TERM(PawnFile,         0.2905_cp,   0_cp,   16_cp) // got rid of these
-  //TERM(KnightCenterOp,   7.9365_cp,   0_cp,   16_cp) // in favor of PST
-  //TERM(KnightCenterEg,  18.1720_cp,   0_cp,   16_cp) // tables tuning
-  //TERM(KnightRank,       4.3720_cp,   0_cp,   16_cp) 
-  //TERM(KnightBackRank,   9.0901_cp,   0_cp,   16_cp) 
-  //TERM(BishopCenterOp,  10.1865_cp,   0_cp,   16_cp) 
-  //TERM(BishopCenterEg,   0.7212_cp,   0_cp,   16_cp) 
-  //TERM(BishopBackRank,  11.2654_cp,   0_cp,   16_cp) 
-  //TERM(BishopDiagonal,   7.4783_cp,   0_cp,   16_cp) 
-  //TERM(RookFileOp,       0.9131_cp,   0_cp,   16_cp) 
-  //TERM(QueenCenterOp,    2.6029_cp,   0_cp,   16_cp) 
-  //TERM(QueenCenterEg,    0.4428_cp,   0_cp,   16_cp) 
-  //TERM(QueenBackRank,    1.0177_cp,   0_cp,   16_cp) 
-  //TERM(KingFile,        14.0800_cp,   0_cp,   32_cp) 
-  //TERM(KingRank,        12.8056_cp,   0_cp,   32_cp) 
-  //TERM(KingCenterEg,    12.4389_cp,   0_cp,   32_cp) 
+#define TERM(group,x,op,eg)                          x,
+#define TERM_ARR(group,x,sz)                         x,
+#define TERMS                                        \
+  TERM(Material, MatPawn,      311.1222,  134.2492)  \
+  TERM(Material, MatKnight,    311.1222,  602.1030)  \
+  TERM(Material, MatBishop,    273.4692,  571.2714)  \
+  TERM(Material, MatRook,      412.8690,  936.1210)  \
+  TERM(Material, MatQueen,     817.5440, 1848.0416)  \
+\
+  TERM_ARR(Pawns,    Doubled,       8)  \
+  TERM_ARR(Pawns,    Isolated,      8)  \
+  TERM_ARR(Pawns,    Backward,      4)  \
+  TERM_ARR(Pawns,    WeaknessPush,  8)  \
+\
+  TERM(Pawns,    Connected,      6.3155,    6.3155)  \
+\
+  TERM_ARR(Mobility, MobN, 9)   \
+  TERM_ARR(Mobility, MobB, 14)  \
+  TERM_ARR(Mobility, MobR, 15)  \
+  TERM_ARR(Mobility, MobQ, 28)  \
+\
+  TERM(Adjust,  KnightAdj,       0.4903,    0.4903)  \
+  TERM(Adjust,  RookAdj,        -7.7480,   -7.7480)  \
+\
+  TERM(Pieces,  BishopPair,     44.2487,   44.2487)  \
+  TERM(Pieces,  BadBishop,     -33.8036,  -33.8036)  \
+  TERM(Pieces,  KnightOutpost,  29.8442,   29.8442)  \
+  TERM(Pieces,  RookSemi,       10.8155,   10.8155)  \
+  TERM(Pieces,  RookOpen,       27.9015,   27.9015)  \
+  TERM(Pieces,  Rook7th,        35.3496,   32.6952)  \
+  TERM(Pieces,  BadRook,       -29.7549,  -29.7549)  \
+  TERM(Pieces,  KnightFork,     37.7980,   37.7980)  \
+  TERM(Pieces,  BishopFork,     68.7231,   68.7231)  \
+  TERM(Pieces,  TrappedHard,  -150.0000, -150.0000)  \
+  TERM(Pieces,  TrappedSoft,   -50.0000,  -50.0000)  \
+  TERM(Pieces,  EarlyQueen,     -0.2204,   -0.2204)  \
+\
+  TERM(Safety,  ContactCheckR,  72.8489,   72.8489)  \
+  TERM(Safety,  ContactCheckQ, 182.2690,  182.2690)  \
+  TERM(Safety,  Shield1,        37.2179,   37.2179)  \
+  TERM(Safety,  Shield2,        27.2802,   27.2802)  \
+\
+  TERM_ARR(Passers,  Candidate, 5)  \
+  TERM_ARR(Passers,  Passer,    6)  \
+  TERM_ARR(Passers,  Supported, 6)  \
+\
+  TERM_ARR(Passers,  PasserKingDef, 7)  \
+  TERM_ARR(Passers,  PasserKingAtt, 7)  \
+\
+  TERM(Passers,  Unstoppable,   400.3234,  400.3234)  \
+  TERM(Passers,  FreePasser,     82.9463,   82.9463)  \
+\
+  TERM_ARR(Xrays,    PinAbsolute, 8)  \
+  TERM_ARR(Xrays,    PinPartial,  8)  \
+  TERM_ARR(Xrays,    PinRelative, 8)  \
+\
+  TERM(Threats,  ThreatPawn,    -29.4672,  -29.4672)  \
+  TERM(Threats,  ThreatL_P,     -49.1365,  -49.1365)  \
+  TERM(Threats,  ThreatL_L,     -29.9130,  -29.9130)  \
+  TERM(Threats,  ThreatL_H,     -49.5985,  -49.5985)  \
+  TERM(Threats,  ThreatL_K,      -5.7557,   -5.7557)  \
+  TERM(Threats,  ThreatR_L,     -24.3737,  -24.3737)  \
+  TERM(Threats,  ThreatR_K,     -51.4882,  -51.4882)  \
+  TERM(Threats,  ThreatQ_1,     -27.7715,  -27.7715)  \
+\
+  TERM(Various,  Tempo,          10.7927,    3.7927)   
+
 
 enum Term
 {
   TERMS
   Term_N
 };
+
+#undef TERM
+#undef TERM_ARR
+
+#define TERM(group,x,op,eg)   1 +
+#define TERM_ARR(group,x,sz)  sz +
+
+constexpr int Param_N = TERMS 0;
 
 
 enum class AttWeight { Light = 2, Rook = 3, Queen = 5 };
@@ -149,32 +153,30 @@ class Eval
   bool no_pst;
   bool no_hash;
 
+  Duo      data[Param_N];
+  TermInfo info[Term_N];
   EvalInfo ei;
-  int total_bits;
-  Val term[Term_N];
-  Val term_min[Term_N];
-  Val term_max[Term_N];
 
   Duo mat[12];
   Duo pst[12][64];
-  Val mob[6][30];
+  Duo mob[6][30];
   int passer_scale[8];
-  Val n_adj[9];
-  Val r_adj[9];
 
   MatInfo mattable[+MatKey::Total];
 
 public:
   Eval(const Tune & tune = {}, bool no_pst = false, bool no_hash = false);
   void init();
+  void init_term(int idx, const std::vector<std::pair<f64, f64>> & arr);
   void set_explanations(bool on);
+
+  INLINE Duo get(Term term, int index = 0) const;
 
   Val eval(const Board * B, Val alpha, Val beta, bool use_phash = true);
   Val mopup(const Board * B, Color weaker);
 
-  std::string to_string() const;
-  std::string prettify() const;
   Bounds bounds() const;
+  std::string to_string() const;
   void set(std::string str);
   void set(const Eval & eval);
   void set(const Tune & tune);
@@ -222,6 +224,13 @@ private:
 #else
 #define APPLY(v, factor) (v)
 #endif
+
+INLINE Duo Eval::get(Term term, int offset) const
+{
+  assert(index >= 0);
+  assert(index < info[term].size);
+  return data[ info[term].index + offset ];
+}
 
 // from CPW-Engine
 const int PAdj[9] = {-5, -4, -3, -2, -1, 0, +1, +2, +3};
