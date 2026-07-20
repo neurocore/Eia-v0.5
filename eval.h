@@ -20,6 +20,24 @@ enum Group
   Threats, Various,
 };
 
+// Terms optimization
+//
+//   Group     |  Linearity  |  Optimized
+// ------------+-------------+--------------
+//  Material   |    yes      |   CMA-ES
+//  Pawns      |    yes      |     --
+//  Mobility   |    yes      |     --
+//  Adjust     |    yes*     |   CMA-ES
+//  Pieces     |    yes      |   CMA-ES
+//  Safety     |    --       |   CMA-ES
+//  Passers    |    yes      |     --
+//  Xrays      |    yes      |     --
+//  Threats    |    yes      |   CMA-ES
+//  Various    |    yes      |   CMA-ES
+//
+//   * - need to apply multiplier
+
+
 struct TermInfo { int group, index, size; };
 
 #define TERM(group,x,op,eg)                          x,
@@ -31,10 +49,11 @@ struct TermInfo { int group, index, size; };
   TERM(Material, MatRook,      412.8690,  936.1210)  \
   TERM(Material, MatQueen,     817.5440, 1848.0416)  \
 \
-  TERM_ARR(Pawns,    Doubled,       8)  \
-  TERM_ARR(Pawns,    Isolated,      8)  \
-  TERM_ARR(Pawns,    Backward,      4)  \
-  TERM_ARR(Pawns,    WeaknessPush,  8)  \
+  TERM_ARR(Pawns,    Doubled,       8)   \
+  TERM_ARR(Pawns,    Isolated,      8)   \
+  TERM_ARR(Pawns,    Backward,      4)   \
+  TERM_ARR(Pawns,    PawnShield,    16)  \
+  TERM_ARR(Pawns,    WeaknessPush,  8)   \
 \
   TERM(Pawns,    Connected,      6.3155,    6.3155)  \
 \
@@ -58,11 +77,6 @@ struct TermInfo { int group, index, size; };
   TERM(Pieces,  TrappedHard,  -150.0000, -150.0000)  \
   TERM(Pieces,  TrappedSoft,   -50.0000,  -50.0000)  \
   TERM(Pieces,  EarlyQueen,     -0.2204,   -0.2204)  \
-\
-  TERM(Safety,  ContactCheckR,  72.8489,   72.8489)  \
-  TERM(Safety,  ContactCheckQ, 182.2690,  182.2690)  \
-  TERM(Safety,  Shield1,        37.2179,   37.2179)  \
-  TERM(Safety,  Shield2,        27.2802,   27.2802)  \
 \
   TERM_ARR(Passers,  Candidate, 5)  \
   TERM_ARR(Passers,  Passer,    6)  \
@@ -209,7 +223,7 @@ private:
 
   Duo apply(const Duo & vals, Piece p, SQ sq, std::string_view factor)
   {
-    if (explain) ed.push_back({p, sq, vals, factor});
+    if (explain && vals) ed.push_back({p, sq, vals, factor});
     return vals;
   }
 #endif

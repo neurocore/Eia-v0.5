@@ -194,7 +194,7 @@ Duo Eval::evalxrays(const Board * B)
 template<Color Col>
 Duo Eval::evaluateP(const Board * B)
 {
-  constexpr Piece p = to_piece(Pawn, Col);
+  constexpr Piece p   = to_piece(Pawn,  Col);
   constexpr Piece opp = to_piece(Pawn, ~Col);
 
   // INFO: Pawn attacks moved to ei.init()
@@ -279,36 +279,19 @@ Duo Eval::evaluateP(const Board * B)
 
   // pawn shield
 
-  Duo shield;
-  u64 king  = B->piece[BK ^ Col];
-  u64 pawns = B->piece[BP ^ Col];
-  u64 row1 = pawns & (Col ? Rank2 : Rank7);
-  u64 row2 = pawns & (Col ? Rank3 : Rank6);
+  const SQ king = ei.king[Col];
+  const int kf = file(king);
 
-  if (king & KWing)
+  for (int f = std::max(0, kf - 1); f <= std::min(7, kf + 1); f++)
   {
-    if      (row1 & FileF) shield += get(Shield1);
-    else if (row2 & FileF) shield += get(Shield2);
+    u64 not_back = fwd[~Col][king] ^ Full;
+    u64 pawns    = B->piece[p] & file_bb[f] & not_back;
+    SQ  sq       = pawns ? backmost<Col>(pawns) : SQ_N;
+    int dist     = pawns ? abs(rank(king) - rank(sq)) : 7;
 
-    if      (row1 & FileG) shield += get(Shield1);
-    else if (row2 & FileG) shield += get(Shield2);
-
-    if      (row1 & FileH) shield += get(Shield1);
-    else if (row2 & FileH) shield += get(Shield2);
+    Duo v = get(PawnShield, (f == kf) * 8 + dist);
+    vals += APPLY(v, "Pawn Shield");
   }
-  else
-  {
-    if      (row1 & FileA) shield += get(Shield1);
-    else if (row2 & FileA) shield += get(Shield2);
-
-    if      (row1 & FileB) shield += get(Shield1);
-    else if (row2 & FileB) shield += get(Shield2);
-
-    if      (row1 & FileC) shield += get(Shield1);
-    else if (row2 & FileC) shield += get(Shield2);
-  }
-
-  vals += A(shield, p, bitscan(king), "Shield");
 
   return vals;
 }
@@ -828,9 +811,9 @@ void EvalInfo::add_attack(Color col, PieceType pt, u64 att)
 //////////////////
 
 #undef TERM
-#define TERM(group,x,op,eg)     \
-  data[x] = {op##_cp, eg##_cp}; \
-  info[x] = {group, idx++, 1};
+#define TERM(group,x,op,eg)       \
+  data[idx] = {op##_cp, eg##_cp}; \
+  info[x]   = {group, idx++, 1};
 
 #undef TERM_ARR
 #define TERM_ARR(group,x,sz)  \
@@ -970,27 +953,35 @@ void Eval::init()
   //  Pawn structure
   // ------------------------------
 
-  init_term(Doubled,
+  init_term(Doubled, // by file
   {
-    { 3, -14}, { 0, -15}, {-6,  -9}, {-7, -10}, // by file
+    { 3, -14}, { 0, -15}, {-6,  -9}, {-7, -10},
     {-4,  -9}, {-2, -10}, { 0, -13}, { 0, -17}
   });
 
-  init_term(Isolated,
+  init_term(Isolated, // by file
   {
-    {-13, -12}, {-1, -16}, { 1, -16}, { 3, -18}, // by file
+    {-13, -12}, {-1, -16}, { 1, -16}, { 3, -18},
     {  7, -19}, { 3, -15}, {-4, -14}, {-4, -17},
   });
 
-  init_term(Backward,
+  init_term(Backward, // by (rank - 1)
   {
-    {-9, -32}, {-5, -30}, {3, -31}, {29, -41}  // by (rank - 1)
+    {-9, -32}, {-5, -30}, {3, -31}, {29, -41}
   });
 
-  init_term(WeaknessPush,
+  init_term(PawnShield, // by [kingfile][rankdist2king]
   {
-    {128, 128}, {106, 106}, {86, 86}, {68, 68}, // by k_dist
-    {52, 52},   {38, 38},   {26, 26}, {16, 16},
+    {-5,  0}, {0, 0}, {-10, 0}, {-20, 0},
+    {-40, 0}, {-60, 0}, {-90, 0}, {-120, 0},
+    {-10, 0}, {0, 0}, {-14, 0}, {-30, 0},
+    {-60, 0}, {-80, 0}, {-110, 0}, {-140, 0},
+  });
+  
+  init_term(WeaknessPush, // by k_dist
+  {
+    {0, 128}, {0, 106}, {0, 86}, {0, 68},
+    {0, 52},  {0, 38},  {0, 26}, {0, 16},
   });
 
   // ------------------------------

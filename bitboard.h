@@ -1,6 +1,7 @@
 #pragma once
 #include <bit>
 #include <array>
+#include <cassert>
 #include <concepts>
 #include <iostream>
 #include "square.h"
@@ -62,7 +63,14 @@ INLINE int popcnt(u64 bb)
 
 INLINE SQ bitscan(u64 bb)
 {
+  assert(bb);
   return static_cast<SQ>(std::countr_zero(bb));
+}
+
+INLINE SQ bitscan_r(u64 bb)
+{
+  assert(bb);
+  return static_cast<SQ>(std::countl_zero(bb) ^ 63);
 }
 
 struct BitBoard { u64 val; }; // adapter

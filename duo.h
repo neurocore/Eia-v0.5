@@ -17,6 +17,8 @@ struct Duo
   static constexpr Duo as_op(Val x) { return Duo(x, 0_cp); }
   static constexpr Duo as_eg(Val x) { return Duo(0_cp, x); }
 
+  INLINE operator bool() const { return op || eg;  }
+
   INLINE void clear() { op = eg = 0_cp; }
   INLINE Val tapered(int phase) const
   {

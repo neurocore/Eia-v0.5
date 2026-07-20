@@ -211,6 +211,12 @@ private:
 };
 
 
+template<Color Col>
+INLINE SQ backmost(u64 bb)
+{
+  return Col ? bitscan(bb) : bitscan_r(bb);
+}
+
 template<Color COL>
 INLINE u64 Board::lights() const
 {
