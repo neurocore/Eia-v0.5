@@ -44,6 +44,14 @@ INLINE u64 rlsb(u64 bb) { return bb & (bb - Bit); }
 INLINE bool only_one(u64 bb) { return bb && !rlsb(bb); }
 INLINE bool several(u64 bb)  { return !!rlsb(bb); }
 
+INLINE bool contains(u64 bb, u64 part) { return (bb & part) == part; }
+
+template<typename... Squares>
+constexpr uint64_t bits(Squares... sq)
+{
+  return ( bit(sq) | ... );
+}
+
 template<std::integral T>
 INLINE T msb(T bb)
 {
@@ -89,5 +97,77 @@ INLINE u64 shift_dr(u64 bb) { return (bb & ~FileH) >> 7; }
 
 enum class Dir {U, D, L, R, UL, UR, DL, DR};
 extern constexpr u64 shift(u64 bb, Dir dir);
+
+const u64 sA1 = bit(A1);
+const u64 sA2 = bit(A2);
+const u64 sA3 = bit(A3);
+const u64 sA4 = bit(A4);
+const u64 sA5 = bit(A5);
+const u64 sA6 = bit(A6);
+const u64 sA7 = bit(A7);
+const u64 sA8 = bit(A8);
+
+const u64 sB1 = bit(B1);
+const u64 sB2 = bit(B2);
+const u64 sB3 = bit(B3);
+const u64 sB4 = bit(B4);
+const u64 sB5 = bit(B5);
+const u64 sB6 = bit(B6);
+const u64 sB7 = bit(B7);
+const u64 sB8 = bit(B8);
+
+const u64 sC1 = bit(C1);
+const u64 sC2 = bit(C2);
+const u64 sC3 = bit(C3);
+const u64 sC4 = bit(C4);
+const u64 sC5 = bit(C5);
+const u64 sC6 = bit(C6);
+const u64 sC7 = bit(C7);
+const u64 sC8 = bit(C8);
+
+const u64 sD1 = bit(D1);
+const u64 sD2 = bit(D2);
+const u64 sD3 = bit(D3);
+const u64 sD4 = bit(D4);
+const u64 sD5 = bit(D5);
+const u64 sD6 = bit(D6);
+const u64 sD7 = bit(D7);
+const u64 sD8 = bit(D8);
+
+const u64 sE1 = bit(E1);
+const u64 sE2 = bit(E2);
+const u64 sE3 = bit(E3);
+const u64 sE4 = bit(E4);
+const u64 sE5 = bit(E5);
+const u64 sE6 = bit(E6);
+const u64 sE7 = bit(E7);
+const u64 sE8 = bit(E8);
+
+const u64 sF1 = bit(F1);
+const u64 sF2 = bit(F2);
+const u64 sF3 = bit(F3);
+const u64 sF4 = bit(F4);
+const u64 sF5 = bit(F5);
+const u64 sF6 = bit(F6);
+const u64 sF7 = bit(F7);
+const u64 sF8 = bit(F8);
+
+const u64 sG1 = bit(G1);
+const u64 sG2 = bit(G2);
+const u64 sG3 = bit(G3);
+const u64 sG4 = bit(G4);
+const u64 sG5 = bit(G5);
+const u64 sG6 = bit(G6);
+const u64 sG7 = bit(G7);
+const u64 sG8 = bit(G8);
+
+const u64 sH1 = bit(H1);
+const u64 sH2 = bit(H2);
+const u64 sH3 = bit(H3);
+const u64 sH4 = bit(H4);
+const u64 sH5 = bit(H5);
+const u64 sH6 = bit(H6);
+const u64 sH7 = bit(H7);
+const u64 sH8 = bit(H8);
 
 }

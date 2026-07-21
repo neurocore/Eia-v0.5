@@ -103,6 +103,7 @@ struct TermInfo { int group, index, size; };
 \
   TERM(Various,  Tempo,          10.7927,    3.7927)   
 
+// Dead terms: KnightOutpost 
 
 enum Term
 {

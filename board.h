@@ -212,6 +212,12 @@ private:
 
 
 template<Color Col>
+INLINE SQ foremost(u64 bb)
+{
+  return Col ? bitscan_r(bb) : bitscan(bb);
+}
+
+template<Color Col>
 INLINE SQ backmost(u64 bb)
 {
   return Col ? bitscan(bb) : bitscan_r(bb);

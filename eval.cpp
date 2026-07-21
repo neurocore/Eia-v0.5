@@ -395,8 +395,8 @@ Duo Eval::evaluateN(const Board * B)
 
     vals += APPLY(pst[p][sq], "PST");
 
-    const u64 pawn_atts = ei.pawn_atts[~Col];
-    Duo v = mob[Knight][popcnt(att & ~pawn_atts)];
+    const u64 safe_att = att & ~ei.pawn_atts[~Col];
+    Duo v = mob[Knight][popcnt(safe_att)];
     vals += APPLY(v, "Mobility");
 
     // adjustments
@@ -410,10 +410,14 @@ Duo Eval::evaluateN(const Board * B)
     const u64 mask = Col ? bit(H8) | bit(A8) | bit(H7) | bit(A7)
                          : bit(H1) | bit(A1) | bit(H2) | bit(A2);
 
-    if (bit(sq) & mask && !(att & ~pawn_atts))
+    if (bit(sq) & mask && !safe_att)
     {
       vals += APPLY(get(TrappedHard), "Trapped Knight");
     }
+
+    // outpost
+
+
 
     // forks
 
@@ -469,27 +473,28 @@ Duo Eval::evaluateB(const Board * B)
 
     // trapped
 
-    u64 opp_pawns = B->piece[WP ^ Col];
-    bool trapped = false;
+    const u64 opp_pawns = B->piece[WP ^ Col];
 
-    if (bit(sq) & (Col ? bit(H7) : bit(H2)))
+    constexpr u64 bishops[] =
     {
-      u64 blockers = Col ? bit(F7) | bit(G6)
-                         : bit(F2) | bit(G3);
+      Col ? bit(H7) : bit(H2),
+      Col ? bit(A7) : bit(A2)
+    };
 
-      if ((opp_pawns & blockers) == blockers) trapped = true;
-    }
-    else if (bit(sq) & (Col ? bit(A7) : bit(A2)))
+    constexpr u64 blockers[] =
     {
-      u64 blockers = Col ? bit(C7) | bit(B6)
-                         : bit(C2) | bit(B3);
+      Col ? bits(F7, G6) : bits(F2, G3),
+      Col ? bits(C7, B6) : bits(C2, B3)
+    };
 
-      if ((opp_pawns & blockers) == blockers) trapped = true;
-    }
-
-    if (trapped)
+    for (int i = 0; i < 2; i++)
     {
-      vals += APPLY(get(TrappedHard), "Trapped Bishop");
+      if (bit(sq) & bishops[i]
+      &&  contains(opp_pawns, blockers[i]))
+      {
+        vals += APPLY(get(TrappedSoft), "Trapped Bishop");
+        break;
+      }
     }
 
     // forks
@@ -569,8 +574,33 @@ Duo Eval::evaluateR(const Board * B)
       Term t = front[Col][sq] & opp_pawns ? RookSemi : RookOpen;
       vals += APPLY(get(t), "Rook on open");
     }
-  }
 
+    // bad rook
+
+    constexpr u64 rooks[] =
+    {
+      Col ? bits(H1, H2, G1, G2) : bits(H8, H7, G8, G7),
+      Col ? bits(A1, A2, B1, B2) : bits(A8, A7, B8, B7)
+    };
+
+    constexpr u64 kings[] =
+    {
+      Col ? bits(F1, G1)     : bits(F8, G8),
+      Col ? bits(D1, C1, B1) : bits(D8, C8, B8) 
+    };
+
+    const SQ king = ei.king[Col];
+
+    for (int i = 0; i < 2; i++)
+    {
+      if (bit(sq) & rooks[i]
+      &&     king & kings[i])
+      {
+        vals += APPLY(get(BadRook), "Bad Rook");
+        break;
+      }
+    }
+  }
   return vals;
 }
 
