@@ -46,9 +46,10 @@ const Val safety_table[100] =
 // + rebalanced material       +50 elo
 // + trapped pieces            +10 elo
 // + bad bishop                +15 elo
+// + relative pin on queen     +10 elo
+// + knight & bishop outpost   +40 elo
 // 
 // - wider passers             ??? elo
-// - relative pin on queen     ??? elo
 
 Val Eval::eval(const Board * B, Val alpha, Val beta, bool use_phash)
 {
@@ -395,7 +396,8 @@ Duo Eval::evaluateN(const Board * B)
 
     vals += APPLY(pst[p][sq], "PST");
 
-    const u64 safe_att = att & ~ei.pawn_atts[~Col];
+    const u64 opp_pawns = ei.pawn_atts[~Col];
+    const u64 safe_att = att & ~opp_pawns;
     Duo v = mob[Knight][popcnt(safe_att)];
     vals += APPLY(v, "Mobility");
 
@@ -407,8 +409,8 @@ Duo Eval::evaluateN(const Board * B)
 
     // trapped
 
-    const u64 mask = Col ? bit(H8) | bit(A8) | bit(H7) | bit(A7)
-                         : bit(H1) | bit(A1) | bit(H2) | bit(A2);
+    const u64 mask = Col ? bits(H8, A8, H7, A7)
+                         : bits(H1, A1, H2, A2);
 
     if (bit(sq) & mask && !safe_att)
     {
@@ -417,7 +419,15 @@ Duo Eval::evaluateN(const Board * B)
 
     // outpost
 
+    if (bit(sq) & outpost[Col]
+    && !(front_span[Col][sq] & opp_pawns))
+    {
+      const bool central  = bit(sq) & InnerFiles;
+      const bool defended = bit(sq) & ei.pawn_atts[Col];
 
+      Duo v = get(KnightOutpost, 2 * central + defended);
+      vals += APPLY(v, "Knight Outpost");
+    }
 
     // forks
 
@@ -425,7 +435,7 @@ Duo Eval::evaluateN(const Board * B)
                     | B->piece[WQ ^ Col]
                     | B->piece[WK ^ Col]);
 
-    if (rlsb(fork))
+    if (several(fork))
     {
       vals += APPLY(get(KnightFork), "Knight Fork");
     }
@@ -495,6 +505,18 @@ Duo Eval::evaluateB(const Board * B)
         vals += APPLY(get(TrappedSoft), "Trapped Bishop");
         break;
       }
+    }
+
+    // outpost
+
+    if (bit(sq) & outpost[Col]
+    && !(front_span[Col][sq] & opp_pawns))
+    {
+      const bool central  = bit(sq) & InnerFiles;
+      const bool defended = bit(sq) & ei.pawn_atts[Col];
+
+      Duo v = get(BishopOutpost, 2 * central + defended);
+      vals += APPLY(v, "Bishop Outpost");
     }
 
     // forks
@@ -1046,6 +1068,20 @@ void Eval::init()
     {22, 22}, {24, 24}, {27, 27}, {29, 29}, {31, 31},
     {33, 33}, {35, 35}, {36, 36}, {38, 38}, {40, 40},
     {41, 41}, {43, 43}, {44, 44}, {46, 46}
+  });
+
+  // ------------------------------
+  //  Outposts
+  // ------------------------------
+
+  init_term(KnightOutpost, // [central][defended]
+  {
+    {12, -32}, {40, 0}, {7, -24}, {21, -3}
+  });
+
+  init_term(BishopOutpost, // [central][defended]
+  {
+    {16, -16}, {50, -3}, {9, -9}, {-4, -4}
   });
 
   // ------------------------------

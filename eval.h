@@ -15,8 +15,8 @@ const std::string g_tune = ""; // Tunes::CMA_ES_Eth100;
 enum Group
 {
   Material, Pawns, Mobility,
-  Adjust, Pieces, Safety,
-  Passers, Complex, Xrays,
+  Adjust, Pieces, Outposts,
+  Safety, Passers, Xrays,
   Threats, Various,
 };
 
@@ -28,8 +28,8 @@ enum Group
 //  Pawns      |    yes      |     --
 //  Mobility   |    yes      |     --
 //  Adjust     |    yes*     |   CMA-ES
+//  Outposts   |    yes      |     --
 //  Pieces     |    yes      |   CMA-ES
-//  Safety     |    --       |   CMA-ES
 //  Passers    |    yes      |     --
 //  Xrays      |    yes      |     --
 //  Threats    |    yes      |   CMA-ES
@@ -65,9 +65,11 @@ struct TermInfo { int group, index, size; };
   TERM(Adjust,  KnightAdj,       0.4903,    0.4903)  \
   TERM(Adjust,  RookAdj,        -7.7480,   -7.7480)  \
 \
+  TERM_ARR(Outposts,  KnightOutpost,  4)  \
+  TERM_ARR(Outposts,  BishopOutpost,  4)  \
+\
   TERM(Pieces,  BishopPair,     44.2487,   44.2487)  \
   TERM(Pieces,  BadBishop,     -33.8036,  -33.8036)  \
-  TERM(Pieces,  KnightOutpost,  29.8442,   29.8442)  \
   TERM(Pieces,  RookSemi,       10.8155,   10.8155)  \
   TERM(Pieces,  RookOpen,       27.9015,   27.9015)  \
   TERM(Pieces,  Rook7th,        35.3496,   32.6952)  \
