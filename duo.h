@@ -20,9 +20,11 @@ struct Duo
   INLINE operator bool() const { return op || eg;  }
 
   INLINE void clear() { op = eg = 0_cp; }
-  INLINE Val tapered(int phase) const
+  INLINE Val tapered(int phase, int scale = 128) const
   {
-    return ((op * (Phase::Total - phase)) + eg * phase) / Phase::Total;
+    const Val op_part = op * (Phase::Total - phase);
+    const Val eg_part = eg / 128 * scale * phase;
+    return (op_part + eg_part) / Phase::Total;
   }
 
   INLINE Duo operator * (int k) const { return Duo(op * k, eg * k); }

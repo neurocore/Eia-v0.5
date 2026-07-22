@@ -9,7 +9,7 @@ std::pair<MatKey, MatInfo> get_matinfo(std::vector<int> cnts)
   const int pawns = cnts[BP] + cnts[WP];
   int cnt = 0, val = 0, heavy = 0;
   MatKey mk = MatKey::Init;
-  MatInfo mi{ .scale = 256, .val = 0, .eg = NoEG };
+  MatInfo mi{ .scale = 128, .val = 0, .eg = NoEG };
 
   for (int col = 0; col < 2; col++)
   {
@@ -28,7 +28,7 @@ std::pair<MatKey, MatInfo> get_matinfo(std::vector<int> cnts)
 
   if (!pawns && !heavy && abs(val) < 4) // drawish endgame
   {
-    mi.scale = cnt * 8; // [1/16; 1/4]
+    mi.scale = cnt * 4; // [1/16; 1/4]
   }
 
   // TODO: what else?

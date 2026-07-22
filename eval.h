@@ -6,7 +6,13 @@
 #include "piece.h"
 #include "duo.h"
 
-//#define DEBUG_EVAL
+//#define TUNING
+
+#ifdef TUNING
+static constexpr bool TRACE = true;
+#else
+static constexpr bool TRACE = false;
+#endif
 
 namespace eia {
 
@@ -43,11 +49,7 @@ struct TermInfo { int group, index, size; };
 #define TERM(group,x,op,eg)                          x,
 #define TERM_ARR(group,x,sz)                         x,
 #define TERMS                                        \
-  TERM(Material, MatPawn,       82.0000,  134.2492)  \
-  TERM(Material, MatKnight,    311.1222,  602.1030)  \
-  TERM(Material, MatBishop,    273.4692,  571.2714)  \
-  TERM(Material, MatRook,      412.8690,  936.1210)  \
-  TERM(Material, MatQueen,     817.5440, 1848.0416)  \
+  TERM_ARR(Material, MatValue,      5)   \
 \
   TERM_ARR(Pawns,    Doubled,       8)   \
   TERM_ARR(Pawns,    Isolated,      8)   \
@@ -84,8 +86,8 @@ struct TermInfo { int group, index, size; };
   TERM_ARR(Passers,  Passer,    6)  \
   TERM_ARR(Passers,  Supported, 6)  \
 \
-  TERM_ARR(Passers,  PasserKingDef, 7)  \
-  TERM_ARR(Passers,  PasserKingAtt, 7)  \
+  TERM_ARR(Passers,  PasserKingDef, 8)  \
+  TERM_ARR(Passers,  PasserKingAtt, 8)  \
 \
   TERM(Passers,  Unstoppable,   400.3234,  400.3234)  \
   TERM(Passers,  FreePasser,     82.9463,   82.9463)  \
@@ -121,6 +123,19 @@ enum Term
 
 constexpr int Param_N = TERMS 0;
 
+struct Trace
+{
+  double amount[Param_N];
+  double phase, scale;
+
+  void clear()
+  {
+    phase = scale = 0.;
+    for (int i = 0; i < Param_N; i++)
+      amount[i] = 0.;
+  }
+};
+
 
 enum class AttWeight { Light = 2, Rook = 3, Queen = 5 };
 
@@ -154,19 +169,6 @@ struct EvalInfo
 };
 
 
-#ifdef DEBUG_EVAL
-struct EvalDetail
-{
-  Piece p;
-  SQ sq;
-  Duo vals;
-  std::string_view factor;
-};
-
-using EvalDetails = std::vector<EvalDetail>;
-#endif
-
-
 class Eval
 {
   bool no_pst;
@@ -176,11 +178,11 @@ class Eval
   TermInfo info[Term_N];
   EvalInfo ei;
 
-  Duo mat[12];
-  Duo pst[12][64];
-  Duo mob[6][30];
-  int passer_scale[8];
+#ifdef TUNING
+  Trace T;
+#endif
 
+  Duo pst[12][64];
   MatInfo mattable[+MatKey::Total];
 
 public:
@@ -216,38 +218,33 @@ private:
   template<Color Col> Duo eval_passers(const Board * B);
   template<Color Col> Duo eval_threats(const Board * B);
 
-#ifdef DEBUG_EVAL
-public:
-  const EvalDetails & get_details() { return ed; }
-
 private:
-  bool explain = false;
-  EvalDetails ed;
-
-  Duo apply(const Duo & vals, Piece p, SQ sq, std::string_view factor)
+  INLINE Duo apply(int mult, int div, Term term, int offset = 0)
   {
-    if (explain && vals) ed.push_back({p, sq, vals, factor});
-    return vals;
+    assert(offset >= 0);
+    assert(offset < info[term].size);
+    const int idx = info[term].index + offset;
+#ifdef TUNING
+    T.amount[idx] += 1. * mult / div;
+#endif
+    return data[idx] * mult / div;
   }
-#endif
+
+  INLINE Duo apply(int amount, Term term, int offset = 0)
+  {
+    return apply(amount, 1, term, offset);
+  }
+
+  INLINE Duo apply(Term term, int offset = 0)
+  {
+    return apply(1, term, offset);
+  }
 };
-
-#ifdef DEBUG_EVAL
-#define A(v, p, sq, factor) (apply(v, p, sq, factor))
-#else
-#define A(v, p, sq, factor) (v)
-#endif
-
-#ifdef DEBUG_EVAL
-#define APPLY(v, factor) (apply(v, p, sq, factor))
-#else
-#define APPLY(v, factor) (v)
-#endif
 
 INLINE Duo Eval::get(Term term, int offset) const
 {
-  assert(index >= 0);
-  assert(index < info[term].size);
+  assert(offset >= 0);
+  assert(offset < info[term].size);
   return data[ info[term].index + offset ];
 }
 

@@ -49,6 +49,7 @@ const Val safety_table[100] =
 // + relative pin on queen     +10 elo
 // + knight & bishop outpost   +40 elo
 // 
+// - pawn storm                ??? elo
 // - wider passers             ??? elo
 
 Val Eval::eval(const Board * B, Val alpha, Val beta, bool use_phash)
@@ -59,43 +60,23 @@ Val Eval::eval(const Board * B, Val alpha, Val beta, bool use_phash)
   // +70 elo (20s+.2s h2h-30)
   if (B->is_simply_mated()) return -Val::Inf;
 
-#ifdef DEBUG_EVAL
-  ed.clear();
+#ifdef TRACE
+  T.clear();
 #endif
 
-  int scale = 256;
+  int scale = 128;
 
   if (is_correct(B->mkey))
   {
     const auto matinfo = mattable[get_index(B->mkey)];
     scale = matinfo.scale;
   }
-  
-  for (int i = 0; i < BK; i++) // material
+
+  for (Piece p = BP; p < BK; ++p) // material
   {
-    const u64 bb = B->piece[i];
-    duo += mat[i] * popcnt(bb);
+    const int cnt = popcnt(B->piece[p]);
+    duo += apply(col(p) ? cnt : -cnt, MatValue, pt(p));
   }
-
-  A(duo, NOP, SQ_N, "Material");
-
-  //if (!B->pawns()) // Mop-up evaluation | -30 elo (20s+.2 h2h-20)
-  //{
-  //  if (!B->has_pieces(B->color))
-  //  {
-  //    Val val = duo.tapered(B->phase());
-  //    Val score = B->color ? val : -val;
-  //    score += mopup(B, B->color);
-  //    return unzero(score * (1. - B->state.fifty / 100.));
-  //  }
-  //  else if (!B->has_pieces(~B->color))
-  //  {
-  //    Val val = duo.tapered(B->phase());
-  //    Val score = B->color ? val : -val;
-  //    score += mopup(B, ~B->color);
-  //    return unzero(score * (1. - B->state.fifty / 100.));
-  //  }
-  //}
 
   // collecting ei here
   duo += evalxrays<White>(B) - evalxrays<Black>(B);
@@ -104,7 +85,7 @@ Val Eval::eval(const Board * B, Val alpha, Val beta, bool use_phash)
 
   Duo pvals;
 
-  if (!no_hash && use_phash)
+  if (!no_hash && use_phash && !TRACE)
   {
     auto pk = Hash::pk_probe(B->state.pkhash);
     if (pk == nullptr)
@@ -135,15 +116,19 @@ Val Eval::eval(const Board * B, Val alpha, Val beta, bool use_phash)
   duo += eval_passers<White>(B) - eval_passers<Black>(B);
   duo += eval_threats<White>(B) - eval_threats<Black>(B);
 
-  duo += B->color ? get(Tempo) : -get(Tempo);
+  duo += Duo::both(ei.king_safety());
+  duo  = B->color ? duo : -duo;
+  duo += apply(Tempo);
 
-  Val val = duo.tapered(B->phase());
-  val += ei.king_safety(); // TODO: not tapered?
+  const int phase = B->phase();
+  Val val = duo.tapered(phase, scale);
 
-  Val score = B->color ? val : -val;
-  score = score / 256 * scale; // rescale for endgames
-  score = std::clamp(score, -Val::Mate / 2, Val::Mate / 2);
-  return unzero(score * (1. - B->state.fifty / 100.));
+#ifdef TUNING
+  T.phase = phase;
+  T.scale = scale;
+#endif
+
+  return unzero(val * (1. - B->state.fifty / 100.));
 }
 
 Val Eval::mopup(const Board * B, Color weaker)
@@ -184,8 +169,7 @@ Duo Eval::evalxrays(const Board * B)
 
         const bool pawn_att = !!(ei.pawn_atts[~Col] & bit(sq));
 
-        const Duo v = get(term, 4 * pawn_att + pt(p));
-        vals += APPLY(v, absolute ? "Pin (Absolute)" : "Pin (Partial)");
+        vals += apply(term, 4 * pawn_att + pt(p) - 1);
       }
     }
   }
@@ -208,7 +192,7 @@ Duo Eval::evaluateP(const Board * B)
     const int r = Col ? rank(sq) : 7 - rank(sq);
 
     // pst
-    vals += APPLY(pst[p][sq], "PST");
+    vals += pst[p][sq];
 
     u64 back_friendly = front[~Col][sq] & B->piece[p];
     u64 fore_friendly = front[Col][sq] & B->piece[p];
@@ -223,15 +207,14 @@ Duo Eval::evaluateP(const Board * B)
 
     if (!(isolator[sq] & B->piece[p]))
     {
-      vals += APPLY(get(Isolated, f), "Isolated pawn");
+      vals += apply(Isolated, f);
     }
 
     // doubled
 
     if (back_friendly && !fore_friendly) // most advanced one
     {
-      const Duo v = popcnt(back_friendly) * get(Doubled, f);
-      vals += APPLY(v, "Doubled pawn");
+      vals += apply(popcnt(back_friendly), Doubled, f);
     }
 
     // blocked weak
@@ -248,7 +231,7 @@ Duo Eval::evaluateP(const Board * B)
     {
       if (r < 5)
       {
-        vals += APPLY(get(Backward, r - 1), "Backward pawn");
+        vals += apply(Backward, r - 1);
       }
 
       ei.weak[Col] |= bit(sq);
@@ -260,7 +243,7 @@ Duo Eval::evaluateP(const Board * B)
 
     if (connected)
     {
-      vals += APPLY(get(Connected), "Connected pawn");
+      vals += apply(Connected);
     }
 
     // passers
@@ -273,7 +256,7 @@ Duo Eval::evaluateP(const Board * B)
       }
       else if (popcnt(supports) >= popcnt(sentries)) // candidate
       {
-        vals += APPLY(get(Candidate, r - 1), "Candidate passer");
+        vals += apply(Candidate, r - 1);
       }
     }
   }
@@ -290,8 +273,7 @@ Duo Eval::evaluateP(const Board * B)
     SQ  sq       = pawns ? backmost<Col>(pawns) : SQ_N;
     int dist     = pawns ? abs(rank(king) - rank(sq)) : 7;
 
-    Duo v = get(PawnShield, (f == kf) * 8 + dist);
-    vals += APPLY(v, "Pawn Shield");
+    vals += apply(PawnShield, (f == kf) * 8 + dist);
   }
 
   return vals;
@@ -315,7 +297,7 @@ Duo Eval::eval_passers(const Board * B)
 
     if (!sentries) // Passer
     {
-      vals += APPLY(get(Passer, prank - 1), "Passer");
+      vals += apply(Passer, prank - 1);
 
       if (!(front[Col][sq] & B->occ[Col]) // Unstoppable
       &&  !B->has_pieces(~Col))
@@ -326,7 +308,7 @@ Duo Eval::eval_passers(const Board * B)
         // opp king is not in square
         if (k_dist(kopp, prom) - turn > k_dist(sq, prom))
         {
-          vals += APPLY(get(Unstoppable), "Unstoppable");
+          vals += apply(Unstoppable);
         }
       }
       else
@@ -340,14 +322,14 @@ Duo Eval::eval_passers(const Board * B)
         &&  k_dist(king, sq) <= 1
         &&  k_dist(king, prom) <= 1)
         {
-          vals += APPLY(get(Unstoppable), "King passer");
+          vals += apply(Unstoppable);
         }
       }
       else // Bonuses for increasing passers potential
       {
         if (psupport[Col][sq] & B->piece[p]) // Supported
         {
-          vals += APPLY(get(Supported, prank - 1), "Supported passer");
+          vals += apply(Supported, prank - 1);
         }
 
         const u64 o = B->occupied();
@@ -357,7 +339,7 @@ Duo Eval::eval_passers(const Board * B)
           Move move = to_move(sq, stop);
           if (B->see(move) > 0)
           {
-            vals += APPLY(get(FreePasser), "Free passer");
+            vals += apply(FreePasser);
           }
         }
 
@@ -367,8 +349,8 @@ Duo Eval::eval_passers(const Board * B)
         int katt = k_dist(kopp, stop);
         int kdef = k_dist(king, stop);
 
-        vals += APPLY(get(PasserKingAtt, katt), "Passer king att");
-        vals += APPLY(get(PasserKingDef, kdef), "Passer king def");
+        vals += apply(PasserKingAtt, katt);
+        vals += apply(PasserKingDef, kdef);
       }
     }
   }
@@ -394,18 +376,16 @@ Duo Eval::evaluateN(const Board * B)
 
     // pst & mobility
 
-    vals += APPLY(pst[p][sq], "PST");
+    vals += pst[p][sq];
 
     const u64 opp_pawns = ei.pawn_atts[~Col];
     const u64 safe_att = att & ~opp_pawns;
-    Duo v = mob[Knight][popcnt(safe_att)];
-    vals += APPLY(v, "Mobility");
+    vals += apply(MobN, popcnt(safe_att));
 
     // adjustments
 
     int pawns = popcnt(B->piece[BP ^ Col]);
-    const Duo adj = get(KnightAdj) * PAdj[pawns];
-    vals += APPLY(adj, "Adjustments");
+    vals += apply(PAdj[pawns], KnightAdj);
 
     // trapped
 
@@ -414,7 +394,7 @@ Duo Eval::evaluateN(const Board * B)
 
     if (bit(sq) & mask && !safe_att)
     {
-      vals += APPLY(get(TrappedHard), "Trapped Knight");
+      vals += apply(TrappedHard);
     }
 
     // outpost
@@ -425,19 +405,14 @@ Duo Eval::evaluateN(const Board * B)
       const bool central  = bit(sq) & InnerFiles;
       const bool defended = bit(sq) & ei.pawn_atts[Col];
 
-      Duo v = get(KnightOutpost, 2 * central + defended);
-      vals += APPLY(v, "Knight Outpost");
+      vals += apply(KnightOutpost, 2 * central + defended);
     }
 
     // forks
 
-    u64 fork = att & (B->piece[WR ^ Col]
-                    | B->piece[WQ ^ Col]
-                    | B->piece[WK ^ Col]);
-
-    if (several(fork))
+    if (several(att & B->valuable<Col>()))
     {
-      vals += APPLY(get(KnightFork), "Knight Fork");
+      vals += apply(KnightFork);
     }
   }
   return vals;
@@ -462,10 +437,8 @@ Duo Eval::evaluateB(const Board * B)
 
     // pst & mobility
 
-    vals += APPLY(pst[p][sq], "PST");
-
-    Duo v = mob[Bishop][popcnt(att)];
-    vals += APPLY(v, "Mobility");
+    vals += pst[p][sq];
+    vals += apply(MobB, popcnt(att));
 
     // bad bishop
 
@@ -474,11 +447,11 @@ Duo Eval::evaluateB(const Board * B)
 
     if (cnt < 5)
     {
-      vals += APPLY(get(BadBishop), "Bad bishop");
+      vals += apply(BadBishop);
     }
     else if (cnt < 12)
     {
-      vals += APPLY(get(BadBishop) / 2, "Bad bishop (relaxed)");
+      vals += apply(1, 2, BadBishop); // relaxed
     }
 
     // trapped
@@ -502,7 +475,7 @@ Duo Eval::evaluateB(const Board * B)
       if (bit(sq) & bishops[i]
       &&  contains(opp_pawns, blockers[i]))
       {
-        vals += APPLY(get(TrappedSoft), "Trapped Bishop");
+        vals += apply(TrappedSoft);
         break;
       }
     }
@@ -515,21 +488,14 @@ Duo Eval::evaluateB(const Board * B)
       const bool central  = bit(sq) & InnerFiles;
       const bool defended = bit(sq) & ei.pawn_atts[Col];
 
-      Duo v = get(BishopOutpost, 2 * central + defended);
-      vals += APPLY(v, "Bishop Outpost");
+      vals += apply(BishopOutpost, 2 * central + defended);
     }
 
     // forks
 
-    u64 valuable = B->piece[WR ^ Col]
-                 | B->piece[WQ ^ Col]
-                 | B->piece[WK ^ Col];
-
-    u64 fork = att & valuable;
-
-    if (rlsb(fork))
+    if (several(att & B->valuable<Col>()))
     {
-      vals += APPLY(get(BishopFork), "Bishop Fork");
+      vals += apply(BishopFork);
     }
   }
 
@@ -537,7 +503,7 @@ Duo Eval::evaluateB(const Board * B)
 
   if (several(B->piece[p]))
   {
-    vals += A(get(BishopPair), p, SQ_N, "Bishop pair");
+    vals += apply(BishopPair);
   }
   return vals;
 }
@@ -561,16 +527,13 @@ Duo Eval::evaluateR(const Board * B)
 
     // pst & mobility
 
-    vals += APPLY(pst[p][sq], "PST");
-
-    Duo v = mob[Rook][popcnt(att)];
-    vals += APPLY(v, "Mobility");
+    vals += pst[p][sq];
+    vals += apply(MobR, popcnt(att));
 
     // adjustments
 
     int pawns = popcnt(B->piece[BP ^ Col]);
-    const Duo adj = get(RookAdj) * PAdj[pawns];
-    vals += APPLY(adj, "Adjustments");
+    vals += apply(PAdj[pawns], RookAdj);
 
     // rook on 7th
 
@@ -585,7 +548,7 @@ Duo Eval::evaluateR(const Board * B)
 
       if (rank(opp_king) == king_rank || several(opp_pawns))
       {
-        vals += APPLY(get(Rook7th), "Rook on 7th");
+        vals += apply(Rook7th);
       }
     }
 
@@ -593,8 +556,8 @@ Duo Eval::evaluateR(const Board * B)
 
     if (!(front[Col][sq] & own_pawns))
     {
-      Term t = front[Col][sq] & opp_pawns ? RookSemi : RookOpen;
-      vals += APPLY(get(t), "Rook on open");
+      const bool semi = front[Col][sq] & opp_pawns;
+      vals += apply(semi ? RookSemi : RookOpen);
     }
 
     // bad rook
@@ -618,7 +581,7 @@ Duo Eval::evaluateR(const Board * B)
       if (bit(sq) & rooks[i]
       &&     king & kings[i])
       {
-        vals += APPLY(get(BadRook), "Bad Rook");
+        vals += apply(BadRook);
         break;
       }
     }
@@ -656,17 +619,14 @@ Duo Eval::evaluateQ(const Board * B)
       {
         const bool pawn_att = !!(ei.pawn_atts[~Col] & bit(psq));
 
-        const Duo v = get(PinRelative, 4 * pawn_att + pt(p));
-        vals += APPLY(v, "Queen Pin (Relative)");
+        vals += apply(PinRelative, 4 * pawn_att + pt(p) - 1);
       }
     }
 
     // pst & mobility
 
-    vals += APPLY(pst[p][sq], "PST");
-
-    Duo m = mob[Queen][popcnt(att)];
-    vals += APPLY(m, "Mobility");
+    vals += pst[p][sq];
+    vals += apply(MobQ, popcnt(att));
 
     // queen on open/semi-files
 
@@ -675,8 +635,8 @@ Duo Eval::evaluateQ(const Board * B)
 
     if (!(front[Col][sq] & own_pawns))
     {
-      Term t = front[Col][sq] & opp_pawns ? RookSemi : RookOpen;
-      vals += APPLY(get(t) / 2, "Queen on open");
+      const bool semi = front[Col][sq] & opp_pawns;
+      vals += apply(1, 2,  semi ? RookSemi : RookOpen);
     }
 
     // early queen
@@ -699,8 +659,7 @@ Duo Eval::evaluateQ(const Board * B)
       }
     }
     const int penalty = popcnt(undeveloped); // 0..4
-    const Duo v = penalty * get(EarlyQueen) / 4;
-    vals += APPLY(v, "Early queen");
+    vals += apply(penalty, 4, EarlyQueen);
   }
 
   return vals;
@@ -717,15 +676,14 @@ Duo Eval::evaluateK(const Board * B)
 
     // pst
 
-    vals += APPLY(pst[p][sq], "PST");
+    vals += pst[p][sq];
 
     // pawn weakness
 
     for (u64 ww = ei.weak[~Col]; ww; ww = rlsb(ww))
     {
       SQ j = bitscan(ww);
-      Duo push = get(WeaknessPush, k_dist(sq, j));
-      vals += APPLY(push, "Weakness push");
+      vals += apply(WeaknessPush, k_dist(sq, j));
     }
   }
   return vals;
@@ -757,35 +715,35 @@ Duo Eval::eval_threats(const Board * B)
 
   // Penalty for each of our poorly supported pawns
   cnt = popcnt(B->piece[BP ^ Col] & ~pawns_atts & poor_defend);
-  vals += A(cnt * get(ThreatPawn), BP ^ Col, SQ_N, "Threat pawns");
+  vals += apply(cnt, ThreatPawn);
 
   // lights <- pawns
   cnt = popcnt(lights & pawns_atts);
-  vals += A(cnt * get(ThreatL_P), BN ^ Col, SQ_N, "Threat lights <- pawns");
+  vals += apply(cnt, ThreatL_P);
 
   // lights <- lights
   cnt = popcnt(lights & light_atts);
-  vals += A(cnt * get(ThreatL_L), BN ^ Col, SQ_N, "Threat lights <- lights");
+  vals += apply(cnt, ThreatL_L);
 
   // weak lights <- heavy
   cnt = popcnt(weak_light & heavy_atts);
-  vals += A(cnt * get(ThreatL_H), BN ^ Col, SQ_N, "Threat lights <- heavy");
+  vals += apply(cnt, ThreatL_H);
 
   // weak lights <- king
   cnt = popcnt(weak_light & ei.attacked_by[opp][King]);
-  vals += A(cnt * get(ThreatL_K), BN ^ Col, SQ_N, "Threat weak lights <- king");
+  vals += apply(cnt, ThreatL_K);
 
   // rooks <- pawns, lights
   cnt = popcnt(rooks & (pawns_atts | light_atts));
-  vals += A(cnt * get(ThreatR_L), BR ^ Col, SQ_N, "Threat rooks <- pawns, lights");
+  vals += apply(cnt, ThreatR_L);
 
   // weak rooks <- king
   cnt = popcnt(rooks & poor_defend & ei.attacked_by[opp][King]);
-  vals += A(cnt * get(ThreatR_K), BR ^ Col, SQ_N, "Threat weak rooks <- king");
+  vals += apply(cnt, ThreatR_K);
 
   // queens <- any
   cnt = popcnt(queens & ei.attacked[opp]);
-  vals += A(cnt * get(ThreatQ_1), BQ ^ Col, SQ_N, "Threat queens <- any");
+  vals += apply(cnt, ThreatQ_1);
 
   return vals;
 }
@@ -990,7 +948,7 @@ Tune Eval::to_tune() const
 
 void Eval::init_term(int term, const vector<pair<f64, f64>> & arr)
 {
-  assert(arr.size() == info[idx].size);
+  assert(arr.size() == info[term].size);
 
   int idx = info[term].index;
   for (const auto & val : arr)
@@ -1001,6 +959,19 @@ void Eval::init_term(int term, const vector<pair<f64, f64>> & arr)
 
 void Eval::init()
 {
+  // ------------------------------
+  //  Material
+  // ------------------------------
+
+  init_term(MatValue,
+  {
+    { 82.0000,  134.2492}, // pawn
+    {311.1222,  602.1030}, // knight
+    {273.4692,  571.2714}, // bishop
+    {412.8690,  936.1210}, // rook
+    {817.5440, 1848.0416}  // queen
+  });
+
   // ------------------------------
   //  Pawn structure
   // ------------------------------
@@ -1105,12 +1076,12 @@ void Eval::init()
 
   init_term(PasserKingAtt, // by k_dist
   {
-    {5, -1}, {5, -1}, {7, 0}, {9, 11}, {0, 25}, {1, 37}, {16, 37}
+    {5, -1}, {5, -1}, {7, 0}, {9, 11}, {0, 25}, {1, 37}, {16, 37}, {0, 0}
   });
 
   init_term(PasserKingDef, // by k_dist
   {
-    {-3, 1}, {-3, 1}, {0, -4}, {5, -13}, {6, -19}, {-9, -19}, {-9, -7}
+    {-3, 1}, {-3, 1}, {0, -4}, {5, -13}, {6, -19}, {-9, -19}, {-9, -7}, {0, 0}
   });
 
   // ------------------------------
@@ -1134,21 +1105,6 @@ void Eval::init()
     {-12, -10}, {-13, -10}, {-20, -20}, {-5, -5}, // safe
     {-24, -20}, {-26, -20}, {-40, -40}, {-9, -9}, // pawn att
   });
-
-  // Material //////////////////////////////////////////////////////
-
-  mat[WP] = get(MatPawn);
-  mat[WN] = get(MatKnight);
-  mat[WB] = get(MatBishop);
-  mat[WR] = get(MatRook);
-  mat[WQ] = get(MatQueen);
-  mat[WK] = Duo::both(0_cp);
-
-  for (int i = 0; i < 12; i += 2)
-    mat[i] = -mat[i + 1];
-
-  /*for (int i = 0; i < 12; i++)
-    cout << std::format("{}\n", mat[i]);*/
 
   // PST ///////////////////////////////////////////////////////////
 
@@ -1209,17 +1165,6 @@ void Eval::init()
     }
     cout << "\n";
   }*/
-
-  // Mobility //////////////////////////////////////////////////////
-
-  for (int pt = 0; pt < 6; pt++)
-    for (int i = 0; i < 30; i++)
-      mob[pt][i] = 0_cp;
-
-  for (int i = 0; i <  9; i++) mob[Knight][i] = get(MobN, i);
-  for (int i = 0; i < 14; i++) mob[Bishop][i] = get(MobB, i);
-  for (int i = 0; i < 15; i++) mob[Rook][i]   = get(MobR, i);
-  for (int i = 0; i < 28; i++) mob[Queen][i]  = get(MobQ, i);
 
   // Material info /////////////////////////////////////////////////
 

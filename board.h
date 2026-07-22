@@ -147,6 +147,7 @@ public:
   template<Color COL = Color_N> INLINE u64 lights() const;
   template<Color COL = Color_N> INLINE u64 diags() const;
   template<Color COL = Color_N> INLINE u64 ortho() const;
+  template<Color COL = Color_N> INLINE u64 valuable() const;
 
   INLINE u64 occupied() const { return occ[0] | occ[1]; }
 
@@ -245,6 +246,14 @@ INLINE u64 Board::ortho() const
   if constexpr (COL == White) return piece[WQ] | piece[WR];
   if constexpr (COL == Black) return piece[BQ] | piece[BR];
   return rooks() | queens();
+}
+
+template<Color COL>
+INLINE u64 Board::valuable() const
+{
+  if constexpr (COL == White) return piece[WK] | piece[WQ] | piece[WR];
+  if constexpr (COL == Black) return piece[BK] | piece[BQ] | piece[BR];
+  return kings() | queens() | rooks() ;
 }
 
 
