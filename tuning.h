@@ -1,4 +1,5 @@
 #pragma once
+#ifdef TUNING
 #include <vector>
 #include <random>
 #include <memory>
@@ -312,3 +313,4 @@ struct std::formatter<eia::Tune> : std::formatter<std::string>
     return std::formatter<std::string>::format(str, ctx);
   }
 };
+#endif

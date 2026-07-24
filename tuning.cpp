@@ -1,3 +1,4 @@
+#ifdef TUNING
 #include <fstream>
 #include <utility>
 #include <algorithm>
@@ -416,5 +417,5 @@ double find_k(unique_ptr<Tuner> tuner, Tune v, double a, double b, double eps)
   return (a + b) / 2.0;
 }
 
-
 }
+#endif

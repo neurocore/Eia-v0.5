@@ -5,6 +5,7 @@
 #include "engine.h"
 #include "solver_pvs.h"
 #include "tuning.h"
+#include "eval.h"
 
 using namespace std;
 
@@ -164,11 +165,11 @@ bool Engine::parse(string str)
     string batch = cut(str);
     spsa(file, parse_int(batch, 100'000));
   }
-  else if (cmd == "adam") [[unlikely]]
+  else if (cmd == "agrd") [[unlikely]]
   {
     string file = cut(str);
     string batch = cut(str);
-    adam(file, parse_int(batch, 100'000));
+    agrd(file, parse_int(batch, 100'000));
   }
   else if (cmd == "tune") [[unlikely]]
   {
@@ -266,26 +267,25 @@ void Engine::test_evades_gen()
 
 void Engine::eval()
 {
-  E->set_explanations(true);
   Val val = E->eval(&B, -Val::Inf, Val::Inf, false);
-  E->set_explanations(false);
-
   string str = format("Eval: {}\n\n", val);
 
-#ifdef DEBUG_EVAL
-  Duo duo{};
-  auto & details = E->get_details();
-  for (const auto & d : details)
+#ifdef TUNING
+  auto & trace = E->get_trace();
+  for (int i = 0; i < Term_N; i++)
   {
-    str += format("{} {} {} {}\n", d.p, d.sq, d.vals, d.factor);
-    duo += d.p == NOP || d.p ? d.vals : -d.vals;
+    Term term = static_cast<Term>(i);
+    TermInfo info = E->get_info(term);
+
+    str += format("{}: ", term);
+    for (int j = 0; j < info.size; j++)
+      str += format("{} ", trace.amount[info.index + j]);
+    str += "\n";
   }
   const int phase = B.phase();
-  str += format("Total: {}\n", duo);
-  str += format("Phase: {} / {}\n", phase, Phase::Total);
-  str += format("Value: {}\n", duo.tapered(phase));
+  str += format("Phase: {} / {}\n", trace.rho, trace.phi);
 #else
-  str += "Use in debug mode to get details\n";
+  str += "Use in Tuning mode to get details\n";
 #endif
 
   say<1>("{}", str);
@@ -341,6 +341,7 @@ void Engine::tunek(std::string file, int batch_sz)
 {
   say<1>("-- Tuning K constant\n");
 
+#ifdef TUNING
   auto loss = make_unique<MSE>();
   auto tuner = make_unique<TunerStatic>(std::move(loss), batch_sz);
   tuner->open(file);
@@ -351,6 +352,9 @@ void Engine::tunek(std::string file, int batch_sz)
   
   double k = find_k(std::move(tuner), v, .5, 1.5);
   log("\nbest k = {}\n", k);
+#else
+  log("Available in profile 'Tuning'\n");
+#endif
 }
 
 // Simultaneous Perturbation Stochastic Approximation (SPSA)
@@ -360,6 +364,7 @@ void Engine::spsa(string file, int batch_sz)
 {
   say<1>("-- SPSA tuning\n");
 
+#ifdef TUNING
   auto loss = make_unique<MSE>();
   auto tuner = make_unique<TunerStatic>(std::move(loss), batch_sz);
 
@@ -369,15 +374,19 @@ void Engine::spsa(string file, int batch_sz)
 
   SPSA optimizator(std::move(tuner), 5'000'000, 1, .1, 100);
   optimizator.start();
+#else
+  log("Available in profile 'Tuning'\n");
+#endif
 }
 
-// Adaptive Moment Estimation optimizer (Adam)
-// May be even efficient due to momentum
+// Adaptive Gradient (AdaGrad)
+// Its adaptive learning rates accelerate convergence
 
-void Engine::adam(string file, int batch_sz)
+void Engine::agrd(string file, int batch_sz)
 {
-  say<1>("-- Adam tuning\n");
+  say<1>("-- AdaGrad tuning\n");
 
+#ifdef TUNING
   auto loss = make_unique<MSE>();
   auto tuner = make_unique<TunerStatic>(std::move(loss), batch_sz);
 
@@ -387,12 +396,16 @@ void Engine::adam(string file, int batch_sz)
   
   Adam optimizator(std::move(tuner), 5'000'000, .01);
   optimizator.start();
+#else
+  log("Available in profile 'Tuning'\n");
+#endif
 }
 
 void Engine::tune(std::string file, int batch_sz)
 {
   say<1>("-- Tune mode\n");
 
+#ifdef TUNING
   auto loss = make_unique<MSE>();
   auto tuner = make_unique<TunerStatic>(std::move(loss), batch_sz);
 
@@ -442,6 +455,9 @@ void Engine::tune(std::string file, int batch_sz)
       }
     }
   }
+#else
+  log("Available in profile 'Tuning'\n");
+#endif
 }
 
 }

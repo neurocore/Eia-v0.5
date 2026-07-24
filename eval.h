@@ -6,8 +6,6 @@
 #include "piece.h"
 #include "duo.h"
 
-//#define TUNING
-
 #ifdef TUNING
 static constexpr bool TRACE = true;
 #else
@@ -117,20 +115,28 @@ enum Term
 
 #undef TERM
 #undef TERM_ARR
-
 #define TERM(group,x,op,eg)   1 +
 #define TERM_ARR(group,x,sz)  sz +
 
 constexpr int Param_N = TERMS 0;
 
+#undef TERM
+#undef TERM_ARR
+#define TERM(group,x,op,eg)  #x,
+#define TERM_ARR(group,x,sz) #x,
+
+static const std::string term_str[Term_N] = { TERMS };
+
 struct Trace
 {
   double amount[Param_N];
-  double phase, scale;
+  double rho, phi;
+  Duo remains;
 
   void clear()
   {
-    phase = scale = 0.;
+    remains.clear();
+    rho = phi = 0.;
     for (int i = 0; i < Param_N; i++)
       amount[i] = 0.;
   }
@@ -217,28 +223,38 @@ private:
 
   template<Color Col> Duo eval_passers(const Board * B);
   template<Color Col> Duo eval_threats(const Board * B);
+  template<Color Col> Duo eval_tempo(const Board * B);
 
-private:
+  template<Color Col = White>
   INLINE Duo apply(int mult, int div, Term term, int offset = 0)
   {
     assert(offset >= 0);
     assert(offset < info[term].size);
     const int idx = info[term].index + offset;
 #ifdef TUNING
-    T.amount[idx] += 1. * mult / div;
+    double amount = 1. * mult / div;
+    T.amount[idx] += Col ? amount : -amount;
 #endif
     return data[idx] * mult / div;
   }
 
+  template<Color Col = White>
   INLINE Duo apply(int amount, Term term, int offset = 0)
   {
-    return apply(amount, 1, term, offset);
+    return apply<Col>(amount, 1, term, offset);
   }
 
+  template<Color Col = White>
   INLINE Duo apply(Term term, int offset = 0)
   {
-    return apply(1, term, offset);
+    return apply<Col>(1, term, offset);
   }
+
+public:
+  const TermInfo & get_info(Term term) const { return info[term]; }
+#ifdef TUNING
+  const Trace & get_trace() const { return T; }
+#endif
 };
 
 INLINE Duo Eval::get(Term term, int offset) const
@@ -254,3 +270,13 @@ const int PAdj[9] = {-5, -4, -3, -2, -1, 0, +1, +2, +3};
 extern Eval E[1];
 
 }
+
+template<>
+struct std::formatter<eia::Term> : std::formatter<std::string>
+{
+  auto format(const eia::Term & term, std::format_context & ctx) const
+  {
+    std::string str = eia::term_str[term];
+    return std::formatter<std::string>::format(str, ctx);
+  }
+};
