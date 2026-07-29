@@ -32,9 +32,11 @@ public:
 
 class MSE : public Loss
 {
-  const double k = std::log(10.) / 400;
+  const double k;
 
 public:
+  MSE(double k0 = Tunes::K100) : k(k0) {}
+
   double f(double y, double s) const override
   {
     const double diff = y - s;
@@ -43,9 +45,9 @@ public:
 
   double df(double y, double s) const override
   {
-    const double df_ds = -2 * (y - s);    // ((y - s)^2)' = -2(y - s)
+    const double df_ds = 2 * (s - y);     // ((y - s)^2)' = -2(y - s)
     const double ds_dv = k * s * (1 - s); // s'(kv) = k * s * (1 - s)
-    return df_ds * ds_dv; // chain rule
+    return df_ds * ds_dv; // chain rule (don't forget dE/dL itself)
   }
 
   string name() const override { return "MSE"; }
@@ -118,11 +120,10 @@ class PSTMatConverter
   vector<PSTMatResult> & data;
   const vector<PosResult> & poss;
   mutable Board B;
-  mutable Eval E;
 
 public:
   PSTMatConverter(const vector<PosResult> & poss, vector<PSTMatResult> & data)
-    : poss(poss), data(data), E({}, true, true)
+    : poss(poss), data(data)
   {}
 
   void convert() const;
@@ -151,6 +152,7 @@ public:
   virtual Tune   get_init() const = 0;
   virtual string to_string(Tune v) = 0;
   virtual bool   open(string file) = 0;
+  virtual int    batch_n() const = 0;
   virtual size_t size() const = 0;
 };
 
@@ -163,20 +165,23 @@ class TunerStatic : public Tuner
   unique_ptr<Loss> L;
   vector<PosResult> poss;
   int batch_sz, index = 0;
-  double k;
 
 public:
-  TunerStatic(unique_ptr<Loss> loss_fn, int batch_size = 10'000, double k = Tunes::K100)
-    : L(move(loss_fn)), batch_sz(batch_size), k(k)
+  TunerStatic(unique_ptr<Loss> loss_fn, int batch_size = 10'000)
+    : L(move(loss_fn)), batch_sz(batch_size)
   {}
 
   Score  score(Tune v, double k0 = 0.) override;
   void   next_iter() override { index = (index + batch_sz) % poss.size(); }
-  Bounds get_bounds() const override { return Eval{}.bounds(); }
-  Tune   get_init() const override { return Eval{}.to_tune(); }
+  Bounds get_bounds() const override { return E->bounds(); }
+  Tune   get_init() const override { return E->to_tune(); }
   string to_string(Tune v) override { return Eval(v).to_string(); }
   bool   open(string file) override { return DataProvider(poss).open(file); }
+  int    batch_n() const { return batch_sz ? batch_sz : size(); }
   size_t size() const { return poss.size(); }
+
+private:
+  Tune calc_dE(const Trace & trace) const;
 };
 
 
@@ -187,18 +192,18 @@ class TunerPST : public Tuner
   unique_ptr<Loss> L;
   vector<PSTMatResult> data;
   int batch_sz, index = 0;
-  double k;
 
 public:
-  TunerPST(unique_ptr<Loss> loss_fn, int batch_size = 10'000, double k = Tunes::K100)
-    : L(move(loss_fn)), batch_sz(batch_size), k(k)
+  TunerPST(unique_ptr<Loss> loss_fn, int batch_size = 10'000)
+    : L(move(loss_fn)), batch_sz(batch_size)
   {}
 
   Score  score(Tune v, double k0 = 0.) override;
   void   next_iter() override {}
   Bounds get_bounds() const override { return Eval{}.bounds(); }
-  Tune   get_init() const override { return Tune(768, 0.); }
+  Tune   get_init() const override { return Tune{}; }
   string to_string(Tune v) override { return "[too lazy]"; }
+  int    batch_n() const { return batch_sz; }
   size_t size() const { return data.size(); }
   bool   open(string file) override
   {
@@ -246,38 +251,20 @@ private:
 };
 
 
-// Differential Evolution method
+// Adaptive Gradient optimizer (AdaGrad)
 
-class DiffEvo
+class AdaGrad
 {
   unique_ptr<Tuner> tuner;
-  double cr, f;
-  int num;
+  double acc0, lrate, eps;
+  int iters;
 
 public:
-  DiffEvo(unique_ptr<Tuner> tuner,
-          int   num = 10,
-          double cr = .9,
-          double f  = .8);
-};
-
-
-// Adaptive Moment Estimation optimizer (Adam)
-
-class Adam
-{
-  unique_ptr<Tuner> tuner;
-  double alpha, beta1, beta2, eps;
-  int iters, t;
-
-public:
-  Adam(unique_ptr<Tuner> tuner,
-       int max_iters = 100'000,
-       double alpha = 0.001,
-       double beta1 = 0.9,
-       double beta2 = 0.999,
-       double eps   = 1e-8,
-       int t = 0);
+  AdaGrad(unique_ptr<Tuner> tuner,
+          int max_iters = 100'000,
+          double acc0  = 0.1,
+          double lrate = 0.01,
+          double eps   = 1e-8);
 
   void start();
 };
@@ -286,7 +273,157 @@ public:
 //  Utilities
 // --------------------------------------------------------------------
 
-extern double find_k(unique_ptr<Tuner> tuner, Tune v, double a, double b, double eps = 1e-5);
+extern double find_k(unique_ptr<Tuner> tuner, Tune v, double a, double b, double eps = 1e-6);
+
+static Tune operator * (double val, const Tune & v)
+{
+  Tune r;
+  for (int i = 0; i < Param_N; i++)
+  {
+    r.param[i][0] = val * v.param[i][0];
+    r.param[i][1] = val * v.param[i][1];
+  }
+  return r;
+}
+
+static Tune operator / (const Tune & v, double val)
+{
+  Tune r;
+  for (int i = 0; i < Param_N; i++)
+  {
+    r.param[i][0] = val / v.param[i][0];
+    r.param[i][1] = val / v.param[i][1];
+  }
+  return r;
+}
+
+static Tune operator / (double val, const Tune & v)
+{
+  Tune r;
+  for (int i = 0; i < Param_N; i++)
+  {
+    r.param[i][0] = v.param[i][0] / val;
+    r.param[i][1] = v.param[i][1] / val;
+  }
+  return r;
+}
+
+static Tune operator * (const Tune & v, const Tune & w)
+{
+  Tune r;
+  for (int i = 0; i < Param_N; i++)
+  {
+    r.param[i][0] = v.param[i][0] * w.param[i][0];
+    r.param[i][1] = v.param[i][1] * w.param[i][1];
+  }
+  return r;
+}
+
+static Tune operator + (const Tune & v, const Tune & w)
+{
+  Tune r;
+  for (int i = 0; i < Param_N; i++)
+  {
+    r.param[i][0] = v.param[i][0] + w.param[i][0];
+    r.param[i][1] = v.param[i][1] + w.param[i][1];
+  }
+  return r;
+}
+
+static Tune operator - (const Tune & v, const Tune & w)
+{
+  Tune r;
+  for (int i = 0; i < Param_N; i++)
+  {
+    r.param[i][0] = v.param[i][0] - w.param[i][0];
+    r.param[i][1] = v.param[i][1] - w.param[i][1];
+  }
+  return r;
+}
+
+static Tune operator + (const Tune & v, double val)
+{
+  Tune r;
+  for (int i = 0; i < Param_N; i++)
+  {
+    r.param[i][0] = v.param[i][0] + val;
+    r.param[i][1] = v.param[i][1] + val;
+  }
+  return r;
+}
+
+static Tune operator - (const Tune & v, double val)
+{
+  Tune r;
+  for (int i = 0; i < Param_N; i++)
+  {
+    r.param[i][0] = v.param[i][0] - val;
+    r.param[i][1] = v.param[i][1] - val;
+  }
+  return r;
+}
+
+static Tune & operator += (Tune & v, const Tune & w)
+{
+  for (int i = 0; i < Param_N; i++)
+  {
+    v.param[i][0] += w.param[i][0];
+    v.param[i][1] += w.param[i][1];
+  }
+  return v;
+}
+
+static Tune & operator -= (Tune & v, const Tune & w)
+{
+  for (int i = 0; i < Param_N; i++)
+  {
+    v.param[i][0] -= w.param[i][0];
+    v.param[i][1] -= w.param[i][1];
+  }
+  return v;
+}
+
+static Tune & operator *= (Tune & v, double val)
+{
+  for (int i = 0; i < Param_N; i++)
+  {
+    v.param[i][0] *= val;
+    v.param[i][1] *= val;
+  }
+  return v;
+}
+
+static Tune & operator /= (Tune & v, double val)
+{
+  for (int i = 0; i < Param_N; i++)
+  {
+    v.param[i][0] /= val;
+    v.param[i][1] /= val;
+  }
+  return v;
+}
+
+static Tune sqrt(const Tune & v)
+{
+  Tune r;
+  for (int i = 0; i < Param_N; i++)
+  {
+    r.param[i][0] = std::sqrt(v.param[i][0]);
+    r.param[i][1] = std::sqrt(v.param[i][1]);
+  }
+  return r;
+}
+
+static Tune adagrad_update(f64 lrate, f64 eps, const Tune & g, const Tune & grad)
+{
+  Tune r;
+  for (int i = 0; i < Param_N; i++)
+  {
+    r.param[i][0] = lrate / (std::sqrt(g.param[i][0]) + eps) * grad.param[i][0];
+    r.param[i][1] = lrate / (std::sqrt(g.param[i][1]) + eps) * grad.param[i][1];
+  }
+  return r;
+}
 
 }
 
@@ -297,18 +434,13 @@ struct std::formatter<eia::Tune> : std::formatter<std::string>
   {
     std::string str;
 
-    if (v.size() > 0)
+    str = "[";
+    for (int i = 0; i < eia::Param_N; i++)
     {
-      str = "[";
-      for (const auto el : v)
-        str += to_string(el) + ",";
-      str = str.substr(0, str.size() - 1);
-      str += "]";
+      str += "{"  + to_string(v.param[i][0])
+          +  ", " + to_string(v.param[i][1]) + "}, ";
     }
-    else
-    {
-      str = "[]";
-    }
+    str = str.substr(0, str.size() - 2) + "]";
 
     return std::formatter<std::string>::format(str, ctx);
   }

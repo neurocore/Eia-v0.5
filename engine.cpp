@@ -157,7 +157,7 @@ bool Engine::parse(string str)
   {
     string file = cut(str);
     string batch = cut(str);
-    tunek(file, parse_int(batch, 100'000));
+    tunek(file, parse_int(batch, 0));
   }
   else if (cmd == "spsa") [[unlikely]]
   {
@@ -169,7 +169,7 @@ bool Engine::parse(string str)
   {
     string file = cut(str);
     string batch = cut(str);
-    agrd(file, parse_int(batch, 100'000));
+    agrd(file, parse_int(batch, 10'000));
   }
   else if (cmd == "tune") [[unlikely]]
   {
@@ -346,11 +346,12 @@ void Engine::tunek(std::string file, int batch_sz)
   auto tuner = make_unique<TunerStatic>(std::move(loss), batch_sz);
   tuner->open(file);
 
-  log("Positions: {}\n\n", tuner->size());
+  log("Positions: {}\n", tuner->size());
+  log("Batch size: {}\n\n", tuner->batch_n());
 
-  const auto v = Eval{}.to_tune();
-  
-  double k = find_k(std::move(tuner), v, .5, 1.5);
+  const auto v = E->to_tune();
+  double k = find_k(std::move(tuner), v, 0., 1.);
+
   log("\nbest k = {}\n", k);
 #else
   log("Available in profile 'Tuning'\n");
@@ -371,6 +372,7 @@ void Engine::spsa(string file, int batch_sz)
   tuner->open(file);
 
   log("Positions: {}\n\n", tuner->size());
+  log("Batch size: {}\n\n", tuner->batch_n());
 
   SPSA optimizator(std::move(tuner), 5'000'000, 1, .1, 100);
   optimizator.start();
@@ -393,13 +395,16 @@ void Engine::agrd(string file, int batch_sz)
   tuner->open(file);
 
   log("Positions: {}\n\n", tuner->size());
+  log("Batch size: {}\n\n", tuner->batch_n());
   
-  Adam optimizator(std::move(tuner), 5'000'000, .01);
+  AdaGrad optimizator(std::move(tuner), tuner->size(), .01, .01);
   optimizator.start();
 #else
   log("Available in profile 'Tuning'\n");
 #endif
 }
+
+// External tune function for use in python
 
 void Engine::tune(std::string file, int batch_sz)
 {
@@ -413,6 +418,7 @@ void Engine::tune(std::string file, int batch_sz)
 
   const Tune v0 = tuner->get_init();
   say<1>("Positions: {}\n", tuner->size());
+  say<1>("Batch size: {}\n\n", tuner->batch_n());
   say<1>("Init {}\n\n", v0);
 
   bool success = true;
@@ -431,17 +437,23 @@ void Engine::tune(std::string file, int batch_sz)
         auto inner = trim(str, '[', ']');
         auto parts = split(inner, ",");
 
-        Tune v;
-        for (auto part : parts)
-          v.push_back(parse_double(trim(part)));
-
-        if (v.size() != v0.size())
+        if (parts.size() != 2 * Param_N)
         {
-          say<1>("Incorrect tune size: {} instead of {}\n", v.size(), v0.size());
+          say<1>("Incorrect tune size: {} instead of {}\n", parts.size(), 2 * Param_N);
         }
+        else
+        {
+          Tune v;
+          for (int i = 0; i < Param_N; i++)
+          {
+            v.param[i][0] = parse_double(trim(parts[2 * i + 0]));
+            v.param[i][1] = parse_double(trim(parts[2 * i + 1]));
+          }
 
-        auto score = tuner->score(v);
-        say<1>("{}\n", score.loss);
+          auto score = tuner->score(v);
+          say<1>("{}\n", score.loss);
+          //say<1>("{}\n", score.grad);
+        }
       }
       else if (cmd == "exit")
       {

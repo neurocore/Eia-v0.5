@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <omp.h>
 #include "types.h"
+#include "consts.h"
 
 namespace eia {
 
@@ -25,10 +26,9 @@ template<typename T> INLINE T abs(T val)
   return val < T(0) ? -val : val;
 }
 
-inline double sigmoid(double x, double k) // [0; 1]
+inline double sigmoid(double x, double k = Tunes::K100) // [0; 1]
 {
-  assert(k != 0);
-  return 1 / (1 + pow(10., -k * x / 400));
+  return 1 / (1 + exp(-k * x));
 }
 
 template<typename T, typename R>
@@ -133,22 +133,6 @@ inline double parse_double(const std::string_view str, double def = 0.)
   double result = def;
   std::from_chars(str.data(), str.data() + str.size(), result);
   return result;
-}
-
-static Tune operator * (double val, Tune v)
-{
-  Tune r;
-  for (const auto el : v)
-    r.push_back(val * el);
-  return r;
-}
-
-static Tune operator * (Tune v, Tune w)
-{
-  Tune r;
-  for (size_t i = 0; i < v.size(); i++)
-    r.push_back(v[i] * w[i]);
-  return r;
 }
 
 template<typename T>

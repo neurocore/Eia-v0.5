@@ -127,6 +127,11 @@ constexpr int Param_N = TERMS 0;
 
 static const std::string term_str[Term_N] = { TERMS };
 
+struct Tune
+{
+  double param[Param_N][2];
+};
+
 struct Trace
 {
   double amount[Param_N];
