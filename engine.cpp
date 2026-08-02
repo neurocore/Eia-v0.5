@@ -168,8 +168,7 @@ bool Engine::parse(string str)
   else if (cmd == "agrd") [[unlikely]]
   {
     string file = cut(str);
-    string batch = cut(str);
-    agrd(file, parse_int(batch, 10'000));
+    agrd(file);
   }
   else if (cmd == "tune") [[unlikely]]
   {
@@ -384,20 +383,24 @@ void Engine::spsa(string file, int batch_sz)
 // Adaptive Gradient (AdaGrad)
 // Its adaptive learning rates accelerate convergence
 
-void Engine::agrd(string file, int batch_sz)
+void Engine::agrd(string file)
 {
   say<1>("-- AdaGrad tuning\n");
 
 #ifdef TUNING
   auto loss = make_unique<MSE>();
-  auto tuner = make_unique<TunerStatic>(std::move(loss), batch_sz);
+  auto tuner = make_unique<TunerCached>(std::move(loss));
 
-  tuner->open(file);
+  if (!tuner->open(file))
+  {
+    log("File opening failed!\n");
+    return;
+  }
 
-  log("Positions: {}\n\n", tuner->size());
+  log("Positions: {}\n", tuner->size());
   log("Batch size: {}\n\n", tuner->batch_n());
   
-  AdaGrad optimizator(std::move(tuner), tuner->size(), .01, .01);
+  AdaGrad optimizator(std::move(tuner), (int)tuner->size(), 0.1);
   optimizator.start();
 #else
   log("Available in profile 'Tuning'\n");

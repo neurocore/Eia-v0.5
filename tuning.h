@@ -146,13 +146,13 @@ class Tuner
 {
 public:
   virtual ~Tuner() {}
-  virtual Score  score(Tune v, double k0 = 0.) = 0;
+  virtual Score  score(const Tune & v, double k0 = 0.) = 0;
   virtual void   next_iter() = 0;
   virtual Bounds get_bounds() const = 0;
   virtual Tune   get_init() const = 0;
-  virtual string to_string(Tune v) = 0;
+  virtual string to_string(const Tune & v) = 0;
   virtual bool   open(string file) = 0;
-  virtual int    batch_n() const = 0;
+  virtual size_t batch_n() const = 0;
   virtual size_t size() const = 0;
 };
 
@@ -171,17 +171,61 @@ public:
     : L(move(loss_fn)), batch_sz(batch_size)
   {}
 
-  Score  score(Tune v, double k0 = 0.) override;
-  void   next_iter() override { index = (index + batch_sz) % poss.size(); }
+  Score  score(const Tune & v, double k0 = 0.) override;
+  void   next_iter() override { index = (index + batch_sz) % size(); }
   Bounds get_bounds() const override { return E->bounds(); }
   Tune   get_init() const override { return E->to_tune(); }
-  string to_string(Tune v) override { return Eval(v).to_string(); }
+  string to_string(const Tune & v) override { return Eval(v).to_string(); }
   bool   open(string file) override { return DataProvider(poss).open(file); }
-  int    batch_n() const { return batch_sz ? batch_sz : size(); }
+  size_t batch_n() const { return batch_sz ? batch_sz : size(); }
   size_t size() const { return poss.size(); }
 
 private:
   Tune calc_dE(const Trace & trace) const;
+};
+
+
+// Cached tuner - fits tune to position-result dataset
+// Shrinking traces removing params that are not activated in position
+
+// traces: [ rho phi rest a b c ... x ] [ rho phi rest q r p ... z ] ...
+// posidx: [ 0 0b00...001011001 ] -^    [ 14 0b00...010010010 ] -^
+
+struct PosIndex
+{
+  int offset, size;
+  float rho, phi;
+  float rest, wdl;
+};
+
+struct Amount
+{
+  int index;
+  float val;
+};
+
+class TunerCached : public Tuner
+{
+  Board B;
+  unique_ptr<Loss> L;
+  vector<PosIndex> posis;
+  vector<Amount> amounts;
+
+public:
+  TunerCached(unique_ptr<Loss> loss_fn) : L(move(loss_fn)) {}
+
+  Score  score(const Tune & v, double k0 = 0.) override;
+  void   next_iter() override {}
+  Bounds get_bounds() const override { return E->bounds(); }
+  Tune   get_init() const override { return E->to_tune(); }
+  string to_string(const Tune & v) override { return Eval(v).to_string(); }
+  bool   open(string file) override;
+  size_t batch_n() const { return size(); }
+  size_t size() const { return posis.size(); }
+
+private:
+  double calc_eval(const Tune & v, int pos_idx) const;
+  Tune   calc_dE(int pos_idx) const;
 };
 
 
@@ -198,12 +242,12 @@ public:
     : L(move(loss_fn)), batch_sz(batch_size)
   {}
 
-  Score  score(Tune v, double k0 = 0.) override;
+  Score  score(const Tune & v, double k0 = 0.) override;
   void   next_iter() override {}
   Bounds get_bounds() const override { return Eval{}.bounds(); }
   Tune   get_init() const override { return Tune{}; }
-  string to_string(Tune v) override { return "[too lazy]"; }
-  int    batch_n() const { return batch_sz; }
+  string to_string(const Tune & v) override { return "[too lazy]"; }
+  size_t batch_n() const { return batch_sz; }
   size_t size() const { return data.size(); }
   bool   open(string file) override
   {
@@ -256,13 +300,12 @@ private:
 class AdaGrad
 {
   unique_ptr<Tuner> tuner;
-  double acc0, lrate, eps;
+  double lrate, eps;
   int iters;
 
 public:
   AdaGrad(unique_ptr<Tuner> tuner,
           int max_iters = 100'000,
-          double acc0  = 0.1,
           double lrate = 0.01,
           double eps   = 1e-8);
 
@@ -437,8 +480,8 @@ struct std::formatter<eia::Tune> : std::formatter<std::string>
     str = "[";
     for (int i = 0; i < eia::Param_N; i++)
     {
-      str += "{"  + to_string(v.param[i][0])
-          +  ", " + to_string(v.param[i][1]) + "}, ";
+      str += "{"  + std::format("{:+.4f}", v.param[i][0])
+          +  ", " + std::format("{:+.4f}", v.param[i][1]) + "}, ";
     }
     str = str.substr(0, str.size() - 2) + "]";
 

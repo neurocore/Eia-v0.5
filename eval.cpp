@@ -57,11 +57,11 @@ Val Eval::eval(const Board * B, Val alpha, Val beta, bool use_phash)
   ei.init(B);
   Duo duo{};
 
-  // +70 elo (20s+.2s h2h-30)
-  if (B->is_simply_mated()) return -Val::Inf;
-
 #ifdef TUNING
   T.clear();
+#else
+  // +70 elo (20s+.2s h2h-30)
+  if (B->is_simply_mated()) return -Val::Inf;
 #endif
 
   int scale = 128;
@@ -127,10 +127,9 @@ Val Eval::eval(const Board * B, Val alpha, Val beta, bool use_phash)
   int progress = 100 - std::max(B->state.fifty, 68);
 
 #ifdef TUNING
-  const double fadeout = progress / 32.;
+  const float fadeout = progress / 32.f;
   T.rho = fadeout * (Phase::Total - phase) / Phase::Total;
   T.phi = fadeout * scale / 128 * phase / Phase::Total;
-  T.remains = ksafety;
 #endif
 
   return unzero(val / 32 * progress);
@@ -758,6 +757,7 @@ Duo Eval::eval_tempo(const Board * B)
 {
   Duo v = apply<Col>(B->color == Col, Tempo);
   return v;
+  //return {};
 }
 
 //////////////////
@@ -812,8 +812,6 @@ void EvalInfo::add_king_attack(Color col, AttWeight weight, u64 att)
 
 Val EvalInfo::king_safety(Color col) const
 {
-  // TODO: fix bug, probably from pk_hash table
-  //if (king_att_weight[col] > 100) cout << king_att_weight[col] << endl;
   int weight = (std::min)(king_att_weight[col], 99);
   return king_att_count[col] > 2 ? safety_table[weight] : 0_cp;
 }
@@ -848,15 +846,25 @@ Eval::Eval(const Tune & tune, bool no_pst, bool no_hash)
   for (int i = 0; i < Param_N; i++)
     data[i].clear();
 
-  if (!g_tune.empty())
+  int idx = 0;
+  TERMS; // can't skip - it builds info!
+
+  if (!tune.empty())
+  {
+    set(tune);
+  }
+  else if (!l_tune.empty())
+  {
+    set(l_tune);
+  }
+  else if (!g_tune.empty())
   {
     set(g_tune);
   }
   else
   {
-    int idx = 0;
-    TERMS;
-    init();
+    init_term_arrays();
+    init_inner();
   }
 }
 
@@ -902,7 +910,7 @@ Bounds Eval::bounds() const
 void Eval::set(string str)
 {
   //TERMS;
-  init();
+  init_inner();
 }
 //
 //#undef TERM
@@ -926,21 +934,21 @@ void Eval::set_raw(string str, std::string delim)
     double eg = parse_double(part2);
     data[i] = { cp(op), cp(eg) };
   }
-  init();
+  init_inner();
 }
 
 void Eval::set(const Eval & eval)
 {
   for (int i = 0; i < Param_N; i++)
     data[i] = eval.data[i];
-  init();
+  init_inner();
 }
 
 void Eval::set(const Tune & tune)
 {
   for (int i = 0; i < Param_N; i++)
     data[i] = { cp(tune.param[i][0]), cp(tune.param[i][1]) };
-  init();
+  init_inner();
 }
 
 Tune Eval::to_tune() const
@@ -965,7 +973,7 @@ void Eval::init_term(int term, const vector<pair<f64, f64>> & arr)
   }
 }
 
-void Eval::init()
+void Eval::init_term_arrays()
 {
   // ------------------------------
   //  Material
@@ -1113,7 +1121,10 @@ void Eval::init()
     {-12, -10}, {-13, -10}, {-20, -20}, {-5, -5}, // safe
     {-24, -20}, {-26, -20}, {-40, -40}, {-9, -9}, // pawn att
   });
+}
 
+void Eval::init_inner()
+{
   // PST ///////////////////////////////////////////////////////////
 
   for (int i = 0; i < 12; i++)

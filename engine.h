@@ -36,7 +36,7 @@ public:
   void go(const SearchCfg & cfg);
   void tunek(std::string file, int batch_sz = 0);
   void spsa(std::string file, int batch_sz = 100'000);
-  void agrd(std::string file, int batch_sz = 100'000);
+  void agrd(std::string file);
   void tune(std::string file, int batch_sz = 100'000); // for external use
 };
 

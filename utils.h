@@ -135,6 +135,21 @@ inline double parse_double(const std::string_view str, double def = 0.)
   return result;
 }
 
+inline std::string progress(double progress, int width = 70)
+{
+  std::string str = "\r[";
+  const int pos  = static_cast<int>(width * progress);
+  const int rate = static_cast<int>(progress * 100.0);
+
+  for (int i = 0; i < width; ++i)
+  {
+    str += i < pos ? '=' :
+           i > pos ? '.' : '>';
+  }
+  str += "] " + std::to_string(rate) + " %";
+  return str;
+}
+
 template<typename T>
 T median(const std::vector<T> & vec, size_t start, size_t end)
 {

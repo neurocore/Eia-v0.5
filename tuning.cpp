@@ -11,6 +11,10 @@ using namespace std;
 
 namespace eia {
 
+// --------------------------------------------------------------------
+//  Data providers
+// --------------------------------------------------------------------
+
 bool DataProvider::open(string file)
 {
   auto parts = split(file, ".");
@@ -152,9 +156,14 @@ PSTMatResult PSTMatConverter::convert(const PosResult & pr) const
   };
 }
 
-/////////////////////////////////////
 
-Score TunerStatic::score(Tune v, double k0)
+// --------------------------------------------------------------------
+//  Tuners
+// --------------------------------------------------------------------
+
+// TunerStatic /////////////////////////////////
+
+Score TunerStatic::score(const Tune & v, double k0)
 {
   const double k = k0 ? k0 : Tunes::K100;
   const size_t total = size();
@@ -197,7 +206,161 @@ Tune TunerStatic::calc_dE(const Trace & T) const
   return dE;
 }
 
-Score TunerPST::score(Tune v, double k0)
+
+// TunerCached /////////////////////////////////
+
+Score TunerCached::score(const Tune & v, double k0)
+{
+  const double k = k0 ? k0 : Tunes::K100;
+  const size_t N = size();
+
+  Tune grad{};
+  double loss = 0.0;
+
+  for (int i = 0; i < N; i++)
+  {
+    const double val = calc_eval(v, i);
+
+    const double y = posis[i].wdl;
+    const double s = sigmoid(val, k);
+
+    loss += L->f(y, s);
+    grad += L->df(y, s) * calc_dE(i);
+  }
+
+  loss /= N;
+  grad /= N;
+
+  return Score(loss, grad);
+}
+
+bool TunerCached::open(string file)
+{
+  const int show_n = (1 << 15) - 1;
+
+  vector<PosResult> poss;
+  if (!DataProvider(poss).open(file)) return false;
+
+  log("Total: {} positions\n\n", poss.size());
+  log("Collecting eval traces...\n");
+
+  posis.resize(poss.size());
+  const Tune v = E->to_tune();
+
+  int offset = 0;
+  for (int j = 0; j < poss.size(); j++)
+  {
+    const auto & pos = poss[j];
+    if (!(j & show_n)) log("{}", progress(1. * j / poss.size()));
+
+    B.set(pos.fen);
+    Val val = E->eval(&B, -Val::Inf, Val::Inf, false);
+    float y = B.color ? dry_float(val) : -dry_float(val);
+    const float wdl = (pos.result + 1) / 2.f;
+    const Trace T = E->get_trace();
+    posis[j] = { offset, 0, T.rho, T.phi, 0.f, wdl };
+
+    int size = 0;
+    for (int i = 0; i < Param_N; i++)
+    {
+      const double amount = T.amount[i];
+      if (abs(amount) < 1e-6) continue;
+
+      amounts.push_back({i, T.amount[i]});
+      size++;
+    }
+
+    const double rest = y - calc_eval(v, j);
+    posis[j].rest = (float)rest;
+    posis[j].size = size;
+
+    offset += size;
+  }
+  log("{}\n\n", progress(1.));
+
+  // Testing eval linearity
+
+  return true; // ---------------------------------------------------- !!!
+
+  log("Testing eval linearity...\n");
+
+  Tune w{};
+  E->set(w);
+
+  float max_err = 0;
+  for (int j = 0; j < poss.size(); j++)
+  {
+    const auto & pos = poss[j];
+    if (!(j & show_n)) log("{}", progress(1. * j / poss.size()));
+
+    B.set(pos.fen);
+    Val val = E->eval(&B, -Val::Inf, Val::Inf, false);
+    float y = B.color ? dry_float(val) : -dry_float(val);
+    float t = calc_eval(w, j);
+    float diff = abs(y - t);
+
+    max_err = std::max(max_err, diff);
+
+    if (abs(y - t) > 1.)
+    {
+      const auto & P = posis[j];
+
+      log("\n\n");
+      log("{}\n", B.to_string());
+      log("{}\n", pos.fen);
+      log("Incorrect eval!\n");
+      log("Original: {}\n", y);
+      log("Calculated: {}\n", t);
+      log("\n");
+      log("rho: {}\n", P.rho);
+      log("phi: {}\n", P.phi);
+      log("rest: {}\n", P.rest);
+      log("wdl: {}\n", P.wdl);
+      log("\n");
+      return false;
+    }
+  }
+  log("{}\n\n", progress(1.));
+  log("Max error: {}\n\n", max_err);
+
+  return true;
+}
+
+// White's perspective position eval
+double TunerCached::calc_eval(const Tune & v, int pos_idx) const
+{
+  const auto & P = posis[pos_idx];
+  double op = 0., eg = 0.;
+
+  for (int i = P.offset; i < P.offset + P.size; i++)
+  {
+    const int j = amounts[i].index;
+    const double amount = amounts[i].val;
+    op += v.param[j][0] * amount;
+    eg += v.param[j][1] * amount;
+  }
+  return op * P.rho + eg * P.phi + P.rest;
+}
+
+Tune TunerCached::calc_dE(int pos_idx) const
+{
+  const auto & P = posis[pos_idx];
+  Tune dE{};
+
+  for (int i = P.offset; i < P.offset + P.size; i++)
+  {
+    const int j = amounts[i].index;
+    const double amount = amounts[i].val;
+    dE.param[j][0] = (double)P.rho * amount;
+    dE.param[j][1] = (double)P.phi * amount;
+  }
+  return dE;
+}
+
+
+// TunerPST ////////////////////////////////////
+
+Score TunerPST::score(const Tune & v, double k0)
 {
   const double k = k0 ? k0 : Tunes::K100;
 
@@ -221,7 +384,7 @@ Score TunerPST::score(Tune v, double k0)
   double loss = 0.0;
   int debug = 0;
 
-  #pragma omp parallel for reduction(+:loss) schedule(static)
+  #pragma omp parallel for reduction(+:loss)
   for (int i = 0; i < total; i++)
   {
     const auto & pos = data[i];
@@ -244,7 +407,10 @@ Score TunerPST::score(Tune v, double k0)
   return Score(loss, {});
 }
 
-/////////////////////////////////////
+
+// --------------------------------------------------------------------
+//  Optimizers
+// --------------------------------------------------------------------
 
 SPSA::SPSA(std::unique_ptr<Tuner> tuner,
            int    max_iters,
@@ -317,17 +483,14 @@ void SPSA::start()
 }
 
 
-/////////////////////////////////////
-
-AdaGrad::AdaGrad(std::unique_ptr<Tuner> tuner, int max_iters,
-           double acc0, double lrate, double eps)
-  : tuner(move(tuner)), iters(max_iters)
-  , acc0(acc0), lrate(lrate), eps(eps)
+AdaGrad::AdaGrad(std::unique_ptr<Tuner> tuner,
+                 int max_iters, double lrate, double eps)
+  : tuner(move(tuner)), iters(max_iters), lrate(lrate), eps(eps)
 {}
 
 void AdaGrad::start()
 {
-  const int batches = iters / tuner->batch_n();
+  const int batches = iters / (int)tuner->batch_n();
   auto bounds = tuner->get_bounds();
 
   log("-- Starting eval tuning (AdaGrad)\n\n");
@@ -341,16 +504,21 @@ void AdaGrad::start()
 
   for (int epoch = 0; epoch < iters; epoch++)
   {
-    log("\n -- Epoch #{} --\n\n", epoch);
-    log("x = {}\n\n", x);
+    //if (!(epoch % 100))
+    {
+      log("\n -- Epoch #{} --\n\n", epoch);
+      log("x = {}\n\n", x);
+    }
 
     for (int batch = 0; batch < batches; batch++)
     {
       Score s = tuner->score(x);
+      //log("grad = {}\n", s.grad);
 
+      //if (!(epoch % 100))
       if (!(batch % 100))
       {
-        log("Batch {}/{} | Loss = {:+.4f}\n", batch, batches, s.loss);
+        log("Batch {}/{} | Loss = {:+.4f}\n", batch + 1, batches, s.loss);
       }
 
       g += s.grad * s.grad;
@@ -358,10 +526,9 @@ void AdaGrad::start()
 
       tuner->next_iter();
     }
+    //log("g = {}\n\n", g);
   }
 }
-
-/////////////////////
 
 // Golden Section Search for optimal K that minimizes loss
 
