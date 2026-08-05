@@ -342,7 +342,7 @@ void Engine::tunek(std::string file, int batch_sz)
 
 #ifdef TUNING
   auto loss = make_unique<MSE>();
-  auto tuner = make_unique<TunerStatic>(std::move(loss), batch_sz);
+  auto tuner = make_unique<TunerCached>(std::move(loss));
   tuner->open(file);
 
   log("Positions: {}\n", tuner->size());
@@ -400,7 +400,7 @@ void Engine::agrd(string file)
   log("Positions: {}\n", tuner->size());
   log("Batch size: {}\n\n", tuner->batch_n());
   
-  AdaGrad optimizator(std::move(tuner), (int)tuner->size(), 0.1);
+  AdaGrad optimizator(std::move(tuner), 10, 1e-5);
   optimizator.start();
 #else
   log("Available in profile 'Tuning'\n");

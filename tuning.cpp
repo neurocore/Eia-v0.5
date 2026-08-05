@@ -225,11 +225,15 @@ Score TunerCached::score(const Tune & v, double k0)
     const double s = sigmoid(val, k);
 
     loss += L->f(y, s);
-    grad += L->df(y, s) * calc_dE(i);
+    grad += L->df(y, s) * calc_dE(v, i);
   }
 
   loss /= N;
   grad /= N;
+
+  // regularization
+  loss += scalar_mult(v, v) * Lambda / 2;
+  grad += Lambda * v;
 
   return Score(loss, grad);
 }
@@ -339,10 +343,11 @@ double TunerCached::calc_eval(const Tune & v, int pos_idx) const
     op += v.param[j][0] * amount;
     eg += v.param[j][1] * amount;
   }
+
   return op * P.rho + eg * P.phi + P.rest;
 }
 
-Tune TunerCached::calc_dE(int pos_idx) const
+Tune TunerCached::calc_dE(const Tune & v, int pos_idx) const
 {
   const auto & P = posis[pos_idx];
   Tune dE{};
@@ -484,14 +489,14 @@ void SPSA::start()
 
 
 AdaGrad::AdaGrad(std::unique_ptr<Tuner> tuner,
-                 int max_iters, double lrate, double eps)
-  : tuner(move(tuner)), iters(max_iters), lrate(lrate), eps(eps)
+                 double learning_rate, double eps)
+  : tuner(move(tuner)), lrate(learning_rate), eps(eps)
 {}
 
 void AdaGrad::start()
 {
+  const int iters = (int)tuner->size();
   const int batches = iters / (int)tuner->batch_n();
-  auto bounds = tuner->get_bounds();
 
   log("-- Starting eval tuning (AdaGrad)\n\n");
   log("Total parameters: {}\n", Param_N);
@@ -513,7 +518,14 @@ void AdaGrad::start()
     for (int batch = 0; batch < batches; batch++)
     {
       Score s = tuner->score(x);
-      //log("grad = {}\n", s.grad);
+
+      for (int i = 0; i < Param_N; i++)
+      {
+        if (!(i % 40)) log("\n");
+        log("{}", "- +"[1 + sgn(s.grad.param[i][0])]);
+        log("{}", "- +"[1 + sgn(s.grad.param[i][1])]);
+      }
+      log("\n\n");
 
       //if (!(epoch % 100))
       if (!(batch % 100))
@@ -523,6 +535,8 @@ void AdaGrad::start()
 
       g += s.grad * s.grad;
       x -= adagrad_update(lrate, eps, g, s.grad);
+
+      x.param[0][0] = +86.3783; // anchor pawn op material
 
       tuner->next_iter();
     }

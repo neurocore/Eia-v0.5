@@ -13,6 +13,8 @@ using std::unique_ptr;
 using std::string;
 using std::vector;
 
+const double Lambda = 0; //1e-6;
+
 
 // --------------------------------------------------------------------
 //  Estimators
@@ -35,7 +37,7 @@ class MSE : public Loss
   const double k;
 
 public:
-  MSE(double k0 = Tunes::K100) : k(k0) {}
+  explicit MSE(double k0 = Tunes::K100) : k(k0) {}
 
   double f(double y, double s) const override
   {
@@ -47,7 +49,7 @@ public:
   {
     const double df_ds = 2 * (s - y);     // ((y - s)^2)' = -2(y - s)
     const double ds_dv = k * s * (1 - s); // s'(kv) = k * s * (1 - s)
-    return df_ds * ds_dv; // chain rule (don't forget dE/dL itself)
+    return df_ds * ds_dv; // chain rule (don't forget dE/dv itself)
   }
 
   string name() const override { return "MSE"; }
@@ -58,22 +60,29 @@ public:
 
 class BCE : public Loss
 {
-  double eps;
+  const double k, eps;
 
 public:
-  explicit BCE(double eps = 1e-15) : eps(eps) {}
+  explicit BCE(double k0 = Tunes::K100, double eps = 1e-15)
+    : k(k0), eps(eps) {}
 
   double f(double y, double s) const override
   {
     double q = std::clamp(s, eps, 1. - eps);
-    return       -y  * std::log(q)
-          - (1. - y) * std::log(1. - q);
+    return      -y  * std::log(q)
+         - (1. - y) * std::log(1. - q);
   }
 
   double df(double y, double s) const override
   {
     double q = std::clamp(s, eps, 1. - eps);
-    return (q - y) / (q * (1. - q));
+    // df/ds  = -y / s - (1 - y)/(1 - s)
+    // s'(kv) = k * s * (1 - s)
+    // , so
+    // 
+    // -k * (y(1 - s) - (1 - y)s) = k(s - y)
+
+    return k * (q - y); // don't forget dE/dv itself
   }
 
   string name() const override { return "BCE"; }
@@ -188,8 +197,8 @@ private:
 // Cached tuner - fits tune to position-result dataset
 // Shrinking traces removing params that are not activated in position
 
-// traces: [ rho phi rest a b c ... x ] [ rho phi rest q r p ... z ] ...
-// posidx: [ 0 0b00...001011001 ] -^    [ 14 0b00...010010010 ] -^
+// amount: [ idx val ] [ idx val ] [ idx val ] [ idx val ] [ idx val ] ...
+// posidx:  ^- [ 0 3 rho phi rest wdl ] ...     ^- [ 3 7 rho phi rest wdl ] ...
 
 struct PosIndex
 {
@@ -225,7 +234,7 @@ public:
 
 private:
   double calc_eval(const Tune & v, int pos_idx) const;
-  Tune   calc_dE(int pos_idx) const;
+  Tune   calc_dE(const Tune & v, int pos_idx) const;
 };
 
 
@@ -300,14 +309,13 @@ private:
 class AdaGrad
 {
   unique_ptr<Tuner> tuner;
-  double lrate, eps;
+  double lrate, lambda, eps;
   int iters;
 
 public:
   AdaGrad(unique_ptr<Tuner> tuner,
-          int max_iters = 100'000,
-          double lrate = 0.01,
-          double eps   = 1e-8);
+          double learning_rate = 0.01,
+          double eps = 1e-8);
 
   void start();
 };
@@ -446,15 +454,15 @@ static Tune & operator /= (Tune & v, double val)
   return v;
 }
 
-static Tune sqrt(const Tune & v)
+static double scalar_mult(const Tune & v, const Tune & w)
 {
-  Tune r;
+  double val = 0.;
   for (int i = 0; i < Param_N; i++)
   {
-    r.param[i][0] = std::sqrt(v.param[i][0]);
-    r.param[i][1] = std::sqrt(v.param[i][1]);
+    val += v.param[i][0] * w.param[i][0];
+    val += v.param[i][1] * w.param[i][1];
   }
-  return r;
+  return val;
 }
 
 static Tune adagrad_update(f64 lrate, f64 eps, const Tune & g, const Tune & grad)
@@ -462,8 +470,8 @@ static Tune adagrad_update(f64 lrate, f64 eps, const Tune & g, const Tune & grad
   Tune r;
   for (int i = 0; i < Param_N; i++)
   {
-    r.param[i][0] = lrate / (std::sqrt(g.param[i][0]) + eps) * grad.param[i][0];
-    r.param[i][1] = lrate / (std::sqrt(g.param[i][1]) + eps) * grad.param[i][1];
+    r.param[i][0] = lrate * grad.param[i][0] / (std::sqrt(g.param[i][0] + eps));
+    r.param[i][1] = lrate * grad.param[i][1] / (std::sqrt(g.param[i][1] + eps));
   }
   return r;
 }

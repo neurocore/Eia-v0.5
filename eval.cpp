@@ -755,9 +755,9 @@ Duo Eval::eval_threats(const Board * B)
 template<Color Col>
 Duo Eval::eval_tempo(const Board * B)
 {
-  Duo v = apply<Col>(B->color == Col, Tempo);
-  return v;
-  //return {};
+  //Duo v = apply<Col>(B->color == Col, Tempo);
+  //return v;
+  return {};
 }
 
 //////////////////
