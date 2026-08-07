@@ -200,8 +200,8 @@ Tune TunerStatic::calc_dE(const Trace & T) const
   Tune dE;
   for (int i = 0; i < Param_N; i++)
   {
-    dE.param[i][0] = T.rho * T.amount[i];
-    dE.param[i][1] = T.phi * T.amount[i];
+    dE.param[i][0] = T.factor[0] * T.amount[i];
+    dE.param[i][1] = T.factor[1] * T.amount[i];
   }
   return dE;
 }
@@ -250,6 +250,7 @@ bool TunerCached::open(string file)
 
   posis.resize(poss.size());
   const Tune v = E->to_tune();
+  //log("used tune: {}\n", v);
 
   int offset = 0;
   for (int j = 0; j < poss.size(); j++)
@@ -259,24 +260,23 @@ bool TunerCached::open(string file)
 
     B.set(pos.fen);
     Val val = E->eval(&B, -Val::Inf, Val::Inf, false);
-    float y = B.color ? dry_float(val) : -dry_float(val);
+    double y = B.color ? dry_double(val) : -dry_double(val);
     const float wdl = (pos.result + 1) / 2.f;
     const Trace T = E->get_trace();
-    posis[j] = { offset, 0, T.rho, T.phi, 0.f, wdl };
+    posis[j] = { offset, 0, B.color, T.factor[0], T.factor[1], wdl, 0.f };
 
     int size = 0;
     for (int i = 0; i < Param_N; i++)
     {
-      const double amount = T.amount[i];
-      if (abs(amount) < 1e-6) continue;
-
-      amounts.push_back({i, T.amount[i]});
-      size++;
+      if (abs(T.amount[i]) > 1e-6)
+      {
+        amounts.push_back({i, T.amount[i]});
+        size++;
+      }
     }
 
-    const double rest = y - calc_eval(v, j);
-    posis[j].rest = (float)rest;
     posis[j].size = size;
+    posis[j].rest = y - calc_eval(v, j);
 
     offset += size;
   }
@@ -284,14 +284,14 @@ bool TunerCached::open(string file)
 
   // Testing eval linearity
 
-  return true; // ---------------------------------------------------- !!!
+  //return true; // ---------------------------------------------------- !!!
 
   log("Testing eval linearity...\n");
 
-  Tune w{};
-  E->set(w);
+  Tune w = v;
+  //E->set(w);
 
-  float max_err = 0;
+  double max_err = 0;
   for (int j = 0; j < poss.size(); j++)
   {
     const auto & pos = poss[j];
@@ -299,13 +299,13 @@ bool TunerCached::open(string file)
 
     B.set(pos.fen);
     Val val = E->eval(&B, -Val::Inf, Val::Inf, false);
-    float y = B.color ? dry_float(val) : -dry_float(val);
-    float t = calc_eval(w, j);
-    float diff = abs(y - t);
+    const double y = B.color ? dry_double(val) : -dry_double(val);
+    const double t = calc_eval(w, j);
+    const double diff = abs(y - t);
 
     max_err = std::max(max_err, diff);
 
-    if (abs(y - t) > 1.)
+    if (diff > 1.)
     {
       const auto & P = posis[j];
 
@@ -316,22 +316,28 @@ bool TunerCached::open(string file)
       log("Original: {}\n", y);
       log("Calculated: {}\n", t);
       log("\n");
-      log("rho: {}\n", P.rho);
-      log("phi: {}\n", P.phi);
+      log("f_op: {}\n", P.factor[0]);
+      log("f_eg: {}\n", P.factor[1]);
       log("rest: {}\n", P.rest);
       log("wdl: {}\n", P.wdl);
       log("\n");
+
+      //__debugbreak();
+      //const double tt = calc_eval(w, j, true);
+
       return false;
     }
   }
   log("{}\n\n", progress(1.));
   log("Max error: {}\n\n", max_err);
 
+  E->set(g_tune);
+
   return true;
 }
 
 // White's perspective position eval
-double TunerCached::calc_eval(const Tune & v, int pos_idx) const
+double TunerCached::calc_eval(const Tune & v, int pos_idx, bool verbose) const
 {
   const auto & P = posis[pos_idx];
   double op = 0., eg = 0.;
@@ -342,9 +348,22 @@ double TunerCached::calc_eval(const Tune & v, int pos_idx) const
     const double amount = amounts[i].val;
     op += v.param[j][0] * amount;
     eg += v.param[j][1] * amount;
+
+    if (verbose)
+    {
+      log("{}: {} - {} / {}\n", j, amount, v.param[j][0], v.param[j][1]);
+    }
   }
 
-  return op * P.rho + eg * P.phi + P.rest;
+  if (verbose)
+  {
+    log("\nop = {}\n", op);
+    log("eg = {}\n\n", eg);
+  }
+
+  const double mixed = op * P.factor[OP] + eg * P.factor[EG] + P.rest;
+
+  return mixed + (P.color ? dry_double(Tempo) : -dry_double(Tempo));
 }
 
 Tune TunerCached::calc_dE(const Tune & v, int pos_idx) const
@@ -356,8 +375,8 @@ Tune TunerCached::calc_dE(const Tune & v, int pos_idx) const
   {
     const int j = amounts[i].index;
     const double amount = amounts[i].val;
-    dE.param[j][0] = (double)P.rho * amount;
-    dE.param[j][1] = (double)P.phi * amount;
+    dE.param[j][0] = (double)P.factor[0] * amount;
+    dE.param[j][1] = (double)P.factor[1] * amount;
   }
   return dE;
 }
@@ -536,7 +555,7 @@ void AdaGrad::start()
       g += s.grad * s.grad;
       x -= adagrad_update(lrate, eps, g, s.grad);
 
-      x.param[0][0] = +86.3783; // anchor pawn op material
+      //x.param[0][0] = +86.3783; // anchor pawn op material
 
       tuner->next_iter();
     }

@@ -198,13 +198,14 @@ private:
 // Shrinking traces removing params that are not activated in position
 
 // amount: [ idx val ] [ idx val ] [ idx val ] [ idx val ] [ idx val ] ...
-// posidx:  ^- [ 0 3 rho phi rest wdl ] ...     ^- [ 3 7 rho phi rest wdl ] ...
+// posidx:  ^- [ 0 3 col rho phi wdl rest ] ... ^- [ 3 7 col rho phi wdl rest ] ...
 
 struct PosIndex
 {
   int offset, size;
-  float rho, phi;
-  float rest, wdl;
+  Color color;
+  float factor[2], wdl;
+  double rest;
 };
 
 struct Amount
@@ -233,7 +234,7 @@ public:
   size_t size() const { return posis.size(); }
 
 private:
-  double calc_eval(const Tune & v, int pos_idx) const;
+  double calc_eval(const Tune & v, int pos_idx, bool verbose = false) const;
   Tune   calc_dE(const Tune & v, int pos_idx) const;
 };
 

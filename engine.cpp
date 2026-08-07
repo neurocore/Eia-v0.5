@@ -282,7 +282,7 @@ void Engine::eval()
     str += "\n";
   }
   const int phase = B.phase();
-  str += format("Phase: {} / {}\n", trace.rho, trace.phi);
+  str += format("Phase: {} / {}\n", trace.factor[0], trace.factor[1]);
 #else
   str += "Use in Tuning mode to get details\n";
 #endif
