@@ -404,6 +404,13 @@ Duo Eval::evaluateN(const Board * B)
     int pawns = popcnt(B->piece[BP ^ Col]);
     vals += apply<Col>(PAdj[pawns], KnightAdj);
 
+    // knight behind pawn
+
+    if (backward<Col>(pawns) & bit(sq))
+    {
+      vals += apply<Col>(KnightBehind);
+    }
+
     // trapped
 
     const u64 mask = Col ? bits(H8, A8, H7, A7)
@@ -456,6 +463,15 @@ Duo Eval::evaluateB(const Board * B)
 
     vals += pst[p][sq];
     vals += apply<Col>(MobB, popcnt(att));
+
+    // bishop behind pawn
+
+    int pawns = popcnt(B->piece[BP ^ Col]);
+
+    if (backward<Col>(pawns) & bit(sq))
+    {
+      vals += apply<Col>(BishopBehind);
+    }
 
     // bad bishop
 
@@ -861,10 +877,6 @@ Eval::Eval(const Tune & tune, bool no_hash) : no_hash(no_hash)
   {
     set(l_tune);
   }
-  else if (!g_tune.empty())
-  {
-    set(g_tune);
-  }
   else
   {
     init_term_arrays();
@@ -1024,7 +1036,7 @@ void Eval::init_term(int term, const vector<pair<f64, f64>> & arr)
 void Eval::init_term_arrays()
 {
   // Epoch #1954 (4h) | 10m eth | AdaGrad | loss +0.1197
-  //  +92 elo (20+.2 h2h-20)
+  //  +42 elo (20+.2 h2h-100)
 
   // ------------------------------
   //  Material
@@ -1496,13 +1508,6 @@ void Eval::init_inner()
     auto mat = get_matinfo({bp, wp, bn, wn, bb, wb, br, wr, bq, wq});
     mattable[get_index(mat.first)] = mat.second;
   }
-}
-
-void Eval::set_explanations(bool on)
-{
-#ifdef DEBUG_EVAL
-  explain = on;
-#endif
 }
 
 #undef APPLY

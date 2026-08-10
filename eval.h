@@ -14,8 +14,7 @@ static constexpr bool TRACE = false;
 
 namespace eia {
 
-const Val Tempo = 10_cp;
-const std::string g_tune = ""; // Tunes::CMA_ES_Eth100;
+const Val Tempo = 15_cp;
 
 enum { OP, EG };
 
@@ -99,7 +98,9 @@ struct TermInfo { int group, index, size; };
   TERM(Pieces,  BadRook,       -26.4064,   -26.3584)  \
   TERM(Pieces,  KnightFork,     13.3053,    27.8449)  \
   TERM(Pieces,  BishopFork,     17.6548,    56.2126)  \
-  TERM(Pieces,  TrappedHard,   150.0000,  -150.0000)  \
+  TERM(Pieces,  KnightBehind,    4.0000,    24.0000)  \
+  TERM(Pieces,  BishopBehind,    4.0000,    24.0000)  \
+  TERM(Pieces,  TrappedHard,  -150.0000,  -150.0000)  \
   TERM(Pieces,  TrappedSoft,   -44.1111,   -52.6393)  \
   TERM(Pieces,  EarlyQueen,    -10.0254,    -5.0517)  \
 \
@@ -235,7 +236,6 @@ public:
   void init_inner();
   void init_term_arrays();
   void init_term(int idx, const std::vector<std::pair<f64, f64>> & arr);
-  void set_explanations(bool on);
 
   INLINE Duo get(Term term, int index = 0) const;
 
