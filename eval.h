@@ -76,7 +76,7 @@ struct TermInfo { int group, index, size; };
   TERM_ARR(Pawns,    Isolated,      8)   \
   TERM_ARR(Pawns,    Backward,      4)   \
   TERM_ARR(Pawns,    PawnShield,    16)  \
-  TERM_ARR(Pawns,    WeaknessPush,  8)   \
+  TERM_ARR(Pawns,    WeaknessPush,  7)   \
 \
   TERM(Pawns,    Connected,     13.8508,     1.5975)  \
 \
@@ -124,7 +124,14 @@ struct TermInfo { int group, index, size; };
   TERM(Threats,  ThreatL_K,      -2.2727,    -7.2954)  \
   TERM(Threats,  ThreatR_L,     -36.1257,   -32.0471)  \
   TERM(Threats,  ThreatR_K,     -47.5415,   -48.1254)  \
-  TERM(Threats,  ThreatQ_1,     -41.5381,   -35.8944)
+  TERM(Threats,  ThreatQ_1,     -41.5381,   -35.8944)  \
+\
+  TERM_ARR(PieceSQ,  PST_P, 64) \
+  TERM_ARR(PieceSQ,  PST_N, 64) \
+  TERM_ARR(PieceSQ,  PST_B, 64) \
+  TERM_ARR(PieceSQ,  PST_R, 64) \
+  TERM_ARR(PieceSQ,  PST_Q, 64) \
+  TERM_ARR(PieceSQ,  PST_K, 64)
 
 
 enum Term
@@ -210,7 +217,6 @@ struct EvalInfo
 
 class Eval
 {
-  bool no_pst;
   bool no_hash;
 
   Duo      data[Param_N];
@@ -225,7 +231,7 @@ class Eval
   MatInfo mattable[+MatKey::Total];
 
 public:
-  Eval(const Tune & tune = {}, bool no_pst = false, bool no_hash = false);
+  Eval(const Tune & tune = {}, bool no_hash = false);
   void init_inner();
   void init_term_arrays();
   void init_term(int idx, const std::vector<std::pair<f64, f64>> & arr);

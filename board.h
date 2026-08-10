@@ -224,6 +224,18 @@ INLINE SQ backmost(u64 bb)
   return Col ? bitscan(bb) : bitscan_r(bb);
 }
 
+template<Color Col>
+INLINE u64 forward(u64 bb)
+{
+  return Col ? bb << 8 : bb >> 8;
+}
+
+template<Color Col>
+INLINE u64 backward(u64 bb)
+{
+  return Col ? bb >> 8 : bb << 8;
+}
+
 template<Color COL>
 INLINE u64 Board::lights() const
 {
