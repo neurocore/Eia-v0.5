@@ -13,7 +13,8 @@ using std::unique_ptr;
 using std::string;
 using std::vector;
 
-const double Lambda = 0; //1e-6;
+constexpr double Lambda = 0; //1e-6;
+constexpr int MaxThreads = 2;
 
 
 // --------------------------------------------------------------------
@@ -234,8 +235,9 @@ public:
   size_t size() const { return posis.size(); }
 
 private:
-  double calc_eval(const Tune & v, int pos_idx, bool verbose = false) const;
+  double calc_eval(const Tune & v, int pos_idx) const;
   Tune   calc_dE(const Tune & v, int pos_idx) const;
+  void   update_grad(Tune & grad, double df, int pos_idx) const;
 };
 
 
@@ -453,6 +455,18 @@ static Tune & operator /= (Tune & v, double val)
     v.param[i][1] /= val;
   }
   return v;
+}
+
+static std::string momentum(const Tune & v)
+{
+  std::string str;
+  for (int i = 0; i < Param_N; i++)
+  {
+    if (!(i % 40)) str += "\n";
+    str += "- +"[1 + sgn(v.param[i][0])];
+    str += "- +"[1 + sgn(v.param[i][1])];
+  }
+  return str;
 }
 
 static double scalar_mult(const Tune & v, const Tune & w)

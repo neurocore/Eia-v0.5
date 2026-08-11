@@ -400,7 +400,7 @@ void Engine::agrd(string file)
   log("Positions: {}\n", tuner->size());
   log("Batch size: {}\n\n", tuner->batch_n());
   
-  AdaGrad optimizator(std::move(tuner), 10, 1e-5);
+  AdaGrad optimizator(std::move(tuner), 10);
   optimizator.start();
 #else
   log("Available in profile 'Tuning'\n");

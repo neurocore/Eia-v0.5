@@ -214,18 +214,30 @@ Score TunerCached::score(const Tune & v, double k0)
   const double k = k0 ? k0 : Tunes::K100;
   const size_t N = size();
 
-  Tune grad{};
-  double loss = 0.0;
+  Tune   local_grad[MaxThreads]{};
+  double local_loss[MaxThreads]{};
 
+  #pragma omp parallel for schedule(static) num_threads(2)
   for (int i = 0; i < N; i++)
   {
+    const int tid = omp_get_thread_num();
     const double val = calc_eval(v, i);
 
     const double y = posis[i].wdl;
     const double s = sigmoid(val, k);
+    const double df = L->df(y, s);
 
-    loss += L->f(y, s);
-    grad += L->df(y, s) * calc_dE(v, i);
+    local_loss[tid] += L->f(y, s);
+    update_grad(local_grad[tid], df, i);
+  }
+
+  Tune grad{};
+  double loss = 0.0;
+
+  for (int i = 0; i < MaxThreads; i++)
+  {
+    loss += local_loss[i];
+    grad += local_grad[i];
   }
 
   loss /= N;
@@ -284,7 +296,7 @@ bool TunerCached::open(string file)
 
   // Testing eval linearity
 
-  //return true; // ---------------------------------------------------- !!!
+  return true; // ---------------------------------------------------- !!!
 
   log("Testing eval linearity...\n");
 
@@ -331,13 +343,11 @@ bool TunerCached::open(string file)
   log("{}\n\n", progress(1.));
   log("Max error: {}\n\n", max_err);
 
-  E->set(g_tune);
-
   return true;
 }
 
 // White's perspective position eval
-double TunerCached::calc_eval(const Tune & v, int pos_idx, bool verbose) const
+double TunerCached::calc_eval(const Tune & v, int pos_idx) const
 {
   const auto & P = posis[pos_idx];
   double op = 0., eg = 0.;
@@ -348,17 +358,6 @@ double TunerCached::calc_eval(const Tune & v, int pos_idx, bool verbose) const
     const double amount = amounts[i].val;
     op += v.param[j][0] * amount;
     eg += v.param[j][1] * amount;
-
-    if (verbose)
-    {
-      log("{}: {} - {} / {}\n", j, amount, v.param[j][0], v.param[j][1]);
-    }
-  }
-
-  if (verbose)
-  {
-    log("\nop = {}\n", op);
-    log("eg = {}\n\n", eg);
   }
 
   const double mixed = op * P.factor[OP] + eg * P.factor[EG] + P.rest;
@@ -379,6 +378,18 @@ Tune TunerCached::calc_dE(const Tune & v, int pos_idx) const
     dE.param[j][1] = (double)P.factor[1] * amount;
   }
   return dE;
+}
+
+void TunerCached::update_grad(Tune & grad, double df, int pos_idx) const
+{
+  const auto & P = posis[pos_idx];
+  for (int i = P.offset; i < P.offset + P.size; i++)
+  {
+    const int j = amounts[i].index;
+    const double amount = amounts[i].val;
+    grad.param[j][0] += df * (double)P.factor[0] * amount;
+    grad.param[j][1] += df * (double)P.factor[1] * amount;
+  }
 }
 
 
@@ -528,38 +539,33 @@ void AdaGrad::start()
 
   for (int epoch = 0; epoch < iters; epoch++)
   {
-    //if (!(epoch % 100))
-    {
-      log("\n -- Epoch #{} --\n\n", epoch);
-      log("x = {}\n\n", x);
-    }
+    log("\n -- Epoch #{} --\n\n", epoch);
+    //log("x = {}\n\n", x);
 
     for (int batch = 0; batch < batches; batch++)
     {
       Score s = tuner->score(x);
 
-      for (int i = 0; i < Param_N; i++)
-      {
-        if (!(i % 40)) log("\n");
-        log("{}", "- +"[1 + sgn(s.grad.param[i][0])]);
-        log("{}", "- +"[1 + sgn(s.grad.param[i][1])]);
-      }
-      log("\n\n");
+      log("{}", momentum(s.grad));
 
-      //if (!(epoch % 100))
       if (!(batch % 100))
       {
-        log("Batch {}/{} | Loss = {:+.4f}\n", batch + 1, batches, s.loss);
+        log("Batch {}/{} | Loss = {}\n", batch + 1, batches, s.loss);
       }
 
       g += s.grad * s.grad;
       x -= adagrad_update(lrate, eps, g, s.grad);
 
-      //x.param[0][0] = +86.3783; // anchor pawn op material
-
+      if (!(epoch % 10))
+      {
+        ofstream fout("learning/adagrad.results");
+        fout << format("Epoch #{}\n{}\n{}\n{}\n\n{}\n\n",
+          epoch, s.loss, momentum(s.grad), x, g);
+        fout.close();
+      }
+      
       tuner->next_iter();
     }
-    //log("g = {}\n\n", g);
   }
 }
 
