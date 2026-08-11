@@ -546,7 +546,7 @@ void AdaGrad::start()
     {
       Score s = tuner->score(x);
 
-      log("{}", momentum(s.grad));
+      log("{}\n", momentum(s.grad));
 
       if (!(batch % 100))
       {
@@ -559,7 +559,7 @@ void AdaGrad::start()
       if (!(epoch % 10))
       {
         ofstream fout("learning/adagrad.results");
-        fout << format("Epoch #{}\n{}\n{}\n{}\n\n{}\n\n",
+        fout << format("Epoch #{}\n{}\n{}\n\n{}\n\n{}\n\n",
           epoch, s.loss, momentum(s.grad), x, g);
         fout.close();
       }

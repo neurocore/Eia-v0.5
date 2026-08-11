@@ -5,7 +5,6 @@
 
 namespace eia {
 
-enum Color     : int { Black, White, Color_N };
 enum Piece     : u8  { BP, WP, BN, WN, BB, WB, BR, WR, BQ, WQ, BK, WK, Piece_N, NOP };
 enum PieceType : u8  { Pawn, Knight, Bishop, Rook, Queen, King, PieceType_N };
 

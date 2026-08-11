@@ -52,7 +52,7 @@ namespace Tunes
   Str Book = ".\\datasets\\Perfect_2011.pgn";
 
   //const double K100 = 0.002598433573529394; // 1m positions (BCE)
-    const double K100 = 0.004647211884938312; // 1m positions (MSE)
+    const double K100 = 0.004642990379746556; // 1m positions (MSE)
  
   //const double K100 = 0.004377508185305807; // 100k positions
 };

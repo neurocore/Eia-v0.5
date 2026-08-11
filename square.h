@@ -38,6 +38,12 @@ INLINE SQ opp(SQ sq)
   return static_cast<SQ>(sq ^ 070); // flip vertically
 }
 
+template<Color Col>
+INLINE SQ neutral(SQ sq)
+{
+  return Col ? sq : opp(sq);
+}
+
 INLINE std::string to_string(SQ sq)
 {
   char fileChar = 'a' + file(sq);

@@ -44,4 +44,6 @@ using Strings = std::vector<std::string>;
 using Vals = std::pair<double, double>;
 using Bounds = std::vector<Vals>;
 
+enum Color : int { Black, White, Color_N };
+
 }

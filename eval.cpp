@@ -195,7 +195,7 @@ Duo Eval::evaluateP(const Board * B)
     const int r = Col ? rank(sq) : 7 - rank(sq);
 
     // pst
-    vals += pst[p][sq];
+    vals += apply<Col>(PST_P, neutral<Col>(sq));
 
     u64 back_friendly = front[~Col][sq] & B->piece[p];
     u64 fore_friendly = front[Col][sq] & B->piece[p];
@@ -393,7 +393,7 @@ Duo Eval::evaluateN(const Board * B)
 
     // pst & mobility
 
-    vals += pst[p][sq];
+    vals += apply<Col>(PST_N, neutral<Col>(sq));
 
     const u64 opp_pawns = ei.pawn_atts[~Col];
     const u64 safe_att = att & ~opp_pawns;
@@ -461,7 +461,7 @@ Duo Eval::evaluateB(const Board * B)
 
     // pst & mobility
 
-    vals += pst[p][sq];
+    vals += apply<Col>(PST_B, neutral<Col>(sq));
     vals += apply<Col>(MobB, popcnt(att));
 
     // bishop behind pawn
@@ -560,7 +560,7 @@ Duo Eval::evaluateR(const Board * B)
 
     // pst & mobility
 
-    vals += pst[p][sq];
+    vals += apply<Col>(PST_R, neutral<Col>(sq));
     vals += apply<Col>(MobR, popcnt(att));
 
     // adjustments
@@ -658,7 +658,7 @@ Duo Eval::evaluateQ(const Board * B)
 
     // pst & mobility
 
-    vals += pst[p][sq];
+    vals += apply<Col>(PST_Q, neutral<Col>(sq));
     vals += apply<Col>(MobQ, popcnt(att));
 
     // queen on open/semi-files
@@ -709,7 +709,7 @@ Duo Eval::evaluateK(const Board * B)
 
     // pst
 
-    vals += pst[p][sq];
+    vals += apply<Col>(PST_K, neutral<Col>(sq));
 
     // pawn weakness
 
@@ -1461,9 +1461,6 @@ void Eval::init_inner()
   for (int i = 0; i < 12; i++)
     for (int sq = 0; sq < 64; sq++)
       pst[i][sq].clear();
-
-  // CMA-ES on Ethereal (100k) +131 elo (20s+.2 h2h-20)
-  // Best loss: 0.117247
 
   for (PieceType pt = Pawn; pt < PieceType_N; ++pt)
   {

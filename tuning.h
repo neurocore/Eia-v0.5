@@ -327,7 +327,7 @@ public:
 //  Utilities
 // --------------------------------------------------------------------
 
-extern double find_k(unique_ptr<Tuner> tuner, Tune v, double a, double b, double eps = 1e-6);
+extern double find_k(unique_ptr<Tuner> tuner, Tune v, double a, double b, double eps = 1e-8);
 
 static Tune operator * (double val, const Tune & v)
 {

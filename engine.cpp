@@ -334,8 +334,6 @@ void Engine::go(const SearchCfg & cfg)
 // Tuning of K constant which occurs in sigmoid function
 //  on dataset while estimating positions evaluations
 
-// best k = 0.9050442347429484 | loss = 0.12033487081174338
-
 void Engine::tunek(std::string file, int batch_sz)
 {
   say<1>("-- Tuning K constant\n");
