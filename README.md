@@ -4,7 +4,7 @@ A UCI chess engine written in C++20. It uses a classic alpha‑beta search with 
 
 ## Features
 
-- **Black Magic Bitboards** – the idea of Volker Annuss to slightly decreate tables size.
+- **Black Magic Bitboards** – the idea of Volker Annuss to slightly decrease tables size.
 - **Hand‑crafted evaluation** – tuned with Texel's method using AdaGrad (more details below).
 - **Search** – Principal Variation Search (PVS) with LMR and quiescence search.
 
