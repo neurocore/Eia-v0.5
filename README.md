@@ -27,7 +27,7 @@ The engine is a console application. For comfortable play or analysis, run it un
 
 ## Evaluation Tuning
 
-The evaluation parameters were optimised using the Texel's tuning method (minimising mean squared error of game outcome prediction) with AdaGrad. Training was performed on a dataset made for engine [Ethereal](https://github.com/AndyGrant/Ethereal) by Andrew Grant. In his repository, you may find Tuning.pdf paper, which is very useful when implementing the method. In my implementation i omitted all the non‑linear tuning params of positions to make the learning process as simple as possible. This resulted in the fact that such complex positional factors as the king’s safety remained unchanged, but it still increased the strength of the game by ~150 Elo in very‑fast time controls (20s+.2s).
+The evaluation parameters were optimised using the Texel's tuning method (minimising mean squared error of game outcome prediction) with AdaGrad. Training was performed on a dataset made for engine [Ethereal](https://github.com/AndyGrant/Ethereal) by Andrew Grant. In his repository, you may find Tuning.pdf paper, which is very useful when implementing the method. In my implementation i omitted all the non‑linear tuning params of positions to make the learning process as simple as possible. Despite the fact that such complex factors such as king safety remained unchanged, it still increased the strength of the game by ~150 Elo in very‑fast time controls (20s+.2s).
 
 ## Limitations
 
